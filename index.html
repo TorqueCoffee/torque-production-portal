@@ -1,5 +1,268 @@
 <!DOCTYPE html>
-<html>
-<head><title>Torque Roast Scheduler</title></head>
-<body><h1>Coming soon</h1></body>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Torque Roast Scheduler</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a1a; }
+  .header { background: #1a1a1a; color: white; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 1rem; font-weight: 500; letter-spacing: 0.05em; }
+  .tabs { display: flex; gap: 1rem; }
+  .tab { padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); background: none; }
+  .tab.active { background: white; color: #1a1a1a; font-weight: 500; }
+  .toolbar { padding: 1rem 1.5rem; display: flex; align-items: center; gap: 1rem; background: white; border-bottom: 1px solid #e5e5e5; }
+  button.primary { background: #1a1a1a; color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; }
+  button.primary:hover { background: #333; }
+  button.primary:disabled { background: #999; cursor: not-allowed; }
+  .status { font-size: 0.8rem; color: #666; }
+  .view { display: none; padding: 1.5rem; }
+  .view.active { display: block; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e5e5e5; background: #fafafa; }
+  td { padding: 0.75rem 1rem; font-size: 0.875rem; border-bottom: 1px solid #f0f0f0; }
+  tr:last-child td { border-bottom: none; }
+  tr.done td { opacity: 0.4; text-decoration: line-through; }
+  td input[type="number"] { width: 70px; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; }
+  td input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+  .lock-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 0.2rem 0.4rem; cursor: pointer; font-size: 0.75rem; color: #666; }
+  .lock-btn.locked { background: #fff3cd; border-color: #ffc107; color: #856404; }
+  .totals-row td { font-weight: 500; background: #fafafa; border-top: 2px solid #e5e5e5; }
+  .empty { text-align: center; padding: 3rem; color: #999; }
+  .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+  .badge-green { background: #d4edda; color: #155724; }
+  @media (max-width: 600px) {
+    .header { flex-direction: column; gap: 0.75rem; align-items: flex-start; }
+    .view { padding: 1rem; }
+    td, th { padding: 0.5rem 0.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>TORQUE — Roast Scheduler</h1>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('bagging')">Bagging Plan</button>
+    <button class="tab" onclick="switchTab('roasting')">Roasting Plan</button>
+  </div>
+</div>
+
+<div class="toolbar">
+  <button class="primary" id="refreshBtn" onclick="refreshOrders()">Pull Orders</button>
+  <span class="status" id="statusMsg">Not loaded yet</span>
+</div>
+
+<div id="bagging" class="view active">
+  <table>
+    <thead>
+      <tr>
+        <th>Done</th>
+        <th>Product</th>
+        <th>Bag Size</th>
+        <th>Qty</th>
+        <th>Lock</th>
+      </tr>
+    </thead>
+    <tbody id="baggingBody">
+      <tr><td colspan="5" class="empty">Click "Pull Orders" to load today's orders</td></tr>
+    </tbody>
+    <tfoot id="baggingFoot"></tfoot>
+  </table>
+</div>
+
+<div id="roasting" class="view">
+  <table>
+    <thead>
+      <tr>
+        <th>Done</th>
+        <th>Green Coffee</th>
+        <th>Roasted lbs needed</th>
+        <th>Green lbs needed</th>
+        <th>Batch size</th>
+        <th>Batches</th>
+      </tr>
+    </thead>
+    <tbody id="roastingBody">
+      <tr><td colspan="6" class="empty">Load bagging plan first</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const TEAM_ID = 'torque2026'
+const SUPABASE_URL = '%%SUPABASE_URL%%'
+const SUPABASE_KEY = '%%SUPABASE_ANON_KEY%%'
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+let planData = []
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'))
+  document.getElementById(tab).classList.add('active')
+  event.target.classList.add('active')
+}
+
+async function refreshOrders() {
+  const btn = document.getElementById('refreshBtn')
+  const status = document.getElementById('statusMsg')
+  btn.disabled = true
+  status.textContent = 'Pulling orders from Shopify...'
+
+  try {
+    const res = await fetch('/api/shopify-token')
+    const data = await res.json()
+
+    if (data.error) throw new Error(data.error)
+
+    const { data: existing } = await sb
+      .from('daily_plan')
+      .select('*')
+      .eq('team_id', TEAM_ID)
+
+    const existingMap = {}
+    for (const row of (existing || [])) {
+      existingMap[row.sku] = row
+    }
+
+    for (const item of data.items) {
+      const ex = existingMap[item.sku]
+      if (!ex) {
+        await sb.from('daily_plan').insert({
+          team_id: TEAM_ID,
+          sku: item.sku,
+          product_name: item.product_name,
+          variant_title: item.variant_title,
+          shopify_qty: item.shopify_qty,
+          manual_qty: null,
+          locked: false,
+          done: false
+        })
+      } else if (!ex.locked) {
+        await sb.from('daily_plan').update({
+          shopify_qty: item.shopify_qty,
+          updated_at: new Date().toISOString()
+        }).eq('id', ex.id)
+      }
+    }
+
+    await loadPlan()
+    status.textContent = `Last pulled: ${new Date().toLocaleTimeString()}`
+  } catch (err) {
+    status.textContent = 'Error: ' + err.message
+  }
+  btn.disabled = false
+}
+
+async function loadPlan() {
+  const { data } = await sb
+    .from('daily_plan')
+    .select('*')
+    .eq('team_id', TEAM_ID)
+    .order('product_name')
+
+  planData = data || []
+  renderBagging()
+  renderRoasting()
+}
+
+function effectiveQty(row) {
+  return row.manual_qty !== null ? row.manual_qty : row.shopify_qty
+}
+
+function renderBagging() {
+  const tbody = document.getElementById('baggingBody')
+  const tfoot = document.getElementById('baggingFoot')
+
+  if (!planData.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">No orders loaded</td></tr>'
+    tfoot.innerHTML = ''
+    return
+  }
+
+  tbody.innerHTML = planData.map(row => `
+    <tr class="${row.done ? 'done' : ''}" id="row-${row.id}">
+      <td><input type="checkbox" ${row.done ? 'checked' : ''} onchange="toggleDone('${row.id}', this.checked)"></td>
+      <td>${row.product_name}</td>
+      <td>${row.variant_title}</td>
+      <td><input type="number" min="0" value="${effectiveQty(row)}" onchange="updateQty('${row.id}', this.value)" ${row.locked ? 'disabled' : ''}></td>
+      <td><button class="lock-btn ${row.locked ? 'locked' : ''}" onclick="toggleLock('${row.id}', ${!row.locked})">${row.locked ? 'Locked' : 'Lock'}</button></td>
+    </tr>
+  `).join('')
+
+  const total = planData.reduce((sum, r) => sum + effectiveQty(r), 0)
+  tfoot.innerHTML = `<tr class="totals-row"><td></td><td>Total bags</td><td></td><td>${total}</td><td></td></tr>`
+}
+
+function renderRoasting() {
+  const tbody = document.getElementById('roastingBody')
+  if (!planData.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Load bagging plan first</td></tr>'
+    return
+  }
+
+  const grouped = {}
+  for (const row of planData) {
+    if (row.done) continue
+    const qty = effectiveQty(row)
+    const lbs = variantToLbs(row.variant_title) * qty
+    const key = row.product_name
+    grouped[key] = (grouped[key] || 0) + lbs
+  }
+
+  const BATCH_SIZE = 7
+  const SHRINKAGE = 1.176
+
+  tbody.innerHTML = Object.entries(grouped).map(([name, roastedLbs]) => {
+    const greenLbs = (roastedLbs * SHRINKAGE).toFixed(1)
+    const batches = Math.ceil(greenLbs / BATCH_SIZE)
+    return `
+      <tr>
+        <td><input type="checkbox" onchange="this.closest('tr').classList.toggle('done', this.checked)"></td>
+        <td>${name}</td>
+        <td>${roastedLbs.toFixed(1)}</td>
+        <td>${greenLbs}</td>
+        <td>${BATCH_SIZE} lbs</td>
+        <td><span class="badge badge-green">${batches}</span></td>
+      </tr>
+    `
+  }).join('')
+}
+
+function variantToLbs(variant) {
+  if (!variant) return 0
+  const v = variant.toLowerCase()
+  if (v.includes('5lb') || v.includes('5 lb')) return 5
+  if (v.includes('1lb') || v.includes('1 lb')) return 1
+  if (v.includes('12oz')) return 0.75
+  if (v.includes('2oz')) return 0.125
+  return 0.75
+}
+
+async function updateQty(id, val) {
+  await sb.from('daily_plan').update({ manual_qty: parseInt(val), updated_at: new Date().toISOString() }).eq('id', id)
+}
+
+async function toggleDone(id, val) {
+  await sb.from('daily_plan').update({ done: val, updated_at: new Date().toISOString() }).eq('id', id)
+  const row = document.getElementById('row-' + id)
+  if (row) row.classList.toggle('done', val)
+  await loadPlan()
+}
+
+async function toggleLock(id, val) {
+  await sb.from('daily_plan').update({ locked: val, updated_at: new Date().toISOString() }).eq('id', id)
+  await loadPlan()
+}
+
+sb.channel('daily_plan_changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_plan' }, () => loadPlan())
+  .subscribe()
+
+loadPlan()
+</script>
+</body>
 </html>
