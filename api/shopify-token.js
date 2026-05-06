@@ -35,6 +35,13 @@ export default async function handler(req, res) {
     
     const ordersData = await ordersRes.json()
     const orders = ordersData.orders || []
+    // Return just product names if requested
+    if (req.query.productsOnly === 'true') {
+      const names = [...new Set(orders.flatMap(o => 
+        o.line_items.filter(i => i.vendor === 'Torque Coffees').map(i => i.title)
+      ))].sort()
+      return res.status(200).json({ products: names })
+    }
     
     const aggregated = {}
     
