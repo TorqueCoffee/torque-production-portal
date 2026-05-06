@@ -235,10 +235,11 @@ function renderRoasting() {
 function variantToLbs(variant) {
   if (!variant) return 0
   const v = variant.toLowerCase()
+  if (v.includes('45lb') || v.includes('45 lb')) return 45
   if (v.includes('5lb') || v.includes('5 lb')) return 5
-  if (v.includes('1lb') || v.includes('1 lb')) return 1
+  if (v.includes('2lb') || v.includes('2 lb')) return 2
   if (v.includes('12oz')) return 0.75
-  if (v.includes('2oz')) return 0.125
+  if (v.includes('xpod') || v.includes('x pod')) return 0
   return 0.75
 }
 
