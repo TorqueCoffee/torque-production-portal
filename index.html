@@ -204,11 +204,12 @@ function renderRoasting() {
     return
   }
 
-  const grouped = {}
+ const grouped = {}
   for (const row of planData) {
     if (row.done) continue
     const qty = effectiveQty(row)
     const lbs = variantToLbs(row.variant_title) * qty
+    if (lbs === 0) continue
     const key = row.product_name
     grouped[key] = (grouped[key] || 0) + lbs
   }
