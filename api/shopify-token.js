@@ -1,9 +1,9 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
-  
+
   try {
+    // Get access token
     const tokenRes = await fetch(
       `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/oauth/access_token`,
       {
@@ -16,55 +16,68 @@ export default async function handler(req, res) {
         })
       }
     )
-    
     const tokenData = await tokenRes.json()
-    
     if (!tokenData.access_token) {
       return res.status(500).json({ error: 'Token exchange failed', detail: tokenData })
     }
-    
-    const ordersRes = await fetch(
-      `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/2025-01/orders.json?status=unfulfilled&limit=250`,
-      {
-        headers: {
-          'X-Shopify-Access-Token': tokenData.access_token,
-          'Content-Type': 'application/json'
-        }
+    const token = tokenData.access_token
+    const baseUrl = `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/2025-01`
+    const headers = { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
+
+    // PRODUCTS endpoint — returns all active Torque Coffees products
+    if (req.query.type === 'products') {
+      let products = []
+      let page = `${baseUrl}/products.json?limit=250&status=active`
+      while (page) {
+        const pRes = await fetch(page, { headers })
+        const pData = await pRes.json()
+        const filtered = (pData.products || []).filter(p => p.vendor === 'Torque Coffees')
+        products = products.concat(filtered.map(p => p.title).sort())
+        const linkHeader = pRes.headers.get('link') || ''
+        const next = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
+        page = next ? next[1] : null
       }
-    )
-    
-    const ordersData = await ordersRes.json()
-    const orders = ordersData.orders || []
-    // Return just product names if requested
-    if (req.query.productsOnly === 'true') {
-      const names = [...new Set(orders.flatMap(o => 
-        o.line_items.filter(i => i.vendor === 'Torque Coffees').map(i => i.title)
-      ))].sort()
-      return res.status(200).json({ products: names })
+      return res.status(200).json({ products })
     }
-    
+
+    // ORDERS endpoint — returns aggregated unfulfilled orders
+    let orders = []
+    let ordersPage = `${baseUrl}/orders.json?status=unfulfilled&limit=250`
+    while (ordersPage) {
+      const oRes = await fetch(ordersPage, { headers })
+      const oData = await oRes.json()
+      orders = orders.concat(oData.orders || [])
+      const linkHeader = oRes.headers.get('link') || ''
+      const next = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
+      ordersPage = next ? next[1] : null
+    }
+
+    // Aggregate by SKU
     const aggregated = {}
-    
     for (const order of orders) {
+      const orderDate = order.created_at ? order.created_at.split('T')[0] : null
       for (const item of order.line_items) {
         if (item.vendor !== 'Torque Coffees') continue
-        
-        const key = `${item.sku}||${item.title}||${item.variant_title || 'Default'}`
-        
+        const key = `${item.sku || item.title}||${item.variant_title || 'Default'}`
         if (!aggregated[key]) {
           aggregated[key] = {
             sku: item.sku || key,
             product_name: item.title,
             variant_title: item.variant_title || 'Default',
-            shopify_qty: 0
+            qty_needed: 0,
+            oldest_order_date: orderDate
           }
         }
-        aggregated[key].shopify_qty += item.quantity
+        aggregated[key].qty_needed += item.quantity
+        // Track oldest order date
+        if (orderDate && (!aggregated[key].oldest_order_date || orderDate < aggregated[key].oldest_order_date)) {
+          aggregated[key].oldest_order_date = orderDate
+        }
       }
     }
-    
+
     res.status(200).json({ items: Object.values(aggregated) })
-    
+
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
