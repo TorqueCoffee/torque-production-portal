@@ -6,38 +6,66 @@
 <title>Torque Roast Scheduler</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a1a; }
-  .header { background: #1a1a1a; color: white; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
-  .header h1 { font-size: 1rem; font-weight: 500; letter-spacing: 0.05em; }
-  .tabs { display: flex; gap: 1rem; }
-  .tab { padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); background: none; }
-  .tab.active { background: white; color: #1a1a1a; font-weight: 500; }
-  .toolbar { padding: 1rem 1.5rem; display: flex; align-items: center; gap: 1rem; background: white; border-bottom: 1px solid #e5e5e5; }
-  button.primary { background: #1a1a1a; color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; }
-  button.primary:hover { background: #333; }
-  button.primary:disabled { background: #999; cursor: not-allowed; }
-  .status { font-size: 0.8rem; color: #666; }
-  .view { display: none; padding: 1.5rem; }
-  .view.active { display: block; }
-  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e5e5e5; background: #fafafa; }
-  td { padding: 0.75rem 1rem; font-size: 0.875rem; border-bottom: 1px solid #f0f0f0; }
-  tr:last-child td { border-bottom: none; }
-  tr.done td { opacity: 0.4; text-decoration: line-through; }
-  td input[type="number"] { width: 70px; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; }
-  td input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
-  .lock-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 0.2rem 0.4rem; cursor: pointer; font-size: 0.75rem; color: #666; }
-  .lock-btn.locked { background: #fff3cd; border-color: #ffc107; color: #856404; }
-  .totals-row td { font-weight: 500; background: #fafafa; border-top: 2px solid #e5e5e5; }
-  .empty { text-align: center; padding: 3rem; color: #999; }
-  .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
-  .badge-green { background: #d4edda; color: #155724; }
-  @media (max-width: 600px) {
-    .header { flex-direction: column; gap: 0.75rem; align-items: flex-start; }
-    .view { padding: 1rem; }
-    td, th { padding: 0.5rem 0.75rem; }
-  }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a1a; }
+.header { background: #1a1a1a; color: white; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+.header h1 { font-size: 1rem; font-weight: 500; letter-spacing: 0.05em; }
+.tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.tab { padding: 0.4rem 0.875rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); background: none; }
+.tab.active { background: white; color: #1a1a1a; font-weight: 500; }
+.toolbar { padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; background: white; border-bottom: 1px solid #e5e5e5; flex-wrap: wrap; }
+button.primary { background: #1a1a1a; color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; white-space: nowrap; }
+button.primary:hover { background: #333; }
+button.primary:disabled { background: #999; cursor: not-allowed; }
+button.danger { background: #dc3545; color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; white-space: nowrap; }
+button.danger:hover { background: #b02a37; }
+button.secondary { background: white; color: #1a1a1a; border: 1px solid #ddd; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; white-space: nowrap; }
+button.secondary:hover { background: #f5f5f5; }
+.status { font-size: 0.8rem; color: #666; }
+.view { display: none; padding: 1.5rem; }
+.view.active { display: block; }
+table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1rem; }
+th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e5e5e5; background: #fafafa; }
+td { padding: 0.75rem 1rem; font-size: 0.875rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr.done-row td { opacity: 0.45; }
+tr.done-row td:first-child { opacity: 1; }
+td input[type="number"] { width: 70px; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; }
+td input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+td select { padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; max-width: 200px; }
+.lock-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 0.2rem 0.5rem; cursor: pointer; font-size: 0.75rem; color: #666; white-space: nowrap; }
+.lock-btn.locked { background: #fff3cd; border-color: #ffc107; color: #856404; }
+.totals-row td { font-weight: 500; background: #fafafa; border-top: 2px solid #e5e5e5; }
+.empty { text-align: center; padding: 3rem; color: #999; }
+.badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+.badge-green { background: #d4edda; color: #155724; }
+.badge-blue { background: #cce5ff; color: #004085; }
+.source-tag { font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 3px; background: #e9ecef; color: #495057; margin-left: 0.5rem; }
+.source-tag.manual { background: #d4edda; color: #155724; }
+.section-title { font-size: 0.85rem; font-weight: 600; color: #444; margin: 1.25rem 0 0.5rem; }
+.blend-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1rem; overflow: hidden; }
+.blend-card-header { padding: 0.75rem 1rem; background: #fafafa; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: space-between; }
+.blend-card-header h3 { font-size: 0.9rem; font-weight: 600; }
+.blend-card-body { padding: 0.75rem 1rem; }
+.component-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
+.component-row select { flex: 1; min-width: 150px; }
+.component-row input[type="number"] { width: 80px; }
+.component-row .pct-label { font-size: 0.8rem; color: #666; white-space: nowrap; }
+.remove-btn { background: none; border: none; color: #dc3545; cursor: pointer; font-size: 1rem; padding: 0 0.25rem; }
+.add-component-btn { font-size: 0.8rem; color: #185fa5; background: none; border: 1px dashed #185fa5; border-radius: 4px; padding: 0.3rem 0.75rem; cursor: pointer; margin-top: 0.25rem; }
+.ratio-warning { font-size: 0.75rem; color: #dc3545; margin-top: 0.25rem; }
+.ratio-ok { font-size: 0.75rem; color: #155724; margin-top: 0.25rem; }
+.add-order-form { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 1.25rem; margin-bottom: 1rem; }
+.form-row { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.form-group label { font-size: 0.75rem; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+.form-group select, .form-group input { padding: 0.4rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; }
+@media (max-width: 600px) {
+  .header { flex-direction: column; align-items: flex-start; }
+  .view { padding: 1rem; }
+  td, th { padding: 0.5rem 0.6rem; font-size: 0.8rem; }
+  .form-row { flex-direction: column; }
+}
 </style>
 </head>
 <body>
@@ -45,13 +73,16 @@
 <div class="header">
   <h1>TORQUE — Roast Scheduler</h1>
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('bagging')">Bagging Plan</button>
-    <button class="tab" onclick="switchTab('roasting')">Roasting Plan</button>
+    <button class="tab active" onclick="switchTab('bagging', this)">Bagging</button>
+    <button class="tab" onclick="switchTab('roasting', this)">Roasting</button>
+    <button class="tab" onclick="switchTab('addorder', this)">Add Order</button>
+    <button class="tab" onclick="switchTab('blends', this)">Blends</button>
   </div>
 </div>
 
 <div class="toolbar">
   <button class="primary" id="refreshBtn" onclick="refreshOrders()">Pull Orders</button>
+  <button class="danger" onclick="archiveDay()">Archive Done</button>
   <span class="status" id="statusMsg">Not loaded yet</span>
 </div>
 
@@ -62,12 +93,13 @@
         <th>Done</th>
         <th>Product</th>
         <th>Bag Size</th>
+        <th>Source</th>
         <th>Qty</th>
         <th>Lock</th>
       </tr>
     </thead>
     <tbody id="baggingBody">
-      <tr><td colspan="5" class="empty">Click "Pull Orders" to load today's orders</td></tr>
+      <tr><td colspan="6" class="empty">Click "Pull Orders" to load today's orders</td></tr>
     </tbody>
     <tfoot id="baggingFoot"></tfoot>
   </table>
@@ -79,8 +111,8 @@
       <tr>
         <th>Done</th>
         <th>Green Coffee</th>
-        <th>Roasted lbs needed</th>
-        <th>Green lbs needed</th>
+        <th>Roasted lbs</th>
+        <th>Green lbs</th>
         <th>Batch size</th>
         <th>Batches</th>
       </tr>
@@ -88,149 +120,81 @@
     <tbody id="roastingBody">
       <tr><td colspan="6" class="empty">Load bagging plan first</td></tr>
     </tbody>
+    <tfoot id="roastingFoot"></tfoot>
   </table>
+</div>
+
+<div id="addorder" class="view">
+  <div class="add-order-form">
+    <div class="section-title">Add Internal Order</div>
+    <p style="font-size:0.8rem;color:#666;margin-bottom:1rem;">Add cafe, wholesale, or staff orders that aren't in Shopify.</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Coffee</label>
+        <select id="addCoffee" style="min-width:200px;">
+          <option value="">Loading coffees...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Bag Size</label>
+        <select id="addSize">
+          <option value="12oz Bag">12oz Bag</option>
+          <option value="2lb Bag">2lb Bag</option>
+          <option value="5lb Bag">5lb Bag</option>
+          <option value="45lb Bulk Box">45lb Bulk Box</option>
+          <option value="8 xPods">8 xPods</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Qty</label>
+        <input type="number" id="addQty" min="1" value="1" style="width:80px;">
+      </div>
+      <div class="form-group">
+        <label>Note (optional)</label>
+        <input type="text" id="addNote" placeholder="e.g. Cafe order" style="width:160px;">
+      </div>
+      <div class="form-group">
+        <label>&nbsp;</label>
+        <button class="primary" onclick="addManualOrder()">Add to Plan</button>
+      </div>
+    </div>
+    <div id="addOrderMsg" style="font-size:0.8rem;margin-top:0.5rem;"></div>
+  </div>
+</div>
+
+<div id="blends" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+    <div class="section-title" style="margin:0;">Blend Matrix</div>
+    <button class="secondary" onclick="addNewBlend()">+ New Blend</button>
+  </div>
+  <div id="blendCards">
+    <div class="empty">Loading blends...</div>
+  </div>
 </div>
 
 <script>
 const TEAM_ID = 'torque2026'
-const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
-const SUPABASE_KEY = 'sb_publishable_UCzUCyiWEtzqRxQcnhpSyw_BrYBKCz-'
+const SUPABASE_URL = '%%SUPABASE_URL%%'
+const SUPABASE_ANON_KEY = '%%SUPABASE_ANON_KEY%%'
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 let planData = []
+let blendMatrix = []
+let greenSettings = []
+let shopifyProducts = []
 
-function switchTab(tab) {
+const BAG_SIZES = ['12oz Bag', '2lb Bag', '5lb Bag', '45lb Bulk Box', '8 xPods']
+
+function switchTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'))
   document.getElementById(tab).classList.add('active')
-  event.target.classList.add('active')
-}
-
-async function refreshOrders() {
-  const btn = document.getElementById('refreshBtn')
-  const status = document.getElementById('statusMsg')
-  btn.disabled = true
-  status.textContent = 'Pulling orders from Shopify...'
-
-  try {
-    const res = await fetch('/api/shopify-token')
-    const data = await res.json()
-
-    if (data.error) throw new Error(data.error)
-
-    const { data: existing } = await sb
-      .from('daily_plan')
-      .select('*')
-      .eq('team_id', TEAM_ID)
-
-    const existingMap = {}
-    for (const row of (existing || [])) {
-      existingMap[row.sku] = row
-    }
-
-    for (const item of data.items) {
-      const ex = existingMap[item.sku]
-      if (!ex) {
-        await sb.from('daily_plan').insert({
-          team_id: TEAM_ID,
-          sku: item.sku,
-          product_name: item.product_name,
-          variant_title: item.variant_title,
-          shopify_qty: item.shopify_qty,
-          manual_qty: null,
-          locked: false,
-          done: false
-        })
-      } else if (!ex.locked) {
-        await sb.from('daily_plan').update({
-          shopify_qty: item.shopify_qty,
-          updated_at: new Date().toISOString()
-        }).eq('id', ex.id)
-      }
-    }
-
-    await loadPlan()
-    status.textContent = `Last pulled: ${new Date().toLocaleTimeString()}`
-  } catch (err) {
-    status.textContent = 'Error: ' + err.message
-  }
-  btn.disabled = false
-}
-
-async function loadPlan() {
-  const { data } = await sb
-    .from('daily_plan')
-    .select('*')
-    .eq('team_id', TEAM_ID)
-    .order('product_name')
-
-  planData = data || []
-  renderBagging()
-  renderRoasting()
+  el.classList.add('active')
+  if (tab === 'blends') renderBlendEditor()
 }
 
 function effectiveQty(row) {
-  return row.manual_qty !== null ? row.manual_qty : row.shopify_qty
-}
-
-function renderBagging() {
-  const tbody = document.getElementById('baggingBody')
-  const tfoot = document.getElementById('baggingFoot')
-
-  if (!planData.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">No orders loaded</td></tr>'
-    tfoot.innerHTML = ''
-    return
-  }
-
-  tbody.innerHTML = planData.map(row => `
-    <tr class="${row.done ? 'done' : ''}" id="row-${row.id}">
-      <td><input type="checkbox" ${row.done ? 'checked' : ''} onchange="toggleDone('${row.id}', this.checked)"></td>
-      <td>${row.product_name}</td>
-      <td>${row.variant_title}</td>
-      <td><input type="number" min="0" value="${effectiveQty(row)}" onchange="updateQty('${row.id}', this.value)" ${row.locked ? 'disabled' : ''}></td>
-      <td><button class="lock-btn ${row.locked ? 'locked' : ''}" onclick="toggleLock('${row.id}', ${!row.locked})">${row.locked ? 'Locked' : 'Lock'}</button></td>
-    </tr>
-  `).join('')
-
-  const total = planData.reduce((sum, r) => sum + effectiveQty(r), 0)
-  tfoot.innerHTML = `<tr class="totals-row"><td></td><td>Total bags</td><td></td><td>${total}</td><td></td></tr>`
-}
-
-function renderRoasting() {
-  const tbody = document.getElementById('roastingBody')
-  if (!planData.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Load bagging plan first</td></tr>'
-    return
-  }
-
- const grouped = {}
-  for (const row of planData) {
-    if (row.done) continue
-    const qty = effectiveQty(row)
-    const lbs = variantToLbs(row.variant_title) * qty
-    if (lbs === 0) continue
-    const key = row.product_name
-    grouped[key] = (grouped[key] || 0) + lbs
-  }
-
-  const BATCH_SIZE = 7
-  const SHRINKAGE = 1.176
-
-  tbody.innerHTML = Object.entries(grouped).map(([name, roastedLbs]) => {
-    const greenLbs = (roastedLbs * SHRINKAGE).toFixed(1)
-    const batches = Math.ceil(greenLbs / BATCH_SIZE)
-    return `
-      <tr>
-        <td><input type="checkbox" onchange="this.closest('tr').classList.toggle('done', this.checked)"></td>
-        <td>${name}</td>
-        <td>${roastedLbs.toFixed(1)}</td>
-        <td>${greenLbs}</td>
-        <td>${BATCH_SIZE} lbs</td>
-        <td><span class="badge badge-green">${batches}</span></td>
-      </tr>
-    `
-  }).join('')
+  return row.manual_qty !== null && row.manual_qty !== undefined ? row.manual_qty : row.shopify_qty
 }
 
 function variantToLbs(variant) {
@@ -244,15 +208,310 @@ function variantToLbs(variant) {
   return 0.75
 }
 
+async function refreshOrders() {
+  const btn = document.getElementById('refreshBtn')
+  const status = document.getElementById('statusMsg')
+  btn.disabled = true
+  status.textContent = 'Pulling orders from Shopify...'
+  try {
+    const res = await fetch('/api/shopify-token')
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+
+    const { data: existing } = await sb.from('daily_plan').select('*').eq('team_id', TEAM_ID)
+    const existingMap = {}
+    for (const row of (existing || [])) existingMap[row.sku] = row
+
+    for (const item of data.items) {
+      const ex = existingMap[item.sku]
+      if (!ex) {
+        await sb.from('daily_plan').insert({
+          team_id: TEAM_ID, sku: item.sku, product_name: item.product_name,
+          variant_title: item.variant_title, shopify_qty: item.shopify_qty,
+          manual_qty: null, locked: false, done: false, source: 'shopify'
+        })
+      } else if (!ex.locked) {
+        await sb.from('daily_plan').update({ shopify_qty: item.shopify_qty, updated_at: new Date().toISOString() }).eq('id', ex.id)
+      }
+    }
+
+    await loadPlan()
+    const now = new Date()
+    status.textContent = `Last pulled: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`
+  } catch (err) {
+    status.textContent = 'Error: ' + err.message
+  }
+  btn.disabled = false
+}
+
+async function loadPlan() {
+  const { data } = await sb.from('daily_plan').select('*').eq('team_id', TEAM_ID).order('product_name')
+  planData = data || []
+  renderBagging()
+  renderRoasting()
+}
+
+async function loadBlends() {
+  const { data: bm } = await sb.from('blend_matrix').select('*').order('product_name')
+  const { data: gs } = await sb.from('green_coffee_settings').select('*').order('component_name')
+  blendMatrix = bm || []
+  greenSettings = gs || []
+}
+
+async function loadShopifyProducts() {
+  try {
+    const res = await fetch('/api/shopify-token?productsOnly=true')
+    const data = await res.json()
+    shopifyProducts = data.products || []
+  } catch(e) {
+    shopifyProducts = []
+  }
+  populateCoffeeDropdown()
+}
+
+function populateCoffeeDropdown() {
+  const sel = document.getElementById('addCoffee')
+  if (!sel) return
+  const names = [...new Set(planData.map(r => r.product_name))]
+  if (shopifyProducts.length) {
+    shopifyProducts.forEach(p => { if (!names.includes(p)) names.push(p) })
+  }
+  names.sort()
+  sel.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('')
+}
+
+function renderBagging() {
+  const tbody = document.getElementById('baggingBody')
+  const tfoot = document.getElementById('baggingFoot')
+  if (!planData.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No orders loaded</td></tr>'
+    tfoot.innerHTML = ''
+    return
+  }
+  tbody.innerHTML = planData.map(row => `
+    <tr class="${row.done ? 'done-row' : ''}" id="row-${row.id}">
+      <td><input type="checkbox" ${row.done ? 'checked' : ''} onchange="toggleDone('${row.id}', this.checked)"></td>
+      <td>${row.product_name}${row.note ? `<br><span style="font-size:0.75rem;color:#888">${row.note}</span>` : ''}</td>
+      <td>${row.variant_title}</td>
+      <td><span class="source-tag ${row.source === 'manual' ? 'manual' : ''}">${row.source === 'manual' ? 'Internal' : 'Shopify'}</span></td>
+      <td><input type="number" min="0" value="${effectiveQty(row)}" onchange="updateQty('${row.id}', this.value)" ${row.locked ? 'disabled' : ''}></td>
+      <td><button class="lock-btn ${row.locked ? 'locked' : ''}" onclick="toggleLock('${row.id}', ${!row.locked})">${row.locked ? '🔒 Locked' : 'Lock'}</button></td>
+    </tr>
+  `).join('')
+
+  const total = planData.reduce((sum, r) => sum + effectiveQty(r), 0)
+  tfoot.innerHTML = `<tr class="totals-row"><td></td><td>Total bags</td><td></td><td></td><td>${total}</td><td></td></tr>`
+  populateCoffeeDropdown()
+}
+
+function renderRoasting() {
+  const tbody = document.getElementById('roastingBody')
+  const tfoot = document.getElementById('roastingFoot')
+  if (!planData.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Load bagging plan first</td></tr>'
+    tfoot.innerHTML = ''
+    return
+  }
+
+  // Calculate roasted lbs needed per product
+  const roastedByProduct = {}
+  for (const row of planData) {
+    if (row.done) continue
+    const qty = effectiveQty(row)
+    const lbs = variantToLbs(row.variant_title) * qty
+    if (lbs === 0) continue
+    roastedByProduct[row.product_name] = (roastedByProduct[row.product_name] || 0) + lbs
+  }
+
+  // Expand blends into green components
+  const greenNeeded = {}
+  for (const [product, roastedLbs] of Object.entries(roastedByProduct)) {
+    const components = blendMatrix.filter(b => b.product_name.toLowerCase() === product.toLowerCase())
+    if (components.length > 0) {
+      for (const comp of components) {
+        const key = comp.component_name
+        if (!greenNeeded[key]) greenNeeded[key] = { roasted: 0, batch_size: comp.batch_size_lbs }
+        greenNeeded[key].roasted += roastedLbs * comp.ratio
+      }
+    } else {
+      // Single origin — maps to itself
+      const gs = greenSettings.find(g => g.component_name.toLowerCase() === product.toLowerCase())
+      const batchSize = gs ? gs.batch_size_lbs : 8
+      if (!greenNeeded[product]) greenNeeded[product] = { roasted: 0, batch_size: batchSize }
+      greenNeeded[product].roasted += roastedLbs
+    }
+  }
+
+  const SHRINKAGE = 1.176
+  let totalGreen = 0
+  let totalBatches = 0
+
+  tbody.innerHTML = Object.entries(greenNeeded).sort().map(([name, val]) => {
+    const greenLbs = (val.roasted * SHRINKAGE)
+    const batches = Math.ceil(greenLbs / val.batch_size)
+    totalGreen += greenLbs
+    totalBatches += batches
+    return `
+      <tr>
+        <td><input type="checkbox" onchange="this.closest('tr').style.opacity = this.checked ? '0.4' : '1'"></td>
+        <td>${name}</td>
+        <td>${val.roasted.toFixed(1)}</td>
+        <td>${greenLbs.toFixed(1)}</td>
+        <td>${val.batch_size} lbs</td>
+        <td><span class="badge badge-green">${batches}</span></td>
+      </tr>
+    `
+  }).join('')
+
+  tfoot.innerHTML = `<tr class="totals-row"><td></td><td>Totals</td><td></td><td>${totalGreen.toFixed(1)} lbs green</td><td></td><td><span class="badge badge-blue">${totalBatches} batches</span></td></tr>`
+}
+
+async function renderBlendEditor() {
+  await loadBlends()
+  const container = document.getElementById('blendCards')
+
+  const blendNames = [...new Set(blendMatrix.map(b => b.product_name))].sort()
+  const allComponents = greenSettings.map(g => g.component_name).sort()
+
+  if (!blendNames.length) {
+    container.innerHTML = '<div class="empty">No blends configured yet. Click "+ New Blend" to add one.</div>'
+    return
+  }
+
+  container.innerHTML = blendNames.map(blendName => {
+    const components = blendMatrix.filter(b => b.product_name === blendName)
+    const totalRatio = components.reduce((s, c) => s + Number(c.ratio), 0)
+    const ratioOk = Math.abs(totalRatio - 1) < 0.01
+    const batchSize = components[0]?.batch_size_lbs || 8
+
+    return `
+      <div class="blend-card" id="blend-${blendName.replace(/\s+/g,'-')}">
+        <div class="blend-card-header">
+          <h3>${blendName}</h3>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <span style="font-size:0.75rem;color:#666;">Batch size:</span>
+            <input type="number" value="${batchSize}" min="1" max="20" style="width:60px;padding:0.2rem 0.4rem;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;" onchange="updateBatchSize('${blendName}', this.value)">
+            <span style="font-size:0.75rem;color:#666;">lbs</span>
+            <button class="remove-btn" title="Delete blend" onclick="deleteBlend('${blendName}')">🗑</button>
+          </div>
+        </div>
+        <div class="blend-card-body">
+          <div id="components-${blendName.replace(/\s+/g,'-')}">
+            ${components.map(comp => `
+              <div class="component-row" id="comp-${comp.id}">
+                <select onchange="updateComponent('${comp.id}', 'component_name', this.value)">
+                  ${allComponents.map(c => `<option value="${c}" ${c === comp.component_name ? 'selected' : ''}>${c}</option>`).join('')}
+                  <option value="${comp.component_name}" ${!allComponents.includes(comp.component_name) ? 'selected' : ''}>${comp.component_name}</option>
+                </select>
+                <input type="number" min="1" max="100" value="${Math.round(comp.ratio * 100)}" style="width:70px;" onchange="updateComponent('${comp.id}', 'ratio', this.value / 100)">
+                <span class="pct-label">%</span>
+                <button class="remove-btn" onclick="removeComponent('${comp.id}', '${blendName}')">✕</button>
+              </div>
+            `).join('')}
+          </div>
+          <button class="add-component-btn" onclick="addComponent('${blendName}')">+ Add component</button>
+          <div class="${ratioOk ? 'ratio-ok' : 'ratio-warning'}">
+            Total: ${Math.round(totalRatio * 100)}% ${ratioOk ? '✓' : '⚠ Should equal 100%'}
+          </div>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+async function updateComponent(id, field, value) {
+  await sb.from('blend_matrix').update({ [field]: value }).eq('id', id)
+  await renderBlendEditor()
+}
+
+async function updateBatchSize(blendName, value) {
+  await sb.from('blend_matrix').update({ batch_size_lbs: parseFloat(value) }).eq('product_name', blendName)
+}
+
+async function removeComponent(id, blendName) {
+  await sb.from('blend_matrix').delete().eq('id', id)
+  await renderBlendEditor()
+}
+
+async function addComponent(blendName) {
+  const firstComponent = greenSettings[0]?.component_name || 'New Coffee'
+  await sb.from('blend_matrix').insert({
+    product_name: blendName, component_name: firstComponent, ratio: 0, batch_size_lbs: 8
+  })
+  await renderBlendEditor()
+}
+
+async function deleteBlend(blendName) {
+  if (!confirm(`Delete blend "${blendName}"? This cannot be undone.`)) return
+  await sb.from('blend_matrix').delete().eq('product_name', blendName)
+  await renderBlendEditor()
+}
+
+async function addNewBlend() {
+  const name = prompt('New blend name:')
+  if (!name || !name.trim()) return
+  await sb.from('blend_matrix').insert({
+    product_name: name.trim(), component_name: greenSettings[0]?.component_name || 'Coffee', ratio: 1, batch_size_lbs: 8
+  })
+  await renderBlendEditor()
+}
+
+async function addManualOrder() {
+  const coffee = document.getElementById('addCoffee').value
+  const size = document.getElementById('addSize').value
+  const qty = parseInt(document.getElementById('addQty').value)
+  const note = document.getElementById('addNote').value
+  const msg = document.getElementById('addOrderMsg')
+
+  if (!coffee || !qty || qty < 1) {
+    msg.style.color = '#dc3545'
+    msg.textContent = 'Please select a coffee and enter a valid quantity.'
+    return
+  }
+
+  const sku = `manual-${coffee}-${size}-${Date.now()}`
+  await sb.from('daily_plan').insert({
+    team_id: TEAM_ID, sku, product_name: coffee, variant_title: size,
+    shopify_qty: qty, manual_qty: null, locked: false, done: false,
+    source: 'manual', note: note || null
+  })
+
+  msg.style.color = '#155724'
+  msg.textContent = `Added: ${qty}x ${coffee} (${size})`
+  document.getElementById('addQty').value = 1
+  document.getElementById('addNote').value = ''
+  await loadPlan()
+}
+
+async function archiveDay() {
+  const doneRows = planData.filter(r => r.done)
+  if (!doneRows.length) {
+    alert('No rows marked as done to archive.')
+    return
+  }
+  if (!confirm(`Archive ${doneRows.length} completed rows? They will be removed from today's plan.`)) return
+
+  for (const row of doneRows) {
+    await sb.from('archived_plan').insert({
+      team_id: TEAM_ID, sku: row.sku, product_name: row.product_name,
+      variant_title: row.variant_title, final_qty: effectiveQty(row),
+      source: row.source || 'shopify'
+    })
+    await sb.from('daily_plan').delete().eq('id', row.id)
+  }
+  await loadPlan()
+  document.getElementById('statusMsg').textContent = `Archived ${doneRows.length} rows.`
+}
+
 async function updateQty(id, val) {
   await sb.from('daily_plan').update({ manual_qty: parseInt(val), updated_at: new Date().toISOString() }).eq('id', id)
 }
 
 async function toggleDone(id, val) {
   await sb.from('daily_plan').update({ done: val, updated_at: new Date().toISOString() }).eq('id', id)
-  const row = document.getElementById('row-' + id)
-  if (row) row.classList.toggle('done', val)
-  await loadPlan()
+  planData = planData.map(r => r.id === id ? {...r, done: val} : r)
+  renderBagging()
+  renderRoasting()
 }
 
 async function toggleLock(id, val) {
@@ -260,11 +519,19 @@ async function toggleLock(id, val) {
   await loadPlan()
 }
 
-sb.channel('daily_plan_changes')
+// Real-time sync
+sb.channel('plan_changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_plan' }, () => loadPlan())
   .subscribe()
 
-loadPlan()
+// Add source column if needed and init
+async function init() {
+  await loadBlends()
+  await loadPlan()
+  await loadShopifyProducts()
+}
+
+init()
 </script>
 </body>
 </html>
