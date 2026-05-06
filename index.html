@@ -6,134 +6,717 @@
 <title>Torque Roast Scheduler</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a1a; }
-.header { background: #1a1a1a; color: white; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
-.header h1 { font-size: 1rem; font-weight: 500; letter-spacing: 0.05em; }
-.tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.tab { padding: 0.4rem 0.875rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); background: none; }
-.tab.active { background: white; color: #1a1a1a; font-weight: 500; }
-.toolbar { padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; background: white; border-bottom: 1px solid #e5e5e5; flex-wrap: wrap; }
-button.primary { background: #1a1a1a; color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; white-space: nowrap; }
-button.primary:hover { background: #333; }
-button.primary:disabled { background: #999; cursor: not-allowed; }
-button.danger { background: #dc3545; color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; white-space: nowrap; }
-button.danger:hover { background: #b02a37; }
-button.secondary { background: white; color: #1a1a1a; border: 1px solid #ddd; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; white-space: nowrap; }
-button.secondary:hover { background: #f5f5f5; }
-.status { font-size: 0.8rem; color: #666; }
-.view { display: none; padding: 1.5rem; }
+
+:root {
+  --black: #111110;
+  --off-white: #f5f4ef;
+  --warm-gray: #e8e7e2;
+  --mid-gray: #999892;
+  --border: #d8d7d2;
+  --green: #2d6a4f;
+  --green-light: #d8f3dc;
+  --red: #9b2226;
+  --red-light: #ffe5e5;
+  --amber: #b5451b;
+  --amber-light: #fff3e0;
+  --blue: #1d4e89;
+  --blue-light: #dbeafe;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: 'IBM Plex Sans', sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--off-white);
+  color: var(--black);
+  min-height: 100vh;
+}
+
+/* HEADER */
+.header {
+  background: var(--black);
+  color: white;
+  padding: 0.875rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-left { display: flex; align-items: center; gap: 1rem; }
+
+.logo {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: white;
+  white-space: nowrap;
+}
+
+.date-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.05em;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 0.375rem 0.875rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.55);
+  background: none;
+  font-family: var(--font-sans);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tab:hover { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.3); }
+.tab.active { background: white; color: var(--black); border-color: white; font-weight: 600; }
+
+/* TOOLBAR */
+.toolbar {
+  padding: 0.625rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: white;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  border: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-primary { background: var(--black); color: white; }
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: var(--mid-gray); cursor: not-allowed; }
+.btn-danger { background: var(--red); color: white; }
+.btn-danger:hover { background: #7a1a1d; }
+.btn-secondary { background: white; color: var(--black); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--off-white); }
+.btn-ghost { background: none; border: 1px dashed var(--border); color: var(--mid-gray); }
+.btn-ghost:hover { border-color: var(--black); color: var(--black); }
+
+.status-text {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--mid-gray);
+  margin-left: auto;
+}
+
+/* VIEWS */
+.view { display: none; padding: 1.25rem 1.5rem; max-width: 1100px; }
 .view.active { display: block; }
-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1rem; }
-th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e5e5e5; background: #fafafa; }
-td { padding: 0.75rem 1rem; font-size: 0.875rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+
+/* SUMMARY CARDS */
+.summary-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.summary-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1.25rem;
+  flex: 1;
+  min-width: 120px;
+}
+
+.summary-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--mid-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.25rem;
+}
+
+.summary-value {
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--black);
+  line-height: 1;
+}
+
+.summary-sub {
+  font-size: 0.7rem;
+  color: var(--mid-gray);
+  margin-top: 0.2rem;
+}
+
+/* ALERT BANNERS */
+.alert {
+  padding: 0.625rem 1rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.alert-red { background: var(--red-light); color: var(--red); border: 1px solid #ffb3b3; }
+.alert-amber { background: var(--amber-light); color: var(--amber); border: 1px solid #ffcc99; }
+.alert-green { background: var(--green-light); color: var(--green); border: 1px solid #95d5b2; }
+
+/* TABLES */
+.table-wrap {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+table { width: 100%; border-collapse: collapse; }
+
+th {
+  text-align: left;
+  padding: 0.6rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--mid-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--border);
+  background: #fafaf8;
+  white-space: nowrap;
+}
+
+td {
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #f0efeb;
+  vertical-align: middle;
+}
+
 tr:last-child td { border-bottom: none; }
-tr.done-row td { opacity: 0.45; }
+
+tr.done-row td { opacity: 0.38; }
 tr.done-row td:first-child { opacity: 1; }
-td input[type="number"] { width: 70px; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; }
-td input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
-td select { padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; max-width: 200px; }
-.lock-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 0.2rem 0.5rem; cursor: pointer; font-size: 0.75rem; color: #666; white-space: nowrap; }
-.lock-btn.locked { background: #fff3cd; border-color: #ffc107; color: #856404; }
-.totals-row td { font-weight: 500; background: #fafafa; border-top: 2px solid #e5e5e5; }
-.empty { text-align: center; padding: 3rem; color: #999; }
-.badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
-.badge-green { background: #d4edda; color: #155724; }
-.badge-blue { background: #cce5ff; color: #004085; }
-.source-tag { font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 3px; background: #e9ecef; color: #495057; margin-left: 0.5rem; }
-.source-tag.manual { background: #d4edda; color: #155724; }
-.section-title { font-size: 0.85rem; font-weight: 600; color: #444; margin: 1.25rem 0 0.5rem; }
-.blend-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 1rem; overflow: hidden; }
-.blend-card-header { padding: 0.75rem 1rem; background: #fafafa; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: space-between; }
-.blend-card-header h3 { font-size: 0.9rem; font-weight: 600; }
-.blend-card-body { padding: 0.75rem 1rem; }
-.component-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
-.component-row select { flex: 1; min-width: 150px; }
-.component-row input[type="number"] { width: 80px; }
-.component-row .pct-label { font-size: 0.8rem; color: #666; white-space: nowrap; }
-.remove-btn { background: none; border: none; color: #dc3545; cursor: pointer; font-size: 1rem; padding: 0 0.25rem; }
-.add-component-btn { font-size: 0.8rem; color: #185fa5; background: none; border: 1px dashed #185fa5; border-radius: 4px; padding: 0.3rem 0.75rem; cursor: pointer; margin-top: 0.25rem; }
-.ratio-warning { font-size: 0.75rem; color: #dc3545; margin-top: 0.25rem; }
-.ratio-ok { font-size: 0.75rem; color: #155724; margin-top: 0.25rem; }
-.add-order-form { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 1.25rem; margin-bottom: 1rem; }
-.form-row { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.75rem; }
-.form-group { display: flex; flex-direction: column; gap: 0.25rem; }
-.form-group label { font-size: 0.75rem; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
-.form-group select, .form-group input { padding: 0.4rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; }
-@media (max-width: 600px) {
-  .header { flex-direction: column; align-items: flex-start; }
+
+.tfoot-row td {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: #fafaf8;
+  border-top: 2px solid var(--border);
+  padding: 0.6rem 1rem;
+}
+
+td input[type="number"] {
+  width: 68px;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  background: var(--off-white);
+}
+
+td input[type="number"]:focus { outline: 2px solid var(--black); border-color: transparent; }
+td input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--black); }
+td select { padding: 0.25rem 0.4rem; border: 1px solid var(--border); border-radius: 3px; font-size: 0.82rem; background: var(--off-white); max-width: 200px; }
+
+.lock-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.15rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--mid-gray);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.lock-btn.locked { background: var(--amber-light); border-color: #ffcc99; color: var(--amber); }
+
+/* BADGES */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.badge-green { background: var(--green-light); color: var(--green); }
+.badge-blue { background: var(--blue-light); color: var(--blue); }
+.badge-red { background: var(--red-light); color: var(--red); }
+.badge-gray { background: var(--warm-gray); color: #555; }
+
+.source-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  background: var(--warm-gray);
+  color: #555;
+  white-space: nowrap;
+}
+
+.source-tag.manual { background: var(--green-light); color: var(--green); }
+.source-tag.custom { background: var(--blue-light); color: var(--blue); }
+
+.empty {
+  text-align: center;
+  padding: 2.5rem;
+  color: var(--mid-gray);
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+}
+
+/* SORT BAR */
+.sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.sort-bar label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--mid-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.sort-bar select {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: white;
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+
+/* FORMS */
+.form-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.form-card-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--mid-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.form-group label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--mid-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.form-group select,
+.form-group input[type="text"],
+.form-group input[type="number"] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  background: var(--off-white);
+}
+
+.form-group select:focus,
+.form-group input:focus {
+  outline: 2px solid var(--black);
+  border-color: transparent;
+  background: white;
+}
+
+.form-msg { font-size: 0.78rem; font-family: var(--font-mono); margin-top: 0.5rem; }
+.form-msg.ok { color: var(--green); }
+.form-msg.err { color: var(--red); }
+
+/* BLEND CARDS */
+.blend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0.875rem;
+}
+
+.blend-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.blend-card-header {
+  padding: 0.75rem 1rem;
+  background: #fafaf8;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.blend-name {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.blend-card-body { padding: 0.875rem 1rem; }
+
+.component-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.component-row select { flex: 1; min-width: 0; font-size: 0.8rem; }
+.component-row input[type="number"] { width: 65px; font-family: var(--font-mono); }
+.pct-label { font-family: var(--font-mono); font-size: 0.75rem; color: var(--mid-gray); }
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: var(--mid-gray);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 0.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.remove-btn:hover { color: var(--red); }
+
+.ratio-status {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 3px;
+}
+
+.ratio-ok { background: var(--green-light); color: var(--green); }
+.ratio-warn { background: var(--red-light); color: var(--red); }
+
+.add-comp-btn {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--blue);
+  background: none;
+  border: 1px dashed var(--blue);
+  border-radius: 3px;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  margin-top: 0.25rem;
+  display: inline-block;
+}
+
+.add-comp-btn:hover { background: var(--blue-light); }
+
+.batch-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.batch-inline input {
+  width: 52px;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  background: var(--off-white);
+}
+
+.batch-inline span {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--mid-gray);
+}
+
+/* ORIGINS TABLE */
+.section-header {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--mid-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 1.25rem 0 0.625rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* HELP TAB */
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.help-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+}
+
+.help-card-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.625rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.help-card-title .icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.help-card p, .help-card li {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: #444;
+}
+
+.help-card ul { padding-left: 1rem; margin-top: 0.25rem; }
+.help-card li { margin-bottom: 0.2rem; }
+
+.help-note {
+  background: var(--amber-light);
+  border: 1px solid #ffcc99;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  color: var(--amber);
+  font-family: var(--font-mono);
+}
+
+/* ARCHIVE VIEW */
+.archive-section { margin-top: 1rem; }
+
+/* PRINT */
+@media print {
+  .header, .toolbar, .tabs, #bagging, #addorder, #blends, #help, .sort-bar { display: none !important; }
+  #roasting { display: block !important; padding: 0; }
+  .summary-row { display: none; }
+  body { background: white; }
+  .table-wrap { border: 1px solid #ccc; box-shadow: none; }
+}
+
+/* MOBILE */
+@media (max-width: 640px) {
+  .header { padding: 0.75rem 1rem; }
   .view { padding: 1rem; }
-  td, th { padding: 0.5rem 0.6rem; font-size: 0.8rem; }
-  .form-row { flex-direction: column; }
+  td, th { padding: 0.45rem 0.6rem; font-size: 0.78rem; }
+  .summary-card { min-width: 100px; }
+  .blend-grid { grid-template-columns: 1fr; }
+  .help-grid { grid-template-columns: 1fr; }
+  .status-text { display: none; }
+  .component-row { flex-wrap: wrap; }
 }
 </style>
 </head>
 <body>
 
+<!-- HEADER -->
 <div class="header">
-  <h1>TORQUE — Roast Scheduler</h1>
+  <div class="header-left">
+    <div class="logo">TORQUE — Roast Scheduler</div>
+    <div class="date-badge" id="dateBadge"></div>
+  </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('bagging', this)">Bagging</button>
     <button class="tab" onclick="switchTab('roasting', this)">Roasting</button>
     <button class="tab" onclick="switchTab('addorder', this)">Add Order</button>
     <button class="tab" onclick="switchTab('blends', this)">Blends</button>
+    <button class="tab" onclick="switchTab('help', this)">Help</button>
   </div>
 </div>
 
+<!-- TOOLBAR -->
 <div class="toolbar">
-  <button class="primary" id="refreshBtn" onclick="refreshOrders()">Pull Orders</button>
-  <button class="danger" onclick="archiveDay()">Archive Done</button>
-  <span class="status" id="statusMsg">Not loaded yet</span>
+  <button class="btn btn-primary" id="refreshBtn" onclick="refreshOrders()">Pull Orders</button>
+  <button class="btn btn-danger" onclick="archiveDay()">Archive Done</button>
+  <button class="btn btn-secondary" onclick="viewArchive()">View Today's Archive</button>
+  <button class="btn btn-secondary" onclick="window.print()">🖨 Print Roast Plan</button>
+  <span class="status-text" id="statusMsg">Not loaded</span>
 </div>
 
+<!-- BAGGING TAB -->
 <div id="bagging" class="view active">
-  <table>
-    <thead>
-      <tr>
-        <th>Done</th>
-        <th>Product</th>
-        <th>Bag Size</th>
-        <th>Source</th>
-        <th>Qty</th>
-        <th>Lock</th>
-      </tr>
-    </thead>
-    <tbody id="baggingBody">
-      <tr><td colspan="6" class="empty">Click "Pull Orders" to load today's orders</td></tr>
-    </tbody>
-    <tfoot id="baggingFoot"></tfoot>
-  </table>
+  <div class="summary-row" id="baggingSummary"></div>
+
+  <div class="sort-bar">
+    <label>Sort by</label>
+    <select id="sortSelect" onchange="renderBagging()">
+      <option value="name">Product name A–Z</option>
+      <option value="size">Bag size (large → small)</option>
+      <option value="type">Type (Drops → Singles) then size</option>
+      <option value="source">Source (Shopify → Internal)</option>
+    </select>
+  </div>
+
+  <div id="noOrdersAlert" style="display:none;" class="alert alert-amber">
+    ⚠ Pull Orders returned 0 items from Shopify. Is this correct?
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Done</th>
+          <th>Product</th>
+          <th>Bag Size</th>
+          <th>Source</th>
+          <th>Qty</th>
+          <th>Lock</th>
+        </tr>
+      </thead>
+      <tbody id="baggingBody">
+        <tr><td colspan="6" class="empty">Click "Pull Orders" to load today's orders</td></tr>
+      </tbody>
+      <tfoot id="baggingFoot"></tfoot>
+    </table>
+  </div>
+
+  <div id="archiveSection" class="archive-section" style="display:none;">
+    <div class="section-header">Today's Archived (Completed)</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Product</th><th>Bag Size</th><th>Qty</th><th>Source</th><th>Archived</th></tr>
+        </thead>
+        <tbody id="archiveBody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
+<!-- ROASTING TAB -->
 <div id="roasting" class="view">
-  <table>
-    <thead>
-      <tr>
-        <th>Done</th>
-        <th>Green Coffee</th>
-        <th>Roasted lbs</th>
-        <th>Green lbs</th>
-        <th>Batch size</th>
-        <th>Batches</th>
-      </tr>
-    </thead>
-    <tbody id="roastingBody">
-      <tr><td colspan="6" class="empty">Load bagging plan first</td></tr>
-    </tbody>
-    <tfoot id="roastingFoot"></tfoot>
-  </table>
+  <div id="blendWarning" style="display:none;" class="alert alert-red">
+    ⚠ One or more blends in today's plan have ratios that don't add to 100%. Check the Blends tab.
+  </div>
+
+  <div class="summary-row" id="roastSummary"></div>
+
+  <div class="section-header">Green Coffee Needed Today</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Done</th>
+          <th>Green Coffee</th>
+          <th>Roasted lbs</th>
+          <th>Green lbs</th>
+          <th>Batch size</th>
+          <th>Batches</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody id="roastingBody">
+        <tr><td colspan="7" class="empty">Load bagging plan first</td></tr>
+      </tbody>
+      <tfoot id="roastingFoot"></tfoot>
+    </table>
+  </div>
+
+  <div class="section-header">
+    Custom One-Time Roasts
+    <button class="btn btn-ghost" style="font-size:0.75rem;padding:0.2rem 0.6rem;" onclick="addCustomRoastRow()">+ Add</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Done</th><th>Coffee / Description</th><th>Batch Size (lbs)</th><th>Batches</th><th>Notes</th><th></th></tr>
+      </thead>
+      <tbody id="customRoastBody">
+        <tr><td colspan="6" class="empty">No custom roasts added</td></tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
+<!-- ADD ORDER TAB -->
 <div id="addorder" class="view">
-  <div class="add-order-form">
-    <div class="section-title">Add Internal Order</div>
-    <p style="font-size:0.8rem;color:#666;margin-bottom:1rem;">Add cafe, wholesale, or staff orders that aren't in Shopify.</p>
+  <div class="form-card">
+    <div class="form-card-title">Add Internal Order</div>
+    <p style="font-size:0.8rem;color:var(--mid-gray);margin-bottom:1rem;">Add café, wholesale, or staff orders not in Shopify. Shows in Bagging and Roasting plans immediately.</p>
     <div class="form-row">
       <div class="form-group">
         <label>Coffee</label>
-        <select id="addCoffee" style="min-width:200px;">
-          <option value="">Loading coffees...</option>
-        </select>
+        <select id="addCoffee" style="min-width:200px;"></select>
       </div>
       <div class="form-group">
         <label>Bag Size</label>
@@ -151,24 +734,111 @@ td select { padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px;
       </div>
       <div class="form-group">
         <label>Note (optional)</label>
-        <input type="text" id="addNote" placeholder="e.g. Cafe order" style="width:160px;">
+        <input type="text" id="addNote" placeholder="e.g. Café order" style="width:180px;">
       </div>
       <div class="form-group">
         <label>&nbsp;</label>
-        <button class="primary" onclick="addManualOrder()">Add to Plan</button>
+        <button class="btn btn-primary" onclick="addManualOrder()">Add to Plan</button>
       </div>
     </div>
-    <div id="addOrderMsg" style="font-size:0.8rem;margin-top:0.5rem;"></div>
+    <div class="form-msg" id="addOrderMsg"></div>
   </div>
 </div>
 
+<!-- BLENDS TAB -->
 <div id="blends" class="view">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
-    <div class="section-title" style="margin:0;">Blend Matrix</div>
-    <button class="secondary" onclick="addNewBlend()">+ New Blend</button>
+    <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:0.1em;">Blend Matrix + Single Origin Batch Sizes</div>
+    <button class="btn btn-secondary" onclick="addNewBlend()">+ New Blend</button>
   </div>
-  <div id="blendCards">
-    <div class="empty">Loading blends...</div>
+
+  <div class="section-header">Blends</div>
+  <div class="blend-grid" id="blendCards">
+    <div class="empty">Loading...</div>
+  </div>
+
+  <div class="section-header" style="margin-top:1.5rem;">
+    Single Origin Batch Sizes
+    <button class="btn btn-ghost" style="font-size:0.72rem;padding:0.2rem 0.6rem;" onclick="addOriginRow()">+ Add Coffee</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Green Coffee Name</th><th>Batch Size (lbs)</th><th>Shrinkage %</th><th></th></tr>
+      </thead>
+      <tbody id="originsBody">
+        <tr><td colspan="4" class="empty">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- HELP TAB -->
+<div id="help" class="view">
+  <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:1rem;">How to use this tool — read once, you're done</div>
+
+  <div class="help-grid">
+    <div class="help-card">
+      <div class="help-card-title"><span class="icon">☀️</span> Every morning</div>
+      <ul>
+        <li>Hit <strong>Pull Orders</strong> — Shopify loads automatically</li>
+        <li>Check the Bagging tab for today's list</li>
+        <li>Check the Roasting tab for green coffee and batch counts</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <div class="help-card-title"><span class="icon">📦</span> Bagging tab</div>
+      <ul>
+        <li>Check ✓ <strong>Done</strong> as each product is bagged</li>
+        <li>Edit qty if an order changes mid-day</li>
+        <li>Hit <strong>Lock</strong> to protect a row from Shopify refresh overwriting it</li>
+        <li>Use the <strong>Sort By</strong> dropdown to group by bag size or type</li>
+        <li><span style="background:var(--green-light);color:var(--green);font-size:0.7rem;padding:0.1rem 0.3rem;border-radius:2px;">Internal</span> = orders added manually by the team</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <div class="help-card-title"><span class="icon">🔥</span> Roasting tab</div>
+      <ul>
+        <li>Shows exact green lbs and batch count per coffee</li>
+        <li>Check ✓ Done per row as you finish each roast</li>
+        <li>Add one-time custom roasts with the <strong>+ Add</strong> button</li>
+        <li>Red banner = a blend ratio is broken — fix it in Blends tab</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <div class="help-card-title"><span class="icon">➕</span> Add Order tab</div>
+      <ul>
+        <li>For café, wholesale, or staff orders not in Shopify</li>
+        <li>Pick coffee → bag size → qty → <strong>Add to Plan</strong></li>
+        <li>Shows up instantly in Bagging and Roasting</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <div class="help-card-title"><span class="icon">⚗️</span> Blends tab</div>
+      <ul>
+        <li>Edit blend recipes — ratios must add to 100%</li>
+        <li>Edit single origin batch sizes here</li>
+        <li>Changes take effect on Roasting plan immediately</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <div class="help-card-title"><span class="icon">🌙</span> End of day</div>
+      <ul>
+        <li>Check all done rows ✓</li>
+        <li>Click <strong>Archive Done</strong> — removes them from the active plan</li>
+        <li>Click <strong>View Today's Archive</strong> to see what was completed</li>
+        <li>Slate is clean for tomorrow</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="help-note">
+    Pull Orders anytime throughout the day — locked rows won't be overwritten. Unlocked rows update to match current Shopify qty. All changes sync instantly across all devices.
   </div>
 </div>
 
@@ -178,12 +848,18 @@ const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_UCzUCyiWEtzqRxQcnhpSyw_BrYBKCz-'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+const BAG_SIZES = ['12oz Bag', '2lb Bag', '5lb Bag', '45lb Bulk Box', '8 xPods']
+const SIZE_ORDER = { '45lb Bulk Box': 0, '5lb Bag': 1, '2lb Bag': 2, '12oz Bag': 3, '8 xPods': 4 }
+const SHRINKAGE = 1.176
+
 let planData = []
 let blendMatrix = []
 let greenSettings = []
-let shopifyProducts = []
+let customRoasts = []
 
-const BAG_SIZES = ['12oz Bag', '2lb Bag', '5lb Bag', '45lb Bulk Box', '8 xPods']
+// Set date badge
+const now = new Date()
+document.getElementById('dateBadge').textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
 function switchTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
@@ -194,7 +870,7 @@ function switchTab(tab, el) {
 }
 
 function effectiveQty(row) {
-  return row.manual_qty !== null && row.manual_qty !== undefined ? row.manual_qty : row.shopify_qty
+  return (row.manual_qty !== null && row.manual_qty !== undefined) ? row.manual_qty : row.shopify_qty
 }
 
 function variantToLbs(variant) {
@@ -208,15 +884,52 @@ function variantToLbs(variant) {
   return 0.75
 }
 
+function isDrop(name) {
+  return name.toLowerCase().includes('drop')
+}
+
+function sortPlan(data) {
+  const mode = document.getElementById('sortSelect')?.value || 'name'
+  const d = [...data]
+  if (mode === 'name') {
+    d.sort((a, b) => a.product_name.localeCompare(b.product_name))
+  } else if (mode === 'size') {
+    d.sort((a, b) => {
+      const sa = SIZE_ORDER[a.variant_title] ?? 99
+      const sb2 = SIZE_ORDER[b.variant_title] ?? 99
+      return sa - sb2 || a.product_name.localeCompare(b.product_name)
+    })
+  } else if (mode === 'type') {
+    d.sort((a, b) => {
+      const ta = isDrop(a.product_name) ? 0 : 1
+      const tb = isDrop(b.product_name) ? 0 : 1
+      if (ta !== tb) return ta - tb
+      const sa = SIZE_ORDER[a.variant_title] ?? 99
+      const sb2 = SIZE_ORDER[b.variant_title] ?? 99
+      return sa - sb2 || a.product_name.localeCompare(b.product_name)
+    })
+  } else if (mode === 'source') {
+    d.sort((a, b) => {
+      const sa = a.source === 'shopify' ? 0 : 1
+      const sb2 = b.source === 'shopify' ? 0 : 1
+      return sa - sb2 || a.product_name.localeCompare(b.product_name)
+    })
+  }
+  return d
+}
+
 async function refreshOrders() {
   const btn = document.getElementById('refreshBtn')
   const status = document.getElementById('statusMsg')
   btn.disabled = true
-  status.textContent = 'Pulling orders from Shopify...'
+  status.textContent = 'Pulling from Shopify...'
+
   try {
     const res = await fetch('/api/shopify-token')
     const data = await res.json()
     if (data.error) throw new Error(data.error)
+
+    document.getElementById('noOrdersAlert').style.display = data.items.length === 0 ? 'flex' : 'none'
 
     const { data: existing } = await sb.from('daily_plan').select('*').eq('team_id', TEAM_ID)
     const existingMap = {}
@@ -236,8 +949,8 @@ async function refreshOrders() {
     }
 
     await loadPlan()
-    const now = new Date()
-    status.textContent = `Last pulled: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`
+    const t = new Date()
+    status.textContent = `Pulled ${data.items.length} items — ${t.toLocaleDateString()} ${t.toLocaleTimeString()}`
   } catch (err) {
     status.textContent = 'Error: ' + err.message
   }
@@ -249,6 +962,7 @@ async function loadPlan() {
   planData = data || []
   renderBagging()
   renderRoasting()
+  populateCoffeeDropdown()
 }
 
 async function loadBlends() {
@@ -258,62 +972,82 @@ async function loadBlends() {
   greenSettings = gs || []
 }
 
-async function loadShopifyProducts() {
-  try {
-    const res = await fetch('/api/shopify-token?productsOnly=true')
-    const data = await res.json()
-    shopifyProducts = data.products || []
-  } catch(e) {
-    shopifyProducts = []
-  }
-  populateCoffeeDropdown()
-}
-
 function populateCoffeeDropdown() {
   const sel = document.getElementById('addCoffee')
   if (!sel) return
-  const names = [...new Set(planData.map(r => r.product_name))]
-  if (shopifyProducts.length) {
-    shopifyProducts.forEach(p => { if (!names.includes(p)) names.push(p) })
-  }
-  names.sort()
-  sel.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('')
+  const names = [...new Set(planData.map(r => r.product_name))].sort()
+  sel.innerHTML = names.length
+    ? names.map(n => `<option value="${n}">${n}</option>`).join('')
+    : '<option value="">No products loaded yet — Pull Orders first</option>'
 }
 
 function renderBagging() {
   const tbody = document.getElementById('baggingBody')
   const tfoot = document.getElementById('baggingFoot')
+  const summaryEl = document.getElementById('baggingSummary')
+
   if (!planData.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">No orders loaded</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Click "Pull Orders" to load today\'s orders</td></tr>'
     tfoot.innerHTML = ''
+    summaryEl.innerHTML = ''
     return
   }
-  tbody.innerHTML = planData.map(row => `
+
+  const sorted = sortPlan(planData)
+  const shopifyCount = planData.filter(r => r.source === 'shopify').length
+  const manualCount = planData.filter(r => r.source === 'manual').length
+  const totalBags = planData.reduce((s, r) => s + effectiveQty(r), 0)
+  const doneCount = planData.filter(r => r.done).length
+
+  summaryEl.innerHTML = `
+    <div class="summary-card">
+      <div class="summary-label">Total Bags</div>
+      <div class="summary-value">${totalBags}</div>
+      <div class="summary-sub">${shopifyCount} Shopify · ${manualCount} internal</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">SKUs</div>
+      <div class="summary-value">${planData.length}</div>
+      <div class="summary-sub">line items</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Done</div>
+      <div class="summary-value">${doneCount}</div>
+      <div class="summary-sub">of ${planData.length} lines</div>
+    </div>
+  `
+
+  tbody.innerHTML = sorted.map(row => `
     <tr class="${row.done ? 'done-row' : ''}" id="row-${row.id}">
       <td><input type="checkbox" ${row.done ? 'checked' : ''} onchange="toggleDone('${row.id}', this.checked)"></td>
-      <td>${row.product_name}${row.note ? `<br><span style="font-size:0.75rem;color:#888">${row.note}</span>` : ''}</td>
-      <td>${row.variant_title}</td>
-      <td><span class="source-tag ${row.source === 'manual' ? 'manual' : ''}">${row.source === 'manual' ? 'Internal' : 'Shopify'}</span></td>
+      <td>
+        ${row.product_name}
+        ${row.note ? `<br><span style="font-size:0.72rem;color:var(--mid-gray);">${row.note}</span>` : ''}
+      </td>
+      <td style="font-family:var(--font-mono);font-size:0.8rem;">${row.variant_title}</td>
+      <td><span class="source-tag ${row.source === 'manual' ? 'manual' : row.source === 'custom' ? 'custom' : ''}">${row.source === 'manual' ? 'Internal' : 'Shopify'}</span></td>
       <td><input type="number" min="0" value="${effectiveQty(row)}" onchange="updateQty('${row.id}', this.value)" ${row.locked ? 'disabled' : ''}></td>
-      <td><button class="lock-btn ${row.locked ? 'locked' : ''}" onclick="toggleLock('${row.id}', ${!row.locked})">${row.locked ? '🔒 Locked' : 'Lock'}</button></td>
+      <td><button class="lock-btn ${row.locked ? 'locked' : ''}" onclick="toggleLock('${row.id}', ${!row.locked})">${row.locked ? '🔒' : 'Lock'}</button></td>
     </tr>
   `).join('')
 
-  const total = planData.reduce((sum, r) => sum + effectiveQty(r), 0)
-  tfoot.innerHTML = `<tr class="totals-row"><td></td><td>Total bags</td><td></td><td></td><td>${total}</td><td></td></tr>`
-  populateCoffeeDropdown()
+  tfoot.innerHTML = `<tr class="tfoot-row"><td></td><td>TOTAL</td><td></td><td></td><td>${totalBags} bags</td><td></td></tr>`
 }
 
 function renderRoasting() {
   const tbody = document.getElementById('roastingBody')
   const tfoot = document.getElementById('roastingFoot')
+  const summaryEl = document.getElementById('roastSummary')
+  const warnEl = document.getElementById('blendWarning')
+
   if (!planData.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Load bagging plan first</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Load bagging plan first</td></tr>'
     tfoot.innerHTML = ''
+    summaryEl.innerHTML = ''
     return
   }
 
-  // Calculate roasted lbs needed per product
+  // Build roasted lbs per product
   const roastedByProduct = {}
   for (const row of planData) {
     if (row.done) continue
@@ -323,18 +1057,31 @@ function renderRoasting() {
     roastedByProduct[row.product_name] = (roastedByProduct[row.product_name] || 0) + lbs
   }
 
-  // Expand blends into green components
+  // Check for broken blend ratios
+  let hasBrokenBlend = false
+  const blendNames = [...new Set(blendMatrix.map(b => b.product_name))]
+  for (const bn of blendNames) {
+    if (!roastedByProduct[bn]) continue
+    const comps = blendMatrix.filter(b => b.product_name === bn)
+    const total = comps.reduce((s, c) => s + Number(c.ratio), 0)
+    if (Math.abs(total - 1) > 0.01) hasBrokenBlend = true
+  }
+  warnEl.style.display = hasBrokenBlend ? 'flex' : 'none'
+
+  // Expand to green components
   const greenNeeded = {}
   for (const [product, roastedLbs] of Object.entries(roastedByProduct)) {
     const components = blendMatrix.filter(b => b.product_name.toLowerCase() === product.toLowerCase())
     if (components.length > 0) {
       for (const comp of components) {
         const key = comp.component_name
-        if (!greenNeeded[key]) greenNeeded[key] = { roasted: 0, batch_size: comp.batch_size_lbs }
+        if (!greenNeeded[key]) {
+          const gs = greenSettings.find(g => g.component_name === comp.component_name)
+          greenNeeded[key] = { roasted: 0, batch_size: gs ? gs.batch_size_lbs : comp.batch_size_lbs }
+        }
         greenNeeded[key].roasted += roastedLbs * comp.ratio
       }
     } else {
-      // Single origin — maps to itself
       const gs = greenSettings.find(g => g.component_name.toLowerCase() === product.toLowerCase())
       const batchSize = gs ? gs.batch_size_lbs : 8
       if (!greenNeeded[product]) greenNeeded[product] = { roasted: 0, batch_size: batchSize }
@@ -342,81 +1089,146 @@ function renderRoasting() {
     }
   }
 
-  const SHRINKAGE = 1.176
-  let totalGreen = 0
+  let totalGreenLbs = 0
   let totalBatches = 0
+  const rows = Object.entries(greenNeeded).sort((a, b) => a[0].localeCompare(b[0]))
 
-  tbody.innerHTML = Object.entries(greenNeeded).sort().map(([name, val]) => {
-    const greenLbs = (val.roasted * SHRINKAGE)
+  tbody.innerHTML = rows.map(([name, val]) => {
+    const greenLbs = val.roasted * SHRINKAGE
     const batches = Math.ceil(greenLbs / val.batch_size)
-    totalGreen += greenLbs
+    totalGreenLbs += greenLbs
     totalBatches += batches
     return `
       <tr>
-        <td><input type="checkbox" onchange="this.closest('tr').style.opacity = this.checked ? '0.4' : '1'"></td>
-        <td>${name}</td>
-        <td>${val.roasted.toFixed(1)}</td>
-        <td>${greenLbs.toFixed(1)}</td>
-        <td>${val.batch_size} lbs</td>
+        <td><input type="checkbox" onchange="this.closest('tr').style.opacity=this.checked?'0.35':'1'"></td>
+        <td style="font-weight:500;">${name}</td>
+        <td style="font-family:var(--font-mono);">${val.roasted.toFixed(1)}</td>
+        <td style="font-family:var(--font-mono);">${greenLbs.toFixed(1)}</td>
+        <td style="font-family:var(--font-mono);">${val.batch_size} lbs</td>
         <td><span class="badge badge-green">${batches}</span></td>
+        <td><input type="text" placeholder="Notes..." style="border:none;background:transparent;font-size:0.78rem;width:100%;color:var(--mid-gray);" onfocus="this.style.background='var(--off-white)'" onblur="this.style.background='transparent'"></td>
       </tr>
     `
   }).join('')
 
-  tfoot.innerHTML = `<tr class="totals-row"><td></td><td>Totals</td><td></td><td>${totalGreen.toFixed(1)} lbs green</td><td></td><td><span class="badge badge-blue">${totalBatches} batches</span></td></tr>`
+  tfoot.innerHTML = `<tr class="tfoot-row">
+    <td></td><td>TOTAL</td>
+    <td></td>
+    <td style="font-family:var(--font-mono);">${totalGreenLbs.toFixed(1)} lbs</td>
+    <td></td>
+    <td><span class="badge badge-blue">${totalBatches} batches</span></td>
+    <td></td>
+  </tr>`
+
+  summaryEl.innerHTML = `
+    <div class="summary-card">
+      <div class="summary-label">Total Batches</div>
+      <div class="summary-value">${totalBatches}</div>
+      <div class="summary-sub">on 6kg drum</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Green lbs needed</div>
+      <div class="summary-value">${totalGreenLbs.toFixed(0)}</div>
+      <div class="summary-sub">at 15% shrinkage</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Coffees</div>
+      <div class="summary-value">${rows.length}</div>
+      <div class="summary-sub">green components</div>
+    </div>
+  `
 }
 
+// CUSTOM ROASTS
+function addCustomRoastRow() {
+  const tbody = document.getElementById('customRoastBody')
+  const id = `cr-${Date.now()}`
+  const emptyRow = tbody.querySelector('.empty')
+  if (emptyRow) emptyRow.closest('tr').remove()
+
+  const tr = document.createElement('tr')
+  tr.id = id
+  tr.innerHTML = `
+    <td><input type="checkbox" onchange="this.closest('tr').style.opacity=this.checked?'0.35':'1'"></td>
+    <td><input type="text" placeholder="e.g. Perla Negra Dark Roast" style="width:100%;min-width:160px;padding:0.25rem 0.4rem;border:1px solid var(--border);border-radius:3px;font-size:0.82rem;"></td>
+    <td><input type="number" value="8" min="1" max="20" style="width:65px;font-family:var(--font-mono);" oninput="recalcCustom('${id}')"></td>
+    <td style="font-family:var(--font-mono);" id="${id}-batches">1</td>
+    <td><input type="text" placeholder="Notes..." style="border:none;background:transparent;font-size:0.78rem;width:100%;" onfocus="this.style.background='var(--off-white)'" onblur="this.style.background='transparent'"></td>
+    <td><button class="remove-btn" onclick="document.getElementById('${id}').remove()">✕</button></td>
+  `
+  tbody.appendChild(tr)
+}
+
+function recalcCustom(id) {
+  const row = document.getElementById(id)
+  if (!row) return
+  const batchSize = parseFloat(row.querySelectorAll('input[type="number"]')[0].value) || 8
+  document.getElementById(`${id}-batches`).textContent = 1
+}
+
+// BLEND EDITOR
 async function renderBlendEditor() {
   await loadBlends()
   const container = document.getElementById('blendCards')
-
+  const originsBody = document.getElementById('originsBody')
   const blendNames = [...new Set(blendMatrix.map(b => b.product_name))].sort()
   const allComponents = greenSettings.map(g => g.component_name).sort()
 
   if (!blendNames.length) {
-    container.innerHTML = '<div class="empty">No blends configured yet. Click "+ New Blend" to add one.</div>'
-    return
-  }
+    container.innerHTML = '<div class="empty">No blends yet. Click "+ New Blend".</div>'
+  } else {
+    container.innerHTML = blendNames.map(blendName => {
+      const components = blendMatrix.filter(b => b.product_name === blendName)
+      const totalRatio = components.reduce((s, c) => s + Number(c.ratio), 0)
+      const ratioOk = Math.abs(totalRatio - 1) < 0.01
+      const batchSize = components[0]?.batch_size_lbs || 8
 
-  container.innerHTML = blendNames.map(blendName => {
-    const components = blendMatrix.filter(b => b.product_name === blendName)
-    const totalRatio = components.reduce((s, c) => s + Number(c.ratio), 0)
-    const ratioOk = Math.abs(totalRatio - 1) < 0.01
-    const batchSize = components[0]?.batch_size_lbs || 8
-
-    return `
-      <div class="blend-card" id="blend-${blendName.replace(/\s+/g,'-')}">
-        <div class="blend-card-header">
-          <h3>${blendName}</h3>
-          <div style="display:flex;gap:0.5rem;align-items:center;">
-            <span style="font-size:0.75rem;color:#666;">Batch size:</span>
-            <input type="number" value="${batchSize}" min="1" max="20" style="width:60px;padding:0.2rem 0.4rem;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;" onchange="updateBatchSize('${blendName}', this.value)">
-            <span style="font-size:0.75rem;color:#666;">lbs</span>
-            <button class="remove-btn" title="Delete blend" onclick="deleteBlend('${blendName}')">🗑</button>
+      return `
+        <div class="blend-card">
+          <div class="blend-card-header">
+            <div class="blend-name">${blendName}</div>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <div class="batch-inline">
+                <input type="number" value="${batchSize}" min="1" max="20" onchange="updateBatchSize('${blendName}', this.value)" title="Batch size lbs">
+                <span>lbs/batch</span>
+              </div>
+              <button class="remove-btn" title="Delete blend" onclick="deleteBlend('${blendName}')">🗑</button>
+            </div>
           </div>
-        </div>
-        <div class="blend-card-body">
-          <div id="components-${blendName.replace(/\s+/g,'-')}">
+          <div class="blend-card-body">
             ${components.map(comp => `
               <div class="component-row" id="comp-${comp.id}">
                 <select onchange="updateComponent('${comp.id}', 'component_name', this.value)">
                   ${allComponents.map(c => `<option value="${c}" ${c === comp.component_name ? 'selected' : ''}>${c}</option>`).join('')}
-                  <option value="${comp.component_name}" ${!allComponents.includes(comp.component_name) ? 'selected' : ''}>${comp.component_name}</option>
                 </select>
-                <input type="number" min="1" max="100" value="${Math.round(comp.ratio * 100)}" style="width:70px;" onchange="updateComponent('${comp.id}', 'ratio', this.value / 100)">
+                <input type="number" min="1" max="100" value="${Math.round(Number(comp.ratio) * 100)}" onchange="updateComponent('${comp.id}', 'ratio', this.value / 100)">
                 <span class="pct-label">%</span>
                 <button class="remove-btn" onclick="removeComponent('${comp.id}', '${blendName}')">✕</button>
               </div>
             `).join('')}
-          </div>
-          <button class="add-component-btn" onclick="addComponent('${blendName}')">+ Add component</button>
-          <div class="${ratioOk ? 'ratio-ok' : 'ratio-warning'}">
-            Total: ${Math.round(totalRatio * 100)}% ${ratioOk ? '✓' : '⚠ Should equal 100%'}
+            <button class="add-comp-btn" onclick="addComponent('${blendName}')">+ Add component</button>
+            <div class="ratio-status ${ratioOk ? 'ratio-ok' : 'ratio-warn'}">
+              Total: ${Math.round(totalRatio * 100)}% ${ratioOk ? '✓ Good' : '⚠ Must equal 100%'}
+            </div>
           </div>
         </div>
-      </div>
-    `
-  }).join('')
+      `
+    }).join('')
+  }
+
+  // Origins table
+  if (!greenSettings.length) {
+    originsBody.innerHTML = '<tr><td colspan="4" class="empty">No single origins configured</td></tr>'
+  } else {
+    originsBody.innerHTML = greenSettings.map(gs => `
+      <tr>
+        <td style="font-weight:500;">${gs.component_name}</td>
+        <td><input type="number" value="${gs.batch_size_lbs}" min="1" max="20" style="width:70px;font-family:var(--font-mono);" onchange="updateOrigin('${gs.id}', 'batch_size_lbs', this.value)"></td>
+        <td><input type="number" value="${gs.shrinkage_pct}" min="1" max="30" style="width:65px;font-family:var(--font-mono);" onchange="updateOrigin('${gs.id}', 'shrinkage_pct', this.value)"></td>
+        <td><button class="remove-btn" onclick="deleteOrigin('${gs.id}')">✕</button></td>
+      </tr>
+    `).join('')
+  }
 }
 
 async function updateComponent(id, field, value) {
@@ -428,34 +1240,48 @@ async function updateBatchSize(blendName, value) {
   await sb.from('blend_matrix').update({ batch_size_lbs: parseFloat(value) }).eq('product_name', blendName)
 }
 
-async function removeComponent(id, blendName) {
+async function removeComponent(id) {
   await sb.from('blend_matrix').delete().eq('id', id)
   await renderBlendEditor()
 }
 
 async function addComponent(blendName) {
-  const firstComponent = greenSettings[0]?.component_name || 'New Coffee'
-  await sb.from('blend_matrix').insert({
-    product_name: blendName, component_name: firstComponent, ratio: 0, batch_size_lbs: 8
-  })
+  const first = greenSettings[0]?.component_name || 'Coffee'
+  await sb.from('blend_matrix').insert({ product_name: blendName, component_name: first, ratio: 0, batch_size_lbs: 8 })
   await renderBlendEditor()
 }
 
 async function deleteBlend(blendName) {
-  if (!confirm(`Delete blend "${blendName}"? This cannot be undone.`)) return
+  if (!confirm(`Delete blend "${blendName}"?`)) return
   await sb.from('blend_matrix').delete().eq('product_name', blendName)
   await renderBlendEditor()
 }
 
 async function addNewBlend() {
   const name = prompt('New blend name:')
-  if (!name || !name.trim()) return
-  await sb.from('blend_matrix').insert({
-    product_name: name.trim(), component_name: greenSettings[0]?.component_name || 'Coffee', ratio: 1, batch_size_lbs: 8
-  })
+  if (!name?.trim()) return
+  await sb.from('blend_matrix').insert({ product_name: name.trim(), component_name: greenSettings[0]?.component_name || 'Coffee', ratio: 1, batch_size_lbs: 8 })
   await renderBlendEditor()
 }
 
+async function updateOrigin(id, field, value) {
+  await sb.from('green_coffee_settings').update({ [field]: parseFloat(value) }).eq('id', id)
+}
+
+async function deleteOrigin(id) {
+  if (!confirm('Remove this coffee from settings?')) return
+  await sb.from('green_coffee_settings').delete().eq('id', id)
+  await renderBlendEditor()
+}
+
+async function addOriginRow() {
+  const name = prompt('Green coffee name:')
+  if (!name?.trim()) return
+  await sb.from('green_coffee_settings').insert({ component_name: name.trim(), batch_size_lbs: 8, shrinkage_pct: 15 })
+  await renderBlendEditor()
+}
+
+// MANUAL ORDER
 async function addManualOrder() {
   const coffee = document.getElementById('addCoffee').value
   const size = document.getElementById('addSize').value
@@ -464,7 +1290,7 @@ async function addManualOrder() {
   const msg = document.getElementById('addOrderMsg')
 
   if (!coffee || !qty || qty < 1) {
-    msg.style.color = '#dc3545'
+    msg.className = 'form-msg err'
     msg.textContent = 'Please select a coffee and enter a valid quantity.'
     return
   }
@@ -476,40 +1302,71 @@ async function addManualOrder() {
     source: 'manual', note: note || null
   })
 
-  msg.style.color = '#155724'
-  msg.textContent = `Added: ${qty}x ${coffee} (${size})`
+  msg.className = 'form-msg ok'
+  msg.textContent = `✓ Added: ${qty}× ${coffee} (${size})`
   document.getElementById('addQty').value = 1
   document.getElementById('addNote').value = ''
   await loadPlan()
 }
 
+// ARCHIVE
 async function archiveDay() {
   const doneRows = planData.filter(r => r.done)
-  if (!doneRows.length) {
-    alert('No rows marked as done to archive.')
-    return
-  }
-  if (!confirm(`Archive ${doneRows.length} completed rows? They will be removed from today's plan.`)) return
+  if (!doneRows.length) { alert('No rows marked as done to archive.'); return }
+  if (!confirm(`Archive ${doneRows.length} completed rows?`)) return
 
   for (const row of doneRows) {
     await sb.from('archived_plan').insert({
       team_id: TEAM_ID, sku: row.sku, product_name: row.product_name,
-      variant_title: row.variant_title, final_qty: effectiveQty(row),
-      source: row.source || 'shopify'
+      variant_title: row.variant_title, final_qty: effectiveQty(row), source: row.source || 'shopify'
     })
     await sb.from('daily_plan').delete().eq('id', row.id)
   }
   await loadPlan()
-  document.getElementById('statusMsg').textContent = `Archived ${doneRows.length} rows.`
+  document.getElementById('statusMsg').textContent = `Archived ${doneRows.length} rows`
 }
 
+async function viewArchive() {
+  const section = document.getElementById('archiveSection')
+  const tbody = document.getElementById('archiveBody')
+
+  if (section.style.display !== 'none') {
+    section.style.display = 'none'
+    return
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+  const { data } = await sb.from('archived_plan')
+    .select('*')
+    .eq('team_id', TEAM_ID)
+    .eq('archive_date', today)
+    .order('archived_at', { ascending: false })
+
+  if (!data?.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Nothing archived today yet</td></tr>'
+  } else {
+    tbody.innerHTML = data.map(r => `
+      <tr>
+        <td style="font-weight:500;">${r.product_name}</td>
+        <td style="font-family:var(--font-mono);font-size:0.8rem;">${r.variant_title}</td>
+        <td style="font-family:var(--font-mono);">${r.final_qty}</td>
+        <td><span class="source-tag ${r.source === 'manual' ? 'manual' : ''}">${r.source === 'manual' ? 'Internal' : 'Shopify'}</span></td>
+        <td style="font-family:var(--font-mono);font-size:0.75rem;color:var(--mid-gray);">${new Date(r.archived_at).toLocaleTimeString()}</td>
+      </tr>
+    `).join('')
+  }
+
+  section.style.display = 'block'
+}
+
+// DONE / LOCK / QTY
 async function updateQty(id, val) {
   await sb.from('daily_plan').update({ manual_qty: parseInt(val), updated_at: new Date().toISOString() }).eq('id', id)
 }
 
 async function toggleDone(id, val) {
   await sb.from('daily_plan').update({ done: val, updated_at: new Date().toISOString() }).eq('id', id)
-  planData = planData.map(r => r.id === id ? {...r, done: val} : r)
+  planData = planData.map(r => r.id === id ? { ...r, done: val } : r)
   renderBagging()
   renderRoasting()
 }
@@ -519,16 +1376,15 @@ async function toggleLock(id, val) {
   await loadPlan()
 }
 
-// Real-time sync
+// REALTIME
 sb.channel('plan_changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_plan' }, () => loadPlan())
   .subscribe()
 
-// Add source column if needed and init
+// INIT
 async function init() {
   await loadBlends()
   await loadPlan()
-  await loadShopifyProducts()
 }
 
 init()
