@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/shopify-token.js": {
+      "maxDuration": 15
+    }
+  }
+}
