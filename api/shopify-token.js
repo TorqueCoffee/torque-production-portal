@@ -3,16 +3,6 @@ export default async function handler(req, res) {
   
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
   
-  // Debug: check env vars are present
-  if (!SHOPIFY_CLIENT_ID || !SHOPIFY_CLIENT_SECRET || !SHOPIFY_STORE_HANDLE) {
-    return res.status(500).json({ 
-      error: 'Missing env vars',
-      has_client_id: !!SHOPIFY_CLIENT_ID,
-      has_client_secret: !!SHOPIFY_CLIENT_SECRET,
-      has_store_handle: !!SHOPIFY_STORE_HANDLE
-    })
-  }
-
   try {
     const tokenRes = await fetch(
       `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/oauth/access_token`,
@@ -27,15 +17,29 @@ export default async function handler(req, res) {
       }
     )
     
-    // Get raw text first so we can see exactly what Shopify returns
-    const rawText = await tokenRes.text()
+    const tokenData = await tokenRes.json()
     
-    return res.status(200).json({
-      shopify_status: tokenRes.status,
-      shopify_response: rawText
-    })
+    if (!tokenData.access_token) {
+      return res.status(500).json({ error: 'Token exchange failed', detail: tokenData })
+    }
     
-  } catch (err) {
-    return res.status(500).json({ error: err.message })
-  }
-}
+    const ordersRes = await fetch(
+      `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/2025-01/orders.json?status=unfulfilled&limit=250`,
+      {
+        headers: {
+          'X-Shopify-Access-Token': tokenData.access_token,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+    
+    const ordersData = await ordersRes.json()
+    const orders = ordersData.orders || []
+    
+    const aggregated = {}
+    
+    for (const order of orders) {
+      for (const item of order.line_items) {
+        if (item.vendor !== 'Torque Coffees') continue
+        
+        const key = `${item.sku}||${item.title}||${item.variant_title || 'Default'}`
