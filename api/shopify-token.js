@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     
     for (const order of orders) {
       for (const item of order.line_items) {
-        if (item.vendor !== 'Torque Coffee') continue
+        if (item.vendor !== 'Torque Coffees') continue
         
         const key = `${item.sku}||${item.title}||${item.variant_title || 'Default'}`
         
