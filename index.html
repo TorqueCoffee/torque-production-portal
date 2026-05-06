@@ -888,6 +888,20 @@ function isDrop(name) {
   return name.toLowerCase().includes('drop')
 }
 
+function variantSortWeight(variant) {
+  if (!variant) return 999
+  const v = variant.toLowerCase()
+  // Extract leading number from variant string
+  const match = v.match(/(\d+\.?\d*)\s*(lb|pound|oz|pod)/i)
+  if (!match) return 999
+  const num = parseFloat(match[1])
+  const unit = match[2].toLowerCase()
+  // Convert everything to lbs for sorting (largest first)
+  if (unit === 'oz') return num / 16
+  if (unit === 'pod') return 0.001
+  return num // already lbs
+}
+
 function sortPlan(data) {
   const mode = document.getElementById('sortSelect')?.value || 'name'
   const d = [...data]
@@ -895,18 +909,19 @@ function sortPlan(data) {
     d.sort((a, b) => a.product_name.localeCompare(b.product_name))
   } else if (mode === 'size') {
     d.sort((a, b) => {
-      const sa = SIZE_ORDER[a.variant_title] ?? 99
-      const sb2 = SIZE_ORDER[b.variant_title] ?? 99
-      return sa - sb2 || a.product_name.localeCompare(b.product_name)
+      const sa = variantSortWeight(a.variant_title)
+      const sb2 = variantSortWeight(b.variant_title)
+      // Largest first, then alpha by product name
+      return sb2 - sa || a.product_name.localeCompare(b.product_name)
     })
   } else if (mode === 'type') {
     d.sort((a, b) => {
       const ta = isDrop(a.product_name) ? 0 : 1
       const tb = isDrop(b.product_name) ? 0 : 1
       if (ta !== tb) return ta - tb
-      const sa = SIZE_ORDER[a.variant_title] ?? 99
-      const sb2 = SIZE_ORDER[b.variant_title] ?? 99
-      return sa - sb2 || a.product_name.localeCompare(b.product_name)
+      const sa = variantSortWeight(a.variant_title)
+      const sb2 = variantSortWeight(b.variant_title)
+      return sb2 - sa || a.product_name.localeCompare(b.product_name)
     })
   } else if (mode === 'source') {
     d.sort((a, b) => {
