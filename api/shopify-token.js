@@ -43,3 +43,22 @@ export default async function handler(req, res) {
         if (item.vendor !== 'Torque Coffees') continue
         
         const key = `${item.sku}||${item.title}||${item.variant_title || 'Default'}`
+        
+        if (!aggregated[key]) {
+          aggregated[key] = {
+            sku: item.sku || key,
+            product_name: item.title,
+            variant_title: item.variant_title || 'Default',
+            shopify_qty: 0
+          }
+        }
+        aggregated[key].shopify_qty += item.quantity
+      }
+    }
+    
+    res.status(200).json({ items: Object.values(aggregated) })
+    
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
