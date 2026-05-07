@@ -773,16 +773,18 @@ async function renderBlendEditor() {
             const isMissing = staleBlends.some(s => s.blend === blendName && s.component === comp.component_name)
             // FIX: build options from shopifyProducts with selected attr inline.
             // If the current coffee is missing from Shopify, prepend a warning option.
-            const missingOption = isMissing
-              ? `<option value="${comp.component_name}" selected>${comp.component_name} ⚠ (retired)</option>`
-              : ''
-            const options = shopifyProducts.map(p =>
-              `<option value="${p}" ${!isMissing && p === comp.component_name ? 'selected' : ''}>${p}</option>`
-            ).join('')
-            return `<div class="component-row" id="comp-${comp.id}">
-              <select onchange="updateComponent('${comp.id}','component_name',this.value)" style="${isMissing ? 'border-color:var(--red)' : ''}">
-                ${missingOption}${options}
-              </select>
+           
+            // Always include current name as selected option first.
+// Then add all Shopify products (skip current to avoid duplicate).
+const currentOption = `<option value="${comp.component_name}" selected>${comp.component_name}${isMissing ? ' ⚠' : ''}</option>`
+const options = shopifyProducts
+  .filter(p => p !== comp.component_name)
+  .map(p => `<option value="${p}">${p}</option>`)
+  .join('')
+return `<div class="component-row" id="comp-${comp.id}">
+  <select onchange="updateComponent('${comp.id}','component_name',this.value)" style="${isMissing ? 'border-color:var(--red)' : ''}">
+    ${currentOption}${options}
+  </select>
               <input type="number" min="1" max="100" value="${Math.round(Number(comp.ratio) * 100)}" onchange="updateComponent('${comp.id}','ratio',this.value/100)">
               <span class="pct-label">%</span>
               <button class="remove-btn" onclick="removeComponent('${comp.id}')">✕</button>
