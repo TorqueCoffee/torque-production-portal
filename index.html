@@ -123,7 +123,7 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 .help-card li{margin-bottom:.2rem}
 .help-note{background:var(--amber-light);border:1px solid #ffcc99;border-radius:6px;padding:.75rem 1rem;font-size:.8rem;color:var(--amber);font-family:var(--font-mono)}
 @media print{
-.header,.toolbar,#bagging,#addorder,#blends,#help,.sort-bar{display:none!important}
+.header,.toolbar,#bagging,#addorder,#blends,#help,#b2b,.sort-bar{display:none!important}
 #roasting{display:block!important;padding:0}
 .summary-row{display:none}
 body{background:white}
@@ -153,6 +153,7 @@ td,th{padding:.45rem .6rem;font-size:.78rem}
     <button class="tab" onclick="switchTab('addorder',this)">Add Order</button>
     <button class="tab" onclick="switchTab('blends',this)">Blends</button>
     <button class="tab" onclick="switchTab('help',this)">Help</button>
+    <button class="tab" onclick="switchTab('b2b',this)">B2B</button>
   </div>
 </div>
 
@@ -344,6 +345,14 @@ td,th{padding:.45rem .6rem;font-size:.78rem}
   <div class="help-note">Pull Orders anytime — locked rows won't be overwritten. Unlocked rows recalculate from current Shopify qty. All changes sync instantly across all devices.</div>
 </div>
 
+<div id="b2b" class="view">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.5rem">
+    <div style="font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em">B2B Wholesale Orders</div>
+    <button class="btn btn-primary" id="b2bRefreshBtn" onclick="loadB2BOrders()">Refresh B2B</button>
+  </div>
+  <div id="b2bContent"><div class="empty">Click Refresh B2B to load wholesale orders</div></div>
+</div>
+
 <script>
 const TEAM_ID = 'torque2026'
 const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
@@ -356,6 +365,8 @@ let greenSettings = []
 let roastingProgress = {}
 let shopifyProducts = []
 let staleBlends = []
+let b2bData = []
+let b2bProgress = {}
 
 const today = new Date()
 const todayStr = today.toISOString().split('T')[0]
@@ -421,7 +432,6 @@ function sortPlan(data) {
   return d
 }
 
-// Stale blend check: component must exist in greenSettings
 function matchesToOrigins(componentName) {
   if (!greenSettings.length) return true
   const cn = componentName.toLowerCase().trim()
@@ -518,7 +528,6 @@ async function validateBlends() {
 function populateCoffeeDropdown() {
   const sel = document.getElementById('addCoffee')
   if (!sel) return
-  // Use greenSettings names + any names already in the plan
   const fromPlan = [...new Set(planData.map(r => r.product_name))]
   const fromOrigins = greenSettings.map(g => g.component_name)
   const all = [...new Set([...fromPlan, ...fromOrigins])].sort()
@@ -767,8 +776,6 @@ async function renderBlendEditor() {
         <div class="blend-card-body">
           ${components.map(comp => {
             const isMissing = staleBlends.some(s => s.blend === blendName && s.component === comp.component_name)
-            // Always show current saved name as selected first option.
-            // Then list all single origin coffees (excluding current to avoid duplicate).
             const currentOption = `<option value="${comp.component_name}" selected>${comp.component_name}${isMissing ? ' ⚠' : ''}</option>`
             const options = greenSettings
               .map(g => g.component_name)
@@ -915,7 +922,7 @@ async function archiveDay() {
     await sb.from('archived_plan').insert({
       team_id: TEAM_ID, sku: row.sku, product_name: row.product_name,
       variant_title: row.variant_title, final_qty: row.qty_bagged || row.qty_needed,
-      source: row.source || 'shopify'
+      source: row.source || 'shopify', archive_date: todayStr
     })
     await sb.from('daily_plan').delete().eq('id', row.id)
   }
@@ -940,7 +947,105 @@ async function viewArchive() {
   section.style.display = 'block'
 }
 
-// Realtime sync
+async function loadB2BOrders() {
+  const btn = document.getElementById('b2bRefreshBtn')
+  const contentEl = document.getElementById('b2bContent')
+  btn.disabled = true
+  contentEl.innerHTML = '<div class="empty">Loading...</div>'
+  try {
+    const res = await fetch('/api/shopify-token?type=b2b')
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+    b2bData = data.companies || []
+    const { data: prog } = await sb.from('b2b_progress').select('*').eq('team_id', TEAM_ID).eq('plan_date', todayStr)
+    b2bProgress = {}
+    for (const p of (prog || [])) {
+      const key = `${p.company_name}||${p.product_name}||${p.variant_title}`
+      b2bProgress[key] = p
+    }
+    renderB2B()
+  } catch (err) {
+    contentEl.innerHTML = `<div class="alert alert-red">Error: ${err.message}</div>`
+  }
+  btn.disabled = false
+}
+
+function renderB2B() {
+  const contentEl = document.getElementById('b2bContent')
+  if (!b2bData.length) {
+    contentEl.innerHTML = '<div class="empty">No B2B orders found</div>'
+    return
+  }
+  contentEl.innerHTML = b2bData.map(company => {
+    const safeCompany = JSON.stringify(company.company_name)
+    const items = company.items.map(item => {
+      const key = `${company.company_name}||${item.product_name}||${item.variant_title}`
+      const prog = b2bProgress[key]
+      const bagged = prog ? prog.qty_bagged : 0
+      const needed = item.qty
+      const remaining = Math.max(0, needed - bagged)
+      const pct = needed > 0 ? Math.min(100, Math.round(bagged / needed * 100)) : 0
+      const safeProduct = JSON.stringify(item.product_name)
+      const safeVariant = JSON.stringify(item.variant_title)
+      return `<tr class="${remaining === 0 ? 'done-row' : ''}">
+        <td style="font-weight:500">${item.product_name}</td>
+        <td style="font-family:var(--font-mono);font-size:.8rem">${item.variant_title}</td>
+        <td style="font-family:var(--font-mono);font-weight:600">${needed}</td>
+        <td>
+          <div class="counter-cell">
+            <button class="counter-btn" onclick="adjustB2BBagged(${safeCompany},${safeProduct},${safeVariant},-1)">−</button>
+            <span class="counter-val">${bagged}</span>
+            <button class="counter-btn" onclick="adjustB2BBagged(${safeCompany},${safeProduct},${safeVariant},1)">+</button>
+          </div>
+        </td>
+        <td><span class="badge ${remaining === 0 ? 'badge-green' : 'badge-amber'}">${remaining}</span></td>
+        <td>
+          <div class="progress-wrap">
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <span class="progress-text">${pct}%</span>
+          </div>
+        </td>
+      </tr>`
+    }).join('')
+
+    const contactLine = [company.contact_name, company.email].filter(Boolean).join(' · ')
+    return `<div style="margin-bottom:1.5rem">
+      <div class="section-header">
+        ${company.company_name}
+        <span class="badge badge-blue">${company.order_count} order${company.order_count !== 1 ? 's' : ''}</span>
+      </div>
+      ${contactLine ? `<div style="font-size:.75rem;color:var(--mid-gray);margin-bottom:.625rem;font-family:var(--font-mono)">${contactLine}</div>` : ''}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Product</th><th>Bag Size</th><th>Qty Needed</th><th>Bagged</th><th>Remaining</th><th>Progress</th></tr></thead>
+          <tbody>${items}</tbody>
+        </table>
+      </div>
+    </div>`
+  }).join('')
+}
+
+async function adjustB2BBagged(companyName, productName, variantTitle, delta) {
+  const key = `${companyName}||${productName}||${variantTitle}`
+  const prog = b2bProgress[key]
+  const company = b2bData.find(c => c.company_name === companyName)
+  const item = company?.items.find(i => i.product_name === productName && i.variant_title === variantTitle)
+  const needed = item?.qty || 0
+  const current = prog ? prog.qty_bagged : 0
+  const newVal = Math.max(0, Math.min(needed, current + delta))
+  if (prog) {
+    await sb.from('b2b_progress').update({ qty_bagged: newVal, updated_at: new Date().toISOString() }).eq('id', prog.id)
+    b2bProgress[key] = { ...prog, qty_bagged: newVal }
+  } else {
+    const { data: ins } = await sb.from('b2b_progress').insert({
+      team_id: TEAM_ID, company_name: companyName, product_name: productName,
+      variant_title: variantTitle, qty_needed: needed, qty_bagged: newVal, plan_date: todayStr
+    }).select().single()
+    if (ins) b2bProgress[key] = ins
+  }
+  renderB2B()
+}
+
 sb.channel('plan_changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_plan' }, () => loadPlan())
   .subscribe()
@@ -951,6 +1056,18 @@ sb.channel('roast_changes')
     roastingProgress = {}
     for (const r of (rp || [])) roastingProgress[r.green_name] = r
     renderRoasting()
+  })
+  .subscribe()
+
+sb.channel('b2b_changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'b2b_progress' }, async () => {
+    const { data: prog } = await sb.from('b2b_progress').select('*').eq('team_id', TEAM_ID).eq('plan_date', todayStr)
+    b2bProgress = {}
+    for (const p of (prog || [])) {
+      const key = `${p.company_name}||${p.product_name}||${p.variant_title}`
+      b2bProgress[key] = p
+    }
+    renderB2B()
   })
   .subscribe()
 
