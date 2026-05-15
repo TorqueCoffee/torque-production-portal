@@ -5,6 +5,7 @@ module.exports = async function handler(req, res) {
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
 
   try {
+    // Get access token
     const tokenRes = await fetch(
       `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/oauth/access_token`,
       {
@@ -25,6 +26,7 @@ module.exports = async function handler(req, res) {
     const baseUrl = `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/2025-01`
     const headers = { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
 
+    // PRODUCTS endpoint
     if (req.query.type === 'products') {
       let products = []
       let page = `${baseUrl}/products.json?limit=250&status=active`
@@ -40,6 +42,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ products })
     }
 
+    // Fetch all unfulfilled orders — shared by orders + b2b + debug endpoints
     let orders = []
     let ordersPage = `${baseUrl}/orders.json?status=unfulfilled&limit=250`
     while (ordersPage) {
@@ -51,68 +54,11 @@ module.exports = async function handler(req, res) {
       ordersPage = next ? next[1] : null
     }
 
-    if (req.query.type === 'b2b') {
-  return res.status(200).json({
-    sample: orders.slice(0, 3).map(o => ({
-      order_id: o.id,
-      order_name: o.name,
-      customer_company: o.customer?.company,
-      shipping_company: o.shipping_address?.company,
-      billing_company: o.billing_address?.company,
-      tags: o.tags,
-      note: o.note
-    }))
-  })
-}
-        companyMap[companyName].order_count += 1
-        for (const item of order.line_items) {
-          if (item.vendor !== 'Torque Coffees') continue
-          const key = `${item.title}||${item.variant_title || 'Default'}`
-          if (!companyMap[companyName].itemMap[key]) {
-            companyMap[companyName].itemMap[key] = {
-              product_name: item.title,
-              variant_title: item.variant_title || 'Default',
-              qty: 0
-            }
-          }
-          companyMap[companyName].itemMap[key].qty += item.quantity
-        }
-      }
-      const companies = Object.values(companyMap).map(c => ({
-        company_name: c.company_name,
-        contact_name: c.contact_name,
-        email: c.email,
-        order_count: c.order_count,
-        items: Object.values(c.itemMap)
-      })).sort((a, b) => a.company_name.localeCompare(b.company_name))
-      return res.status(200).json({ companies })
-    }
-
-    const aggregated = {}
-    for (const order of orders) {
-      const orderDate = order.created_at ? order.created_at.split('T')[0] : null
-      for (const item of order.line_items) {
-        if (item.vendor !== 'Torque Coffees') continue
-        const key = `${item.sku || item.title}||${item.variant_title || 'Default'}`
-        if (!aggregated[key]) {
-          aggregated[key] = {
-            sku: item.sku || key,
-            product_name: item.title,
-            variant_title: item.variant_title || 'Default',
-            qty_needed: 0,
-            oldest_order_date: orderDate
-          }
-        }
-        aggregated[key].qty_needed += item.quantity
-        if (orderDate && (!aggregated[key].oldest_order_date || orderDate < aggregated[key].oldest_order_date)) {
-          aggregated[key].oldest_order_date = orderDate
-        }
-      }
-    }
-
-    res.status(200).json({ items: Object.values(aggregated) })
-
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-}
+    // DEBUG endpoint — shows raw company fields on first 5 orders
+    if (req.query.type === 'debug') {
+      return res.status(200).json({
+        total_orders: orders.length,
+        sample: orders.slice(0, 5).map(o => ({
+          order_id: o.id,
+          order_name: o.name,
+          customer_company: o.customer?.compan
