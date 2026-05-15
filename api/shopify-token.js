@@ -27,15 +27,14 @@ module.exports = async function handler(req, res) {
 
     // PRODUCTS endpoint
    if (req.query.type === 'products') {
-  const pRes = await fetch(`${baseUrl}/products.json?limit=5&status=active`, { headers })
+  const pRes = await fetch(`${baseUrl}/products.json?limit=10&status=active`, { headers })
   const pData = await pRes.json()
   return res.status(200).json({
     total_returned: (pData.products||[]).length,
-    shopify_error: pData.errors || null,
-    sample_vendors: (pData.products||[]).slice(0,5).map(p => ({
+    all_vendors: [...new Set((pData.products||[]).map(p => p.vendor))],
+    sample: (pData.products||[]).slice(0,10).map(p => ({
       title: p.title,
-      vendor: p.vendor,
-      status: p.status
+      vendor: p.vendor
     }))
   })
 }
