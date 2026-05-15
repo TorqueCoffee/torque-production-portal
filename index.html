@@ -9,10 +9,10 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
---black:#111110;--off-white:#f5f4ef;--warm-gray:#e8e7e2;--mid-gray:#999892;--border:#d8d7d2;
---green:#2d6a4f;--green-light:#d8f3dc;--red:#9b2226;--red-light:#ffe5e5;
---amber:#b5451b;--amber-light:#fff3e0;--blue:#1d4e89;--blue-light:#dbeafe;
---font-mono:'IBM Plex Mono',monospace;--font-sans:'IBM Plex Sans',sans-serif;
+  --black:#111110;--off-white:#f5f4ef;--warm-gray:#e8e7e2;--mid-gray:#999892;--border:#d8d7d2;
+  --green:#2d6a4f;--green-light:#d8f3dc;--red:#9b2226;--red-light:#ffe5e5;
+  --amber:#b5451b;--amber-light:#fff3e0;--blue:#1d4e89;--blue-light:#dbeafe;
+  --font-mono:'IBM Plex Mono',monospace;--font-sans:'IBM Plex Sans',sans-serif;
 }
 body{font-family:var(--font-sans);background:var(--off-white);color:var(--black);min-height:100vh}
 .header{background:var(--black);color:white;padding:.875rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;position:sticky;top:0;z-index:100}
@@ -39,7 +39,7 @@ body{font-family:var(--font-sans);background:var(--off-white);color:var(--black)
 .status-text{font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);margin-left:auto}
 .view{display:none;padding:1.25rem 1.5rem;max-width:1200px}
 .view.active{display:block}
-.alert{padding:.625rem 1rem;border-radius:6px;font-size:.8rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:.5rem;line-height:1.5}
+.alert{padding:.625rem 1rem;border-radius:6px;font-size:.8rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:.5rem;line-height:1.5;flex-wrap:wrap}
 .alert-red{background:var(--red-light);color:var(--red);border:1px solid #ffb3b3}
 .alert-amber{background:var(--amber-light);color:var(--amber);border:1px solid #ffcc99}
 .alert-green{background:var(--green-light);color:var(--green);border:1px solid #95d5b2}
@@ -53,7 +53,7 @@ body{font-family:var(--font-sans);background:var(--off-white);color:var(--black)
 .sort-bar label{font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.07em}
 .sort-bar select{padding:.3rem .6rem;border:1px solid var(--border);border-radius:4px;font-size:.8rem;background:white;font-family:var(--font-sans);cursor:pointer}
 .table-wrap{background:white;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:1rem;overflow-x:auto}
-table{width:100%;border-collapse:collapse;min-width:600px}
+table{width:100%;border-collapse:collapse;min-width:500px}
 th{text-align:left;padding:.6rem 1rem;font-family:var(--font-mono);font-size:.65rem;font-weight:500;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);background:#fafaf8;white-space:nowrap}
 td{padding:.6rem 1rem;font-size:.85rem;border-bottom:1px solid #f0efeb;vertical-align:middle}
 tr:last-child td{border-bottom:none}
@@ -71,6 +71,7 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 .badge-blue{background:var(--blue-light);color:var(--blue)}
 .badge-amber{background:var(--amber-light);color:var(--amber)}
 .badge-gray{background:var(--warm-gray);color:#555}
+.badge-red{background:var(--red-light);color:var(--red)}
 .source-tag{font-family:var(--font-mono);font-size:.65rem;padding:.1rem .4rem;border-radius:3px;background:var(--warm-gray);color:#555;white-space:nowrap}
 .source-tag.manual{background:var(--green-light);color:var(--green)}
 .empty{text-align:center;padding:2.5rem;color:var(--mid-gray);font-size:.85rem;font-family:var(--font-mono)}
@@ -115,6 +116,12 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 .batch-inline input{width:52px;padding:.15rem .35rem;border:1px solid var(--border);border-radius:3px;font-size:.75rem;font-family:var(--font-mono);background:var(--off-white)}
 .batch-inline span{font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray)}
 .section-header{font-family:var(--font-mono);font-size:.7rem;font-weight:600;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em;margin:1.25rem 0 .625rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+/* B2B */
+.company-card{background:white;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:1rem}
+.company-header{padding:.875rem 1.25rem;background:#fafaf8;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.company-name{font-family:var(--font-mono);font-size:.9rem;font-weight:600}
+.company-meta{font-size:.78rem;color:var(--mid-gray);margin-top:.2rem}
+.company-meta a{color:var(--blue);text-decoration:none}
 .help-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem}
 .help-card{background:white;border:1px solid var(--border);border-radius:6px;padding:1rem 1.25rem}
 .help-card-title{font-family:var(--font-mono);font-size:.75rem;font-weight:600;margin-bottom:.625rem;display:flex;align-items:center;gap:.5rem}
@@ -122,52 +129,56 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 .help-card ul{padding-left:1rem;margin-top:.25rem}
 .help-card li{margin-bottom:.2rem}
 .help-note{background:var(--amber-light);border:1px solid #ffcc99;border-radius:6px;padding:.75rem 1rem;font-size:.8rem;color:var(--amber);font-family:var(--font-mono)}
+.stale-detail{font-size:.75rem;margin-top:.25rem;font-family:var(--font-mono);opacity:.85}
 @media print{
-.header,.toolbar,#bagging,#addorder,#blends,#help,#b2b,.sort-bar{display:none!important}
-#roasting{display:block!important;padding:0}
-.summary-row{display:none}
-body{background:white}
-.table-wrap{border:1px solid #ccc;box-shadow:none}
+  .header,.toolbar,#bagging,#addorder,#blends,#b2b,#help,.sort-bar{display:none!important}
+  #roasting{display:block!important;padding:0}
+  .summary-row{display:none}
+  body{background:white}
+  .table-wrap{border:1px solid #ccc;box-shadow:none}
 }
 @media(max-width:640px){
-.header{padding:.75rem 1rem}
-.view{padding:1rem}
-td,th{padding:.45rem .6rem;font-size:.78rem}
-.summary-card{min-width:100px}
-.blend-grid{grid-template-columns:1fr}
-.help-grid{grid-template-columns:1fr}
-.status-text{display:none}
+  .header{padding:.75rem 1rem}
+  .view{padding:1rem}
+  td,th{padding:.45rem .6rem;font-size:.78rem}
+  .summary-card{min-width:100px}
+  .blend-grid{grid-template-columns:1fr}
+  .help-grid{grid-template-columns:1fr}
+  .status-text{display:none}
 }
 </style>
 </head>
 <body>
+
 <div class="header">
   <div class="header-left">
     <div class="logo">TORQUE — Roast Scheduler</div>
     <div class="date-badge" id="dateBadge"></div>
-    <div class="stale-warn" id="staleWarn" onclick="switchTab('blends',document.querySelectorAll('.tab')[3])">⚠ Blend has missing coffee — fix in Blends tab</div>
+    <div class="stale-warn" id="staleWarn" onclick="switchTab('blends',document.querySelectorAll('.tab')[3])">⚠ Blend issue — tap to fix</div>
   </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('bagging',this)">Bagging</button>
     <button class="tab" onclick="switchTab('roasting',this)">Roasting</button>
     <button class="tab" onclick="switchTab('addorder',this)">Add Order</button>
     <button class="tab" onclick="switchTab('blends',this)">Blends</button>
-    <button class="tab" onclick="switchTab('help',this)">Help</button>
     <button class="tab" onclick="switchTab('b2b',this)">B2B</button>
+    <button class="tab" onclick="switchTab('help',this)">Help</button>
   </div>
 </div>
 
 <div class="toolbar">
   <button class="btn btn-primary" id="refreshBtn" onclick="refreshOrders()">Pull Orders</button>
   <button class="btn btn-danger" onclick="archiveDay()">Archive Done</button>
-  <button class="btn btn-secondary" onclick="viewArchive()">View Archive</button>
-  <button class="btn btn-secondary" onclick="window.print()">🖨 Print Roast Plan</button>
+  <button class="btn btn-secondary" id="archiveToggleBtn" onclick="viewArchive()">View Archive</button>
+  <button class="btn btn-secondary" onclick="window.print()">🖨 Print</button>
   <span class="status-text" id="statusMsg">Not loaded</span>
 </div>
 
+<!-- BAGGING -->
 <div id="bagging" class="view active">
   <div class="summary-row" id="baggingSummary"></div>
   <div id="noOrdersAlert" style="display:none" class="alert alert-amber">⚠ Pull Orders returned 0 items from Shopify. Is this correct?</div>
+  <div id="newCoffeesAlert" style="display:none" class="alert alert-blue"></div>
   <div class="sort-bar">
     <label>Sort by</label>
     <select id="sortSelect" onchange="renderBagging()">
@@ -191,21 +202,25 @@ td,th{padding:.45rem .6rem;font-size:.78rem}
     </table>
   </div>
   <div id="archiveSection" style="display:none">
-    <div class="section-header">Today's Archived</div>
+    <div class="section-header">
+      Today's Archived
+      <button class="btn btn-ghost btn-sm" onclick="viewArchive()">Hide</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Product</th><th>Bag Size</th><th>Qty Bagged</th><th>Source</th><th>Time</th></tr></thead>
-        <tbody id="archiveBody"></tbody>
+        <tbody id="archiveBody"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
 </div>
 
+<!-- ROASTING -->
 <div id="roasting" class="view">
-  <div id="blendWarning" style="display:none" class="alert alert-red">⚠ One or more blends have ratios that don't add to 100%. Check the Blends tab.</div>
-  <div id="staleWarnRoast" style="display:none" class="alert alert-red">⚠ A blend references a coffee not in Shopify. Roasting numbers may be wrong.</div>
+  <div id="blendWarning" style="display:none" class="alert alert-red"></div>
+  <div id="staleWarnRoast" style="display:none" class="alert alert-red"></div>
   <div class="summary-row" id="roastSummary"></div>
-  <div class="section-header">Green Coffee Plan</div>
+  <div class="section-header">Coffee Roasting Plan</div>
   <div class="table-wrap">
     <table>
       <thead>
@@ -230,6 +245,7 @@ td,th{padding:.45rem .6rem;font-size:.78rem}
   </div>
 </div>
 
+<!-- ADD ORDER -->
 <div id="addorder" class="view">
   <div class="form-card">
     <div class="form-card-title">Add Internal Order</div>
@@ -263,12 +279,13 @@ td,th{padding:.45rem .6rem;font-size:.78rem}
   </div>
 </div>
 
+<!-- BLENDS -->
 <div id="blends" class="view">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
     <div style="font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em">Blend Matrix + Single Origin Settings</div>
     <button class="btn btn-secondary" onclick="addNewBlend()">+ New Blend</button>
   </div>
-  <div id="staleBlendAlert" style="display:none" class="alert alert-red">⚠ Some blends reference coffees not found in the Single Origins list. Update the components below.</div>
+  <div id="staleBlendAlert" style="display:none" class="alert alert-red"></div>
   <div class="section-header">Blends</div>
   <div class="blend-grid" id="blendCards"><div class="empty">Loading...</div></div>
   <div class="section-header" style="margin-top:1.5rem">
@@ -283,6 +300,17 @@ td,th{padding:.45rem .6rem;font-size:.78rem}
   </div>
 </div>
 
+<!-- B2B -->
+<div id="b2b" class="view">
+  <div class="summary-row" id="b2bSummary"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+    <div style="font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em">B2B Orders — grouped by company</div>
+    <button class="btn btn-primary" id="b2bRefreshBtn" onclick="loadB2B()">Refresh B2B</button>
+  </div>
+  <div id="b2bBody"><div class="empty" style="padding:3rem;background:white;border:1px solid var(--border);border-radius:6px;">Click "Refresh B2B" to load wholesale orders</div></div>
+</div>
+
+<!-- HELP -->
 <div id="help" class="view">
   <div style="font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem">How to use — read once, you're done</div>
   <div class="help-grid">
@@ -316,6 +344,14 @@ td,th{padding:.45rem .6rem;font-size:.78rem}
       </ul>
     </div>
     <div class="help-card">
+      <div class="help-card-title"><span>🏢</span> B2B tab</div>
+      <ul>
+        <li>Shows all wholesale orders grouped by company</li>
+        <li>Use as a double-check against Shopify</li>
+        <li>Hit Refresh B2B to reload latest orders</li>
+      </ul>
+    </div>
+    <div class="help-card">
       <div class="help-card-title"><span>➕</span> Add Order</div>
       <ul>
         <li>For café, wholesale, or staff orders not in Shopify</li>
@@ -327,30 +363,22 @@ td,th{padding:.45rem .6rem;font-size:.78rem}
       <div class="help-card-title"><span>⚗️</span> Blends tab</div>
       <ul>
         <li>Edit blend recipes — ratios must add to 100%</li>
-        <li>All coffees sourced from Single Origins list below blends</li>
-        <li>Add new coffees to Single Origins first, then use in blends</li>
-        <li>Red border = blend has a missing coffee — update it</li>
+        <li>All coffees pulled from Shopify — no free typing</li>
+        <li>Red border = blend has a retired coffee — update it</li>
+        <li>Single origin batch sizes editable here</li>
       </ul>
     </div>
     <div class="help-card">
       <div class="help-card-title"><span>🌙</span> End of day</div>
       <ul>
-        <li>Completed rows auto-mark Done when fully bagged</li>
+        <li>Rows auto-complete when fully bagged</li>
         <li>Click <strong>Archive Done</strong> to clear completed rows</li>
         <li>View Archive shows what was completed today</li>
-        <li>Partially done rows carry over automatically</li>
+        <li>Partial rows carry over automatically</li>
       </ul>
     </div>
   </div>
-  <div class="help-note">Pull Orders anytime — locked rows won't be overwritten. Unlocked rows recalculate from current Shopify qty. All changes sync instantly across all devices.</div>
-</div>
-
-<div id="b2b" class="view">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.5rem">
-    <div style="font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em">B2B Wholesale Orders</div>
-    <button class="btn btn-primary" id="b2bRefreshBtn" onclick="loadB2BOrders()">Refresh B2B</button>
-  </div>
-  <div id="b2bContent"><div class="empty">Click Refresh B2B to load wholesale orders</div></div>
+  <div class="help-note">Pull Orders anytime — locked rows won't be overwritten. Unlocked rows recalculate from Shopify. All changes sync instantly across all devices.</div>
 </div>
 
 <script>
@@ -365,8 +393,6 @@ let greenSettings = []
 let roastingProgress = {}
 let shopifyProducts = []
 let staleBlends = []
-let b2bData = []
-let b2bProgress = {}
 
 const today = new Date()
 const todayStr = today.toISOString().split('T')[0]
@@ -378,10 +404,11 @@ function switchTab(tab, el) {
   document.getElementById(tab).classList.add('active')
   if (el) el.classList.add('active')
   if (tab === 'blends') renderBlendEditor()
+  if (tab === 'b2b') loadB2B()
 }
 
 function qtyRemaining(row) {
-  return Math.max(0, (row.qty_needed || 0) - (row.qty_bagged || 0))
+  return Math.max(0, (row.qty_needed||0) - (row.qty_bagged||0))
 }
 
 function variantToLbs(variant) {
@@ -389,53 +416,71 @@ function variantToLbs(variant) {
   const m = variant.match(/(\d+\.?\d*)\s*(lb|pound|oz)/i)
   if (!m) return 0
   const n = parseFloat(m[1]), u = m[2].toLowerCase()
-  return u === 'oz' ? n / 16 : n
+  return u === 'oz' ? n/16 : n
 }
 
-function isDrop(name) {
-  return name.toLowerCase().includes('drop')
-}
+function isDrop(name) { return name.toLowerCase().includes('drop') }
 
 function variantSortWeight(variant) {
   if (!variant) return 999
   const m = variant.match(/(\d+\.?\d*)\s*(lb|pound|oz|pod)/i)
   if (!m) return 999
   const n = parseFloat(m[1]), u = m[2].toLowerCase()
-  if (u === 'oz') return n / 16
-  if (u === 'pod') return 0.001
+  if (u==='oz') return n/16
+  if (u==='pod') return 0.001
   return n
 }
 
 function sortPlan(data) {
   const mode = document.getElementById('sortSelect')?.value || 'name'
   const d = [...data]
-  if (mode === 'name') {
-    d.sort((a,b) => a.product_name.localeCompare(b.product_name))
-  } else if (mode === 'size') {
-    d.sort((a,b) => variantSortWeight(b.variant_title) - variantSortWeight(a.variant_title) || a.product_name.localeCompare(b.product_name))
-  } else if (mode === 'type') {
-    d.sort((a,b) => {
-      const ta = isDrop(a.product_name) ? 0 : 1
-      const tb = isDrop(b.product_name) ? 0 : 1
-      if (ta !== tb) return ta - tb
-      return variantSortWeight(b.variant_title) - variantSortWeight(a.variant_title) || a.product_name.localeCompare(b.product_name)
-    })
-  } else if (mode === 'source') {
-    d.sort((a,b) => (a.source === 'shopify' ? 0 : 1) - (b.source === 'shopify' ? 0 : 1) || a.product_name.localeCompare(b.product_name))
-  } else if (mode === 'date') {
-    d.sort((a,b) => {
-      if (!a.oldest_order_date) return 1
-      if (!b.oldest_order_date) return -1
-      return a.oldest_order_date.localeCompare(b.oldest_order_date)
-    })
-  }
+  if (mode==='name') d.sort((a,b)=>a.product_name.localeCompare(b.product_name))
+  else if (mode==='size') d.sort((a,b)=>variantSortWeight(b.variant_title)-variantSortWeight(a.variant_title)||a.product_name.localeCompare(b.product_name))
+  else if (mode==='type') d.sort((a,b)=>{
+    const ta=isDrop(a.product_name)?0:1, tb=isDrop(b.product_name)?0:1
+    if(ta!==tb) return ta-tb
+    return variantSortWeight(b.variant_title)-variantSortWeight(a.variant_title)||a.product_name.localeCompare(b.product_name)
+  })
+  else if (mode==='source') d.sort((a,b)=>(a.source==='shopify'?0:1)-(b.source==='shopify'?0:1)||a.product_name.localeCompare(b.product_name))
+  else if (mode==='date') d.sort((a,b)=>{
+    if(!a.oldest_order_date) return 1
+    if(!b.oldest_order_date) return -1
+    return a.oldest_order_date.localeCompare(b.oldest_order_date)
+  })
   return d
 }
 
-function matchesToOrigins(componentName) {
-  if (!greenSettings.length) return true
-  const cn = componentName.toLowerCase().trim()
-  return greenSettings.some(g => g.component_name.toLowerCase().trim() === cn)
+function matchesToShopify(componentName) {
+  if (!shopifyProducts.length) return true
+  return shopifyProducts.some(p => p.toLowerCase().trim() === componentName.toLowerCase().trim())
+}
+
+// AUTO-SYNC green_coffee_settings with active Shopify products
+async function syncGreenCoffeeSettings(activeProducts) {
+  const { data: existing } = await sb.from('green_coffee_settings').select('*')
+  const existingNames = new Set((existing||[]).map(g => g.component_name.toLowerCase().trim()))
+  const activeNames = new Set(activeProducts.map(p => p.toLowerCase().trim()))
+
+  // Add new active products not yet in settings
+  const toAdd = activeProducts.filter(p => !existingNames.has(p.toLowerCase().trim()))
+  for (const name of toAdd) {
+    await sb.from('green_coffee_settings').insert({ component_name: name, batch_size_lbs: 8, shrinkage_pct: 15 })
+  }
+
+  // Hard delete settings for products no longer active in Shopify
+  const toDelete = (existing||[]).filter(g => !activeNames.has(g.component_name.toLowerCase().trim()))
+  for (const row of toDelete) {
+    await sb.from('green_coffee_settings').delete().eq('id', row.id)
+  }
+
+  // Alert if new coffees were added
+  const alertEl = document.getElementById('newCoffeesAlert')
+  if (toAdd.length > 0) {
+    alertEl.style.display = 'flex'
+    alertEl.textContent = `ℹ ${toAdd.length} new coffee${toAdd.length>1?'s':''} added to settings with default 8lb batch size: ${toAdd.join(', ')} — update batch sizes in Blends tab if needed.`
+  } else {
+    alertEl.style.display = 'none'
+  }
 }
 
 async function refreshOrders() {
@@ -444,61 +489,68 @@ async function refreshOrders() {
   btn.disabled = true
   status.textContent = 'Pulling from Shopify...'
   try {
+    // Load active products
     const pRes = await fetch('/api/shopify-token?type=products')
     const pData = await pRes.json()
     shopifyProducts = pData.products || []
 
+    // Sync green coffee settings
+    await syncGreenCoffeeSettings(shopifyProducts)
+
+    // Load orders
     const res = await fetch('/api/shopify-token')
     const data = await res.json()
     if (data.error) throw new Error(data.error)
 
-    document.getElementById('noOrdersAlert').style.display = data.items.length === 0 ? 'flex' : 'none'
+    document.getElementById('noOrdersAlert').style.display = data.items.length===0 ? 'flex' : 'none'
 
-    const { data: existing } = await sb.from('daily_plan').select('*').eq('team_id', TEAM_ID).eq('source', 'shopify')
+    // Rolling ledger
+    const { data: existing } = await sb.from('daily_plan').select('*').eq('team_id', TEAM_ID).eq('source','shopify')
     const existingMap = {}
-    for (const row of (existing || [])) existingMap[row.sku] = row
-
+    for (const row of (existing||[])) existingMap[row.sku] = row
     const pulledSkus = new Set(data.items.map(i => i.sku))
 
     for (const item of data.items) {
       const ex = existingMap[item.sku]
       if (!ex) {
         await sb.from('daily_plan').insert({
-          team_id: TEAM_ID, sku: item.sku, product_name: item.product_name,
-          variant_title: item.variant_title, qty_needed: item.qty_needed,
-          qty_bagged: 0, oldest_order_date: item.oldest_order_date,
-          locked: false, done: false, source: 'shopify'
+          team_id:TEAM_ID, sku:item.sku, product_name:item.product_name,
+          variant_title:item.variant_title, qty_needed:item.qty_needed,
+          qty_bagged:0, oldest_order_date:item.oldest_order_date,
+          locked:false, done:false, source:'shopify'
         })
       } else if (!ex.locked) {
         await sb.from('daily_plan').update({
-          qty_needed: item.qty_needed,
-          oldest_order_date: item.oldest_order_date,
-          updated_at: new Date().toISOString()
+          qty_needed:item.qty_needed,
+          oldest_order_date:item.oldest_order_date,
+          updated_at:new Date().toISOString()
         }).eq('id', ex.id)
       }
     }
 
-    for (const row of (existing || [])) {
+    // Remove rows for SKUs no longer unfulfilled
+    for (const row of (existing||[])) {
       if (!pulledSkus.has(row.sku) && !row.locked) {
         await sb.from('daily_plan').delete().eq('id', row.id)
       }
     }
 
+    await validateBlends()
     await loadPlan()
     const t = new Date()
     status.textContent = `Pulled ${data.items.length} items — ${t.toLocaleDateString()} ${t.toLocaleTimeString()}`
-  } catch (err) {
+  } catch(err) {
     status.textContent = 'Error: ' + err.message
   }
   btn.disabled = false
 }
 
 async function loadPlan() {
-  const { data } = await sb.from('daily_plan').select('*').eq('team_id', TEAM_ID).order('product_name')
+  const { data } = await sb.from('daily_plan').select('*').eq('team_id',TEAM_ID).order('product_name')
   planData = data || []
-  const { data: rp } = await sb.from('roasting_progress').select('*').eq('team_id', TEAM_ID).eq('plan_date', todayStr)
+  const { data: rp } = await sb.from('roasting_progress').select('*').eq('team_id',TEAM_ID).eq('plan_date',todayStr)
   roastingProgress = {}
-  for (const r of (rp || [])) roastingProgress[r.green_name] = r
+  for (const r of (rp||[])) roastingProgress[r.green_name] = r
   renderBagging()
   renderRoasting()
   populateCoffeeDropdown()
@@ -512,47 +564,63 @@ async function loadBlends() {
 }
 
 async function validateBlends() {
+  if (!shopifyProducts.length) return
   staleBlends = []
   for (const comp of blendMatrix) {
-    if (!matchesToOrigins(comp.component_name)) {
+    if (!matchesToShopify(comp.component_name)) {
       staleBlends.push({ blend: comp.product_name, component: comp.component_name })
     }
   }
   const hasStale = staleBlends.length > 0
   document.getElementById('staleWarn').style.display = hasStale ? 'flex' : 'none'
-  document.getElementById('staleWarnRoast').style.display = hasStale ? 'flex' : 'none'
-  const sa = document.getElementById('staleBlendAlert')
-  if (sa) sa.style.display = hasStale ? 'flex' : 'none'
+
+  // Specific warnings
+  const detail = staleBlends.map(s => `${s.blend}: "${s.component}" not in Shopify`).join(' · ')
+
+  const roastWarn = document.getElementById('staleWarnRoast')
+  if (hasStale) {
+    roastWarn.style.display = 'flex'
+    roastWarn.innerHTML = `⚠ Blend component not found in Shopify — roasting numbers may be wrong.<div class="stale-detail">${detail}</div>`
+  } else {
+    roastWarn.style.display = 'none'
+  }
+
+  const blendAlert = document.getElementById('staleBlendAlert')
+  if (blendAlert) {
+    if (hasStale) {
+      blendAlert.style.display = 'flex'
+      blendAlert.innerHTML = `⚠ Update these blend components — coffee no longer active in Shopify:<div class="stale-detail">${detail}</div>`
+    } else {
+      blendAlert.style.display = 'none'
+    }
+  }
 }
 
 function populateCoffeeDropdown() {
   const sel = document.getElementById('addCoffee')
   if (!sel) return
   const fromPlan = [...new Set(planData.map(r => r.product_name))]
-  const fromOrigins = greenSettings.map(g => g.component_name)
-  const all = [...new Set([...fromPlan, ...fromOrigins])].sort()
+  const all = [...new Set([...fromPlan, ...shopifyProducts])].sort()
   sel.innerHTML = all.length
     ? all.map(n => `<option value="${n}">${n}</option>`).join('')
-    : '<option value="">No coffees configured yet</option>'
+    : '<option value="">Pull Orders first</option>'
 }
 
 function renderBagging() {
   const tbody = document.getElementById('baggingBody')
   const tfoot = document.getElementById('baggingFoot')
   const summaryEl = document.getElementById('baggingSummary')
-
   if (!planData.length) {
     tbody.innerHTML = '<tr><td colspan="10" class="empty">Click "Pull Orders" to load</td></tr>'
     tfoot.innerHTML = ''
     summaryEl.innerHTML = ''
     return
   }
-
   const sorted = sortPlan(planData)
-  const totalNeeded = planData.reduce((s,r) => s + (r.qty_needed||0), 0)
-  const totalBagged = planData.reduce((s,r) => s + (r.qty_bagged||0), 0)
-  const totalRemaining = planData.reduce((s,r) => s + qtyRemaining(r), 0)
-  const doneCount = planData.filter(r => r.done).length
+  const totalNeeded = planData.reduce((s,r)=>s+(r.qty_needed||0),0)
+  const totalBagged = planData.reduce((s,r)=>s+(r.qty_bagged||0),0)
+  const totalRemaining = planData.reduce((s,r)=>s+qtyRemaining(r),0)
+  const doneCount = planData.filter(r=>r.done).length
 
   summaryEl.innerHTML = `
     <div class="summary-card"><div class="summary-label">Needed</div><div class="summary-value">${totalNeeded}</div><div class="summary-sub">total bags</div></div>
@@ -562,20 +630,19 @@ function renderBagging() {
   `
 
   tbody.innerHTML = sorted.map(row => {
-    const needed = row.qty_needed || 0
-    const bagged = row.qty_bagged || 0
+    const needed = row.qty_needed||0
+    const bagged = row.qty_bagged||0
     const remaining = qtyRemaining(row)
-    const pct = needed > 0 ? Math.min(100, Math.round(bagged / needed * 100)) : 0
+    const pct = needed>0 ? Math.min(100,Math.round(bagged/needed*100)) : 0
     const isOld = row.oldest_order_date && row.oldest_order_date < todayStr
     const dateLabel = row.oldest_order_date
-      ? `<span class="date-chip ${isOld ? 'old' : ''}">${isOld ? '⚠ ' : ''}${row.oldest_order_date}</span>`
-      : ''
-    return `<tr class="${row.done ? 'done-row' : ''}" id="row-${row.id}">
-      <td><input type="checkbox" ${row.done ? 'checked' : ''} onchange="toggleDone('${row.id}',this.checked)"></td>
-      <td style="font-weight:500">${row.product_name}${row.note ? `<br><span style="font-size:.72rem;color:var(--mid-gray)">${row.note}</span>` : ''}</td>
+      ? `<span class="date-chip ${isOld?'old':''}">${isOld?'⚠ ':''}${row.oldest_order_date}</span>` : ''
+    return `<tr class="${row.done?'done-row':''}" id="row-${row.id}">
+      <td><input type="checkbox" ${row.done?'checked':''} onchange="toggleDone('${row.id}',this.checked)"></td>
+      <td style="font-weight:500">${row.product_name}${row.note?`<br><span style="font-size:.72rem;color:var(--mid-gray)">${row.note}</span>`:''}</td>
       <td style="font-family:var(--font-mono);font-size:.8rem">${row.variant_title}</td>
       <td>${dateLabel}</td>
-      <td><span class="source-tag ${row.source === 'manual' ? 'manual' : ''}">${row.source === 'manual' ? 'Internal' : 'Shopify'}</span></td>
+      <td><span class="source-tag ${row.source==='manual'?'manual':''}">${row.source==='manual'?'Internal':'Shopify'}</span></td>
       <td style="font-family:var(--font-mono);font-weight:600">${needed}</td>
       <td>
         <div class="counter-cell">
@@ -584,14 +651,14 @@ function renderBagging() {
           <button class="counter-btn" onclick="adjustBagged('${row.id}',1)">+</button>
         </div>
       </td>
-      <td><span class="badge ${remaining === 0 ? 'badge-green' : 'badge-amber'}">${remaining}</span></td>
+      <td><span class="badge ${remaining===0?'badge-green':'badge-amber'}">${remaining}</span></td>
       <td>
         <div class="progress-wrap">
           <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
           <span class="progress-text">${pct}%</span>
         </div>
       </td>
-      <td><button class="lock-btn ${row.locked ? 'locked' : ''}" onclick="toggleLock('${row.id}',${!row.locked})">${row.locked ? '🔒' : 'Lock'}</button></td>
+      <td><button class="lock-btn ${row.locked?'locked':''}" onclick="toggleLock('${row.id}',${!row.locked})">${row.locked?'🔒':'Lock'}</button></td>
     </tr>`
   }).join('')
 
@@ -614,55 +681,66 @@ function renderRoasting() {
   const roastedByProduct = {}
   for (const row of planData) {
     const lbs = variantToLbs(row.variant_title) * qtyRemaining(row)
-    if (lbs <= 0) continue
-    roastedByProduct[row.product_name] = (roastedByProduct[row.product_name] || 0) + lbs
+    if (lbs<=0) continue
+    roastedByProduct[row.product_name] = (roastedByProduct[row.product_name]||0) + lbs
   }
 
   let hasBroken = false
-  const blendNames = [...new Set(blendMatrix.map(b => b.product_name))]
+  const blendNames = [...new Set(blendMatrix.map(b=>b.product_name))]
   for (const bn of blendNames) {
     if (!roastedByProduct[bn]) continue
-    const comps = blendMatrix.filter(b => b.product_name === bn)
-    const total = comps.reduce((s,c) => s + Number(c.ratio), 0)
-    if (Math.abs(total - 1) > 0.01) hasBroken = true
+    const comps = blendMatrix.filter(b=>b.product_name===bn)
+    const total = comps.reduce((s,c)=>s+Number(c.ratio),0)
+    if (Math.abs(total-1)>0.01) { hasBroken = true }
   }
-  warnEl.style.display = hasBroken ? 'flex' : 'none'
+  if (hasBroken) {
+    const broken = blendNames.filter(bn => {
+      if (!roastedByProduct[bn]) return false
+      const comps = blendMatrix.filter(b=>b.product_name===bn)
+      const total = comps.reduce((s,c)=>s+Number(c.ratio),0)
+      return Math.abs(total-1)>0.01
+    })
+    warnEl.style.display = 'flex'
+    warnEl.innerHTML = `⚠ Blend ratios don't add to 100% — fix in Blends tab: ${broken.join(', ')}`
+  } else {
+    warnEl.style.display = 'none'
+  }
 
   const coffeeNeeded = {}
   for (const [product, roastedLbs] of Object.entries(roastedByProduct)) {
-    const components = blendMatrix.filter(b => b.product_name.toLowerCase() === product.toLowerCase())
-    if (components.length > 0) {
+    const components = blendMatrix.filter(b=>b.product_name.toLowerCase()===product.toLowerCase())
+    if (components.length>0) {
       for (const comp of components) {
         const key = comp.component_name
         if (!coffeeNeeded[key]) {
-          const gs = greenSettings.find(g => g.component_name === key)
-          coffeeNeeded[key] = { roasted: 0, batch_size: gs ? gs.batch_size_lbs : comp.batch_size_lbs }
+          const gs = greenSettings.find(g=>g.component_name===key)
+          coffeeNeeded[key] = { roasted:0, batch_size: gs?gs.batch_size_lbs:comp.batch_size_lbs }
         }
-        coffeeNeeded[key].roasted += roastedLbs * comp.ratio
+        coffeeNeeded[key].roasted += roastedLbs*comp.ratio
       }
     } else {
       const key = product
-      const gs = greenSettings.find(g => g.component_name === key)
-      const batchSize = gs ? gs.batch_size_lbs : 8
-      if (!coffeeNeeded[key]) coffeeNeeded[key] = { roasted: 0, batch_size: batchSize }
+      const gs = greenSettings.find(g=>g.component_name===key)
+      const batchSize = gs?gs.batch_size_lbs:8
+      if (!coffeeNeeded[key]) coffeeNeeded[key] = { roasted:0, batch_size:batchSize }
       coffeeNeeded[key].roasted += roastedLbs
     }
   }
 
   const SHRINKAGE = 1.176
-  let totalGreen = 0, totalBatchesNeeded = 0, totalBatchesDone = 0
-  const rows = Object.entries(coffeeNeeded).sort((a,b) => a[0].localeCompare(b[0]))
+  let totalGreen=0, totalBatchesNeeded=0, totalBatchesDone=0
+  const rows = Object.entries(coffeeNeeded).sort((a,b)=>a[0].localeCompare(b[0]))
 
-  tbody.innerHTML = rows.map(([coffeeName, val]) => {
-    const greenLbs = val.roasted * SHRINKAGE
-    const batchesNeeded = Math.ceil(greenLbs / val.batch_size)
+  tbody.innerHTML = rows.map(([coffeeName,val])=>{
+    const greenLbs = val.roasted*SHRINKAGE
+    const batchesNeeded = Math.ceil(greenLbs/val.batch_size)
     const prog = roastingProgress[coffeeName]
-    const batchesDone = prog ? prog.batches_done : 0
-    const batchesLeft = Math.max(0, batchesNeeded - batchesDone)
-    totalGreen += greenLbs
-    totalBatchesNeeded += batchesNeeded
-    totalBatchesDone += Math.min(batchesDone, batchesNeeded)
-    return `<tr class="${batchesLeft === 0 ? 'done-row' : ''}">
+    const batchesDone = prog?prog.batches_done:0
+    const batchesLeft = Math.max(0,batchesNeeded-batchesDone)
+    totalGreen+=greenLbs
+    totalBatchesNeeded+=batchesNeeded
+    totalBatchesDone+=Math.min(batchesDone,batchesNeeded)
+    return `<tr class="${batchesLeft===0?'done-row':''}">
       <td style="font-weight:500">${coffeeName}</td>
       <td style="font-family:var(--font-mono)">${val.roasted.toFixed(1)}</td>
       <td style="font-family:var(--font-mono)">${greenLbs.toFixed(1)}</td>
@@ -675,19 +753,19 @@ function renderRoasting() {
           <button class="counter-btn" onclick="adjustBatches('${coffeeName.replace(/'/g,"\\'")}', 1)">+</button>
         </div>
       </td>
-      <td><span class="badge ${batchesLeft === 0 ? 'badge-green' : 'badge-amber'}">${batchesLeft}</span></td>
+      <td><span class="badge ${batchesLeft===0?'badge-green':'badge-amber'}">${batchesLeft}</span></td>
       <td><input type="text" placeholder="Notes..." style="border:none;background:transparent;font-size:.78rem;width:100%;min-width:80px" onfocus="this.style.background='var(--off-white)'" onblur="this.style.background='transparent'"></td>
     </tr>`
   }).join('')
 
-  const totalLeft = Math.max(0, totalBatchesNeeded - totalBatchesDone)
+  const totalLeft = Math.max(0,totalBatchesNeeded-totalBatchesDone)
   tfoot.innerHTML = `<tr class="tfoot-row">
     <td>TOTAL</td><td></td>
     <td style="font-family:var(--font-mono)">${totalGreen.toFixed(1)} lbs</td>
     <td></td>
     <td><span class="badge badge-blue">${totalBatchesNeeded}</span></td>
     <td style="font-family:var(--font-mono)">${totalBatchesDone}</td>
-    <td><span class="badge ${totalLeft === 0 ? 'badge-green' : 'badge-amber'}">${totalLeft}</span></td>
+    <td><span class="badge ${totalLeft===0?'badge-green':'badge-amber'}">${totalLeft}</span></td>
     <td></td>
   </tr>`
 
@@ -699,29 +777,103 @@ function renderRoasting() {
   `
 }
 
+// B2B
+async function loadB2B() {
+  const btn = document.getElementById('b2bRefreshBtn')
+  const container = document.getElementById('b2bBody')
+  const summaryEl = document.getElementById('b2bSummary')
+  btn.disabled = true
+  btn.textContent = 'Loading...'
+  container.innerHTML = '<div class="empty" style="padding:3rem;background:white;border:1px solid var(--border);border-radius:6px;">Loading B2B orders...</div>'
+
+  try {
+    const res = await fetch('/api/shopify-token?type=b2b')
+    const data = await res.json()
+    const companies = data.companies || []
+
+    const totalCompanies = companies.length
+    const totalItems = companies.reduce((s,c)=>s+c.items.length,0)
+    const totalBags = companies.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+i.qty,0),0)
+
+    summaryEl.innerHTML = `
+      <div class="summary-card"><div class="summary-label">Companies</div><div class="summary-value">${totalCompanies}</div><div class="summary-sub">wholesale accounts</div></div>
+      <div class="summary-card"><div class="summary-label">Line Items</div><div class="summary-value">${totalItems}</div><div class="summary-sub">across all orders</div></div>
+      <div class="summary-card"><div class="summary-label">Total Bags</div><div class="summary-value">${totalBags}</div><div class="summary-sub">to fulfill</div></div>
+    `
+
+    if (!companies.length) {
+      container.innerHTML = '<div class="empty" style="padding:3rem;background:white;border:1px solid var(--border);border-radius:6px;">No B2B orders found in unfulfilled orders</div>'
+      return
+    }
+
+    container.innerHTML = companies.map(company => `
+      <div class="company-card">
+        <div class="company-header">
+          <div>
+            <div class="company-name">${company.company_name}</div>
+            <div class="company-meta">
+              ${company.contact_name ? `${company.contact_name} · ` : ''}
+              ${company.email ? `<a href="mailto:${company.email}">${company.email}</a>` : ''}
+            </div>
+          </div>
+          <span class="badge badge-blue">${company.order_count} order${company.order_count!==1?'s':''}</span>
+        </div>
+        <div class="table-wrap" style="margin:0;border:none;border-radius:0">
+          <table>
+            <thead>
+              <tr><th>Product</th><th>Bag Size</th><th>Qty</th></tr>
+            </thead>
+            <tbody>
+              ${company.items.map(item=>`
+                <tr>
+                  <td style="font-weight:500">${item.product_name}</td>
+                  <td style="font-family:var(--font-mono);font-size:.8rem">${item.variant_title}</td>
+                  <td><span class="badge badge-blue">${item.qty}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr class="tfoot-row">
+                <td>Total</td><td></td>
+                <td>${company.items.reduce((s,i)=>s+i.qty,0)} bags</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    `).join('')
+
+  } catch(err) {
+    container.innerHTML = `<div class="alert alert-red">Error loading B2B orders: ${err.message}</div>`
+  }
+
+  btn.disabled = false
+  btn.textContent = 'Refresh B2B'
+}
+
 async function adjustBagged(id, delta) {
-  const row = planData.find(r => r.id === id)
+  const row = planData.find(r=>r.id===id)
   if (!row) return
-  const newVal = Math.max(0, Math.min(row.qty_needed || 0, (row.qty_bagged || 0) + delta))
-  const done = newVal >= (row.qty_needed || 0) && (row.qty_needed || 0) > 0
-  await sb.from('daily_plan').update({ qty_bagged: newVal, done, updated_at: new Date().toISOString() }).eq('id', id)
-  planData = planData.map(r => r.id === id ? { ...r, qty_bagged: newVal, done } : r)
+  const newVal = Math.max(0, Math.min(row.qty_needed||0, (row.qty_bagged||0)+delta))
+  const done = newVal>=(row.qty_needed||0) && (row.qty_needed||0)>0
+  await sb.from('daily_plan').update({qty_bagged:newVal,done,updated_at:new Date().toISOString()}).eq('id',id)
+  planData = planData.map(r=>r.id===id?{...r,qty_bagged:newVal,done}:r)
   renderBagging()
   renderRoasting()
 }
 
 async function adjustBatches(greenName, delta) {
   const prog = roastingProgress[greenName]
-  const current = prog ? prog.batches_done : 0
-  const newVal = Math.max(0, current + delta)
+  const current = prog?prog.batches_done:0
+  const newVal = Math.max(0,current+delta)
   if (prog) {
-    await sb.from('roasting_progress').update({ batches_done: newVal, updated_at: new Date().toISOString() }).eq('id', prog.id)
-    roastingProgress[greenName] = { ...prog, batches_done: newVal }
+    await sb.from('roasting_progress').update({batches_done:newVal,updated_at:new Date().toISOString()}).eq('id',prog.id)
+    roastingProgress[greenName] = {...prog,batches_done:newVal}
   } else {
-    const { data: ins } = await sb.from('roasting_progress').insert({
-      team_id: TEAM_ID, green_name: greenName, batches_done: newVal, plan_date: todayStr
+    const {data:ins} = await sb.from('roasting_progress').insert({
+      team_id:TEAM_ID,green_name:greenName,batches_done:newVal,plan_date:todayStr
     }).select().single()
-    if (ins) roastingProgress[greenName] = ins
+    if(ins) roastingProgress[greenName] = ins
   }
   renderRoasting()
 }
@@ -746,25 +898,30 @@ function addCustomRoastRow() {
 
 async function renderBlendEditor() {
   await loadBlends()
+  if (!shopifyProducts.length) {
+    const pRes = await fetch('/api/shopify-token?type=products')
+    const pData = await pRes.json()
+    shopifyProducts = pData.products || []
+  }
   await validateBlends()
 
   const container = document.getElementById('blendCards')
   const originsBody = document.getElementById('originsBody')
-  const blendNames = [...new Set(blendMatrix.map(b => b.product_name))].sort()
+  const blendNames = [...new Set(blendMatrix.map(b=>b.product_name))].sort()
+  const productOptions = shopifyProducts.map(p=>`<option value="${p}">${p}</option>`).join('')
 
   if (!blendNames.length) {
     container.innerHTML = '<div class="empty">No blends yet. Click "+ New Blend".</div>'
   } else {
-    container.innerHTML = blendNames.map(blendName => {
-      const components = blendMatrix.filter(b => b.product_name === blendName)
-      const totalRatio = components.reduce((s,c) => s + Number(c.ratio), 0)
-      const ratioOk = Math.abs(totalRatio - 1) < 0.01
-      const batchSize = components[0]?.batch_size_lbs || 8
-      const isStale = staleBlends.some(s => s.blend === blendName)
-
-      return `<div class="blend-card ${isStale ? 'stale' : ''}">
+    container.innerHTML = blendNames.map(blendName=>{
+      const components = blendMatrix.filter(b=>b.product_name===blendName)
+      const totalRatio = components.reduce((s,c)=>s+Number(c.ratio),0)
+      const ratioOk = Math.abs(totalRatio-1)<0.01
+      const batchSize = components[0]?.batch_size_lbs||8
+      const isStale = staleBlends.some(s=>s.blend===blendName)
+      return `<div class="blend-card ${isStale?'stale':''}">
         <div class="blend-card-header">
-          <div class="blend-name">${blendName}${isStale ? ' ⚠' : ''}</div>
+          <div class="blend-name">${blendName}${isStale?' ⚠':''}</div>
           <div style="display:flex;align-items:center;gap:.5rem">
             <div class="batch-inline">
               <input type="number" value="${batchSize}" min="1" max="20" onchange="updateBatchSize('${blendName}',this.value)">
@@ -774,26 +931,21 @@ async function renderBlendEditor() {
           </div>
         </div>
         <div class="blend-card-body">
-          ${components.map(comp => {
-            const isMissing = staleBlends.some(s => s.blend === blendName && s.component === comp.component_name)
-            const currentOption = `<option value="${comp.component_name}" selected>${comp.component_name}${isMissing ? ' ⚠' : ''}</option>`
-            const options = greenSettings
-              .map(g => g.component_name)
-              .filter(n => n !== comp.component_name)
-              .map(n => `<option value="${n}">${n}</option>`)
-              .join('')
+          ${components.map(comp=>{
+            const isMissing = staleBlends.some(s=>s.blend===blendName&&s.component===comp.component_name)
             return `<div class="component-row" id="comp-${comp.id}">
-              <select onchange="updateComponent('${comp.id}','component_name',this.value)" style="${isMissing ? 'border-color:var(--red)' : ''}">
-                ${currentOption}${options}
+              <select onchange="updateComponent('${comp.id}','component_name',this.value)" style="${isMissing?'border-color:var(--red)':''}">
+                <option value="${comp.component_name}" ${!shopifyProducts.includes(comp.component_name)?'selected':''}>${comp.component_name}${isMissing?' ⚠':''}</option>
+                ${productOptions}
               </select>
-              <input type="number" min="1" max="100" value="${Math.round(Number(comp.ratio) * 100)}" onchange="updateComponent('${comp.id}','ratio',this.value/100)">
+              <input type="number" min="1" max="100" value="${Math.round(Number(comp.ratio)*100)}" onchange="updateComponent('${comp.id}','ratio',this.value/100)">
               <span class="pct-label">%</span>
               <button class="remove-btn" onclick="removeComponent('${comp.id}')">✕</button>
             </div>`
           }).join('')}
           <button class="add-comp-btn" onclick="addComponent('${blendName}')">+ Add component</button>
-          <div class="ratio-status ${ratioOk ? 'ratio-ok' : 'ratio-warn'}">
-            Total: ${Math.round(totalRatio * 100)}% ${ratioOk ? '✓ Good' : '⚠ Must equal 100%'}
+          <div class="ratio-status ${ratioOk?'ratio-ok':'ratio-warn'}">
+            Total: ${Math.round(totalRatio*100)}% ${ratioOk?'✓ Good':'⚠ Must equal 100%'}
           </div>
         </div>
       </div>`
@@ -801,8 +953,8 @@ async function renderBlendEditor() {
   }
 
   originsBody.innerHTML = !greenSettings.length
-    ? '<tr><td colspan="4" class="empty">No single origins configured</td></tr>'
-    : greenSettings.map(gs => `<tr>
+    ? '<tr><td colspan="4" class="empty">No coffees configured</td></tr>'
+    : greenSettings.map(gs=>`<tr>
         <td style="font-weight:500">${gs.component_name}</td>
         <td><input type="number" value="${gs.batch_size_lbs}" min="1" max="20" style="width:70px;font-family:var(--font-mono)" onchange="updateOrigin('${gs.id}','batch_size_lbs',this.value)"></td>
         <td><input type="number" value="${gs.shrinkage_pct}" min="1" max="30" style="width:65px;font-family:var(--font-mono)" onchange="updateOrigin('${gs.id}','shrinkage_pct',this.value)"></td>
@@ -810,68 +962,46 @@ async function renderBlendEditor() {
       </tr>`).join('')
 }
 
-async function updateComponent(id, field, value) {
-  await sb.from('blend_matrix').update({ [field]: value }).eq('id', id)
+async function updateComponent(id,field,value) {
+  await sb.from('blend_matrix').update({[field]:value}).eq('id',id)
   await renderBlendEditor()
 }
-
-async function updateBatchSize(blendName, value) {
-  await sb.from('blend_matrix').update({ batch_size_lbs: parseFloat(value) }).eq('product_name', blendName)
+async function updateBatchSize(blendName,value) {
+  await sb.from('blend_matrix').update({batch_size_lbs:parseFloat(value)}).eq('product_name',blendName)
 }
-
 async function removeComponent(id) {
-  await sb.from('blend_matrix').delete().eq('id', id)
+  await sb.from('blend_matrix').delete().eq('id',id)
   await renderBlendEditor()
 }
-
 async function addComponent(blendName) {
-  const first = greenSettings[0]?.component_name || ''
-  await sb.from('blend_matrix').insert({
-    product_name: blendName,
-    component_name: first,
-    ratio: 0,
-    batch_size_lbs: 8
-  })
+  const first = shopifyProducts[0]||greenSettings[0]?.component_name||'Coffee'
+  await sb.from('blend_matrix').insert({product_name:blendName,component_name:first,ratio:0,batch_size_lbs:8})
   await renderBlendEditor()
 }
-
 async function deleteBlend(blendName) {
   if (!confirm(`Delete blend "${blendName}"?`)) return
-  await sb.from('blend_matrix').delete().eq('product_name', blendName)
+  await sb.from('blend_matrix').delete().eq('product_name',blendName)
   await renderBlendEditor()
 }
-
 async function addNewBlend() {
   const name = prompt('New blend name:')
   if (!name?.trim()) return
-  const first = greenSettings[0]?.component_name || ''
-  await sb.from('blend_matrix').insert({
-    product_name: name.trim(),
-    component_name: first,
-    ratio: 1,
-    batch_size_lbs: 8
-  })
+  const first = shopifyProducts[0]||greenSettings[0]?.component_name||'Coffee'
+  await sb.from('blend_matrix').insert({product_name:name.trim(),component_name:first,ratio:1,batch_size_lbs:8})
   await renderBlendEditor()
 }
-
-async function updateOrigin(id, field, value) {
-  await sb.from('green_coffee_settings').update({ [field]: parseFloat(value) }).eq('id', id)
+async function updateOrigin(id,field,value) {
+  await sb.from('green_coffee_settings').update({[field]:parseFloat(value)}).eq('id',id)
 }
-
 async function deleteOrigin(id) {
   if (!confirm('Remove this coffee?')) return
-  await sb.from('green_coffee_settings').delete().eq('id', id)
+  await sb.from('green_coffee_settings').delete().eq('id',id)
   await renderBlendEditor()
 }
-
 async function addOriginRow() {
-  const name = prompt('Coffee name (use exact Shopify title):')
+  const name = prompt('Coffee name (exact Shopify title):')
   if (!name?.trim()) return
-  await sb.from('green_coffee_settings').insert({
-    component_name: name.trim(),
-    batch_size_lbs: 8,
-    shrinkage_pct: 15
-  })
+  await sb.from('green_coffee_settings').insert({component_name:name.trim(),batch_size_lbs:8,shrinkage_pct:15})
   await renderBlendEditor()
 }
 
@@ -881,193 +1011,98 @@ async function addManualOrder() {
   const qty = parseInt(document.getElementById('addQty').value)
   const note = document.getElementById('addNote').value
   const msg = document.getElementById('addOrderMsg')
-
-  if (!coffee || !qty || qty < 1) {
-    msg.className = 'form-msg err'
-    msg.textContent = 'Please select a coffee and enter a valid quantity.'
+  if (!coffee||!qty||qty<1) {
+    msg.className='form-msg err'
+    msg.textContent='Please select a coffee and enter a valid quantity.'
     return
   }
-
   const sku = `manual-${coffee}-${size}-${Date.now()}`
   await sb.from('daily_plan').insert({
-    team_id: TEAM_ID, sku, product_name: coffee, variant_title: size,
-    qty_needed: qty, qty_bagged: 0, locked: false, done: false,
-    source: 'manual', note: note || null
+    team_id:TEAM_ID,sku,product_name:coffee,variant_title:size,
+    qty_needed:qty,qty_bagged:0,locked:false,done:false,source:'manual',note:note||null
   })
-
-  msg.className = 'form-msg ok'
-  msg.textContent = `✓ Added: ${qty}× ${coffee} (${size})`
-  document.getElementById('addQty').value = 1
-  document.getElementById('addNote').value = ''
+  msg.className='form-msg ok'
+  msg.textContent=`✓ Added: ${qty}× ${coffee} (${size})`
+  document.getElementById('addQty').value=1
+  document.getElementById('addNote').value=''
   await loadPlan()
 }
 
-async function toggleDone(id, val) {
-  await sb.from('daily_plan').update({ done: val, updated_at: new Date().toISOString() }).eq('id', id)
-  planData = planData.map(r => r.id === id ? { ...r, done: val } : r)
+async function toggleDone(id,val) {
+  await sb.from('daily_plan').update({done:val,updated_at:new Date().toISOString()}).eq('id',id)
+  planData=planData.map(r=>r.id===id?{...r,done:val}:r)
   renderBagging()
   renderRoasting()
 }
 
-async function toggleLock(id, val) {
-  await sb.from('daily_plan').update({ locked: val, updated_at: new Date().toISOString() }).eq('id', id)
+async function toggleLock(id,val) {
+  await sb.from('daily_plan').update({locked:val,updated_at:new Date().toISOString()}).eq('id',id)
   await loadPlan()
 }
 
 async function archiveDay() {
-  const doneRows = planData.filter(r => r.done)
+  const doneRows = planData.filter(r=>r.done)
   if (!doneRows.length) { alert('No rows marked done to archive.'); return }
   if (!confirm(`Archive ${doneRows.length} completed rows?`)) return
   for (const row of doneRows) {
     await sb.from('archived_plan').insert({
-      team_id: TEAM_ID, sku: row.sku, product_name: row.product_name,
-      variant_title: row.variant_title, final_qty: row.qty_bagged || row.qty_needed,
-      source: row.source || 'shopify', archive_date: todayStr
+      team_id:TEAM_ID, sku:row.sku, product_name:row.product_name,
+      variant_title:row.variant_title, final_qty:row.qty_bagged||row.qty_needed,
+      source:row.source||'shopify', archive_date:todayStr
     })
-    await sb.from('daily_plan').delete().eq('id', row.id)
+    await sb.from('daily_plan').delete().eq('id',row.id)
   }
   await loadPlan()
-  document.getElementById('statusMsg').textContent = `Archived ${doneRows.length} rows`
+  document.getElementById('statusMsg').textContent=`Archived ${doneRows.length} rows`
 }
 
+let archiveVisible = false
 async function viewArchive() {
   const section = document.getElementById('archiveSection')
   const tbody = document.getElementById('archiveBody')
-  if (section.style.display !== 'none') { section.style.display = 'none'; return }
-  const { data } = await sb.from('archived_plan').select('*').eq('team_id', TEAM_ID).eq('archive_date', todayStr).order('archived_at', { ascending: false })
+  const btn = document.getElementById('archiveToggleBtn')
+
+  archiveVisible = !archiveVisible
+  section.style.display = archiveVisible ? 'block' : 'none'
+  btn.textContent = archiveVisible ? 'Hide Archive' : 'View Archive'
+
+  if (!archiveVisible) return
+
+  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading...</td></tr>'
+
+  const { data, error } = await sb
+    .from('archived_plan')
+    .select('*')
+    .eq('team_id', TEAM_ID)
+    .eq('archive_date', todayStr)
+    .order('archived_at', { ascending: false })
+
+  if (error) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Error: ${error.message}</td></tr>`
+    return
+  }
+
   tbody.innerHTML = !data?.length
-    ? '<tr><td colspan="5" class="empty">Nothing archived today</td></tr>'
-    : data.map(r => `<tr>
+    ? '<tr><td colspan="5" class="empty">Nothing archived today yet</td></tr>'
+    : data.map(r=>`<tr>
         <td style="font-weight:500">${r.product_name}</td>
         <td style="font-family:var(--font-mono);font-size:.8rem">${r.variant_title}</td>
         <td style="font-family:var(--font-mono)">${r.final_qty}</td>
-        <td><span class="source-tag ${r.source === 'manual' ? 'manual' : ''}">${r.source === 'manual' ? 'Internal' : 'Shopify'}</span></td>
+        <td><span class="source-tag ${r.source==='manual'?'manual':''}">${r.source==='manual'?'Internal':'Shopify'}</span></td>
         <td style="font-family:var(--font-mono);font-size:.75rem;color:var(--mid-gray)">${new Date(r.archived_at).toLocaleTimeString()}</td>
       </tr>`).join('')
-  section.style.display = 'block'
 }
 
-async function loadB2BOrders() {
-  const btn = document.getElementById('b2bRefreshBtn')
-  const contentEl = document.getElementById('b2bContent')
-  btn.disabled = true
-  contentEl.innerHTML = '<div class="empty">Loading...</div>'
-  try {
-    const res = await fetch('/api/shopify-token?type=b2b')
-    const data = await res.json()
-    if (data.error) throw new Error(data.error)
-    b2bData = data.companies || []
-    const { data: prog } = await sb.from('b2b_progress').select('*').eq('team_id', TEAM_ID).eq('plan_date', todayStr)
-    b2bProgress = {}
-    for (const p of (prog || [])) {
-      const key = `${p.company_name}||${p.product_name}||${p.variant_title}`
-      b2bProgress[key] = p
-    }
-    renderB2B()
-  } catch (err) {
-    contentEl.innerHTML = `<div class="alert alert-red">Error: ${err.message}</div>`
-  }
-  btn.disabled = false
-}
-
-function renderB2B() {
-  const contentEl = document.getElementById('b2bContent')
-  if (!b2bData.length) {
-    contentEl.innerHTML = '<div class="empty">No B2B orders found</div>'
-    return
-  }
-  contentEl.innerHTML = b2bData.map(company => {
-    const safeCompany = JSON.stringify(company.company_name)
-    const items = company.items.map(item => {
-      const key = `${company.company_name}||${item.product_name}||${item.variant_title}`
-      const prog = b2bProgress[key]
-      const bagged = prog ? prog.qty_bagged : 0
-      const needed = item.qty
-      const remaining = Math.max(0, needed - bagged)
-      const pct = needed > 0 ? Math.min(100, Math.round(bagged / needed * 100)) : 0
-      const safeProduct = JSON.stringify(item.product_name)
-      const safeVariant = JSON.stringify(item.variant_title)
-      return `<tr class="${remaining === 0 ? 'done-row' : ''}">
-        <td style="font-weight:500">${item.product_name}</td>
-        <td style="font-family:var(--font-mono);font-size:.8rem">${item.variant_title}</td>
-        <td style="font-family:var(--font-mono);font-weight:600">${needed}</td>
-        <td>
-          <div class="counter-cell">
-            <button class="counter-btn" onclick="adjustB2BBagged(${safeCompany},${safeProduct},${safeVariant},-1)">−</button>
-            <span class="counter-val">${bagged}</span>
-            <button class="counter-btn" onclick="adjustB2BBagged(${safeCompany},${safeProduct},${safeVariant},1)">+</button>
-          </div>
-        </td>
-        <td><span class="badge ${remaining === 0 ? 'badge-green' : 'badge-amber'}">${remaining}</span></td>
-        <td>
-          <div class="progress-wrap">
-            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-            <span class="progress-text">${pct}%</span>
-          </div>
-        </td>
-      </tr>`
-    }).join('')
-
-    const contactLine = [company.contact_name, company.email].filter(Boolean).join(' · ')
-    return `<div style="margin-bottom:1.5rem">
-      <div class="section-header">
-        ${company.company_name}
-        <span class="badge badge-blue">${company.order_count} order${company.order_count !== 1 ? 's' : ''}</span>
-      </div>
-      ${contactLine ? `<div style="font-size:.75rem;color:var(--mid-gray);margin-bottom:.625rem;font-family:var(--font-mono)">${contactLine}</div>` : ''}
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Product</th><th>Bag Size</th><th>Qty Needed</th><th>Bagged</th><th>Remaining</th><th>Progress</th></tr></thead>
-          <tbody>${items}</tbody>
-        </table>
-      </div>
-    </div>`
-  }).join('')
-}
-
-async function adjustB2BBagged(companyName, productName, variantTitle, delta) {
-  const key = `${companyName}||${productName}||${variantTitle}`
-  const prog = b2bProgress[key]
-  const company = b2bData.find(c => c.company_name === companyName)
-  const item = company?.items.find(i => i.product_name === productName && i.variant_title === variantTitle)
-  const needed = item?.qty || 0
-  const current = prog ? prog.qty_bagged : 0
-  const newVal = Math.max(0, Math.min(needed, current + delta))
-  if (prog) {
-    await sb.from('b2b_progress').update({ qty_bagged: newVal, updated_at: new Date().toISOString() }).eq('id', prog.id)
-    b2bProgress[key] = { ...prog, qty_bagged: newVal }
-  } else {
-    const { data: ins } = await sb.from('b2b_progress').insert({
-      team_id: TEAM_ID, company_name: companyName, product_name: productName,
-      variant_title: variantTitle, qty_needed: needed, qty_bagged: newVal, plan_date: todayStr
-    }).select().single()
-    if (ins) b2bProgress[key] = ins
-  }
-  renderB2B()
-}
-
+// Realtime
 sb.channel('plan_changes')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_plan' }, () => loadPlan())
+  .on('postgres_changes',{event:'*',schema:'public',table:'daily_plan'},()=>loadPlan())
   .subscribe()
-
 sb.channel('roast_changes')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'roasting_progress' }, async () => {
-    const { data: rp } = await sb.from('roasting_progress').select('*').eq('team_id', TEAM_ID).eq('plan_date', todayStr)
-    roastingProgress = {}
-    for (const r of (rp || [])) roastingProgress[r.green_name] = r
+  .on('postgres_changes',{event:'*',schema:'public',table:'roasting_progress'},async()=>{
+    const {data:rp}=await sb.from('roasting_progress').select('*').eq('team_id',TEAM_ID).eq('plan_date',todayStr)
+    roastingProgress={}
+    for(const r of (rp||[])) roastingProgress[r.green_name]=r
     renderRoasting()
-  })
-  .subscribe()
-
-sb.channel('b2b_changes')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'b2b_progress' }, async () => {
-    const { data: prog } = await sb.from('b2b_progress').select('*').eq('team_id', TEAM_ID).eq('plan_date', todayStr)
-    b2bProgress = {}
-    for (const p of (prog || [])) {
-      const key = `${p.company_name}||${p.product_name}||${p.variant_title}`
-      b2bProgress[key] = p
-    }
-    renderB2B()
   })
   .subscribe()
 
@@ -1075,7 +1110,6 @@ async function init() {
   await loadBlends()
   await loadPlan()
 }
-
 init()
 </script>
 </body>
