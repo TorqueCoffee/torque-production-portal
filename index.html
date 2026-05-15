@@ -495,7 +495,7 @@ async function refreshOrders() {
     shopifyProducts = pData.products || []
 
     // Sync green coffee settings
-    await syncGreenCoffeeSettings(shopifyProducts)
+await syncGreenCoffeeSettings(shopifyProducts)
 
     // Load orders
     const res = await fetch('/api/shopify-token')
