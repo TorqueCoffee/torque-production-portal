@@ -61,4 +61,79 @@ module.exports = async function handler(req, res) {
         sample: orders.slice(0, 5).map(o => ({
           order_id: o.id,
           order_name: o.name,
-          customer_company: o.customer?.compan
+          customer_company: o.customer?.company,
+          shipping_company: o.shipping_address?.company,
+          billing_company: o.billing_address?.company,
+          has_company_object: !!o.company,
+          company_object: o.company || null,
+          tags: o.tags
+        }))
+      })
+    }
+
+    // B2B endpoint
+    if (req.query.type === 'b2b') {
+      const companyMap = {}
+      for (const order of orders) {
+        const companyName = o.customer?.company ||
+          order.billing_address?.company ||
+          order.shipping_address?.company
+        if (!companyName) continue
+        if (!companyMap[companyName]) {
+          companyMap[companyName] = {
+            company_name: companyName,
+            contact_name: [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(' '),
+            email: order.customer?.email || '',
+            order_count: 0,
+            items: {}
+          }
+        }
+        companyMap[companyName].order_count++
+        for (const item of order.line_items) {
+          if (item.vendor !== 'Torque Coffees') continue
+          const key = `${item.title}||${item.variant_title || 'Default'}`
+          if (!companyMap[companyName].items[key]) {
+            companyMap[companyName].items[key] = {
+              product_name: item.title,
+              variant_title: item.variant_title || 'Default',
+              qty: 0
+            }
+          }
+          companyMap[companyName].items[key].qty += item.quantity
+        }
+      }
+      const companies = Object.values(companyMap).map(c => ({
+        ...c,
+        items: Object.values(c.items)
+      })).sort((a, b) => a.company_name.localeCompare(b.company_name))
+      return res.status(200).json({ companies })
+    }
+
+    // ORDERS endpoint (default)
+    const aggregated = {}
+    for (const order of orders) {
+      const orderDate = order.created_at ? order.created_at.split('T')[0] : null
+      for (const item of order.line_items) {
+        if (item.vendor !== 'Torque Coffees') continue
+        const key = `${item.sku || item.title}||${item.variant_title || 'Default'}`
+        if (!aggregated[key]) {
+          aggregated[key] = {
+            sku: item.sku || key,
+            product_name: item.title,
+            variant_title: item.variant_title || 'Default',
+            qty_needed: 0,
+            oldest_order_date: orderDate
+          }
+        }
+        aggregated[key].qty_needed += item.quantity
+        if (orderDate && (!aggregated[key].oldest_order_date || orderDate < aggregated[key].oldest_order_date)) {
+          aggregated[key].oldest_order_date = orderDate
+        }
+      }
+    }
+    res.status(200).json({ items: Object.values(aggregated) })
+
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
