@@ -26,17 +26,22 @@ module.exports = async function handler(req, res) {
     const headers = { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
 
     // PRODUCTS endpoint
-   if (req.query.type === 'products') {
-  const pRes = await fetch(`${baseUrl}/products.json?limit=10&status=active`, { headers })
-  const pData = await pRes.json()
-  return res.status(200).json({
-    total_returned: (pData.products||[]).length,
-    all_vendors: [...new Set((pData.products||[]).map(p => p.vendor))],
-    sample: (pData.products||[]).slice(0,10).map(p => ({
-      title: p.title,
-      vendor: p.vendor
-    }))
-  })
+  if (req.query.type === 'products') {
+  let products = []
+  let page = `${baseUrl}/products.json?limit=250&status=active`
+  while (page) {
+    const pRes = await fetch(page, { headers })
+    const pData = await pRes.json()
+    const filtered = (pData.products||[])
+      .filter(p => p.vendor === 'Torque Coffees' && !p.title.toLowerCase().includes('xpod'))
+    products = products.concat(filtered.map(p => p.title))
+    const linkHeader = pRes.headers.get('link') || ''
+    const next = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
+    page = next ? next[1] : null
+  }
+  // Deduplicate and sort
+  products = [...new Set(products)].sort()
+  return res.status(200).json({ products })
 }
     // Fetch all unfulfilled orders
     let orders = []
