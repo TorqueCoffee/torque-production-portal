@@ -1,5 +1,12 @@
 const fetch = require('node-fetch');
 
+const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle', 'xbloom', 'xpods', 'x pods']
+
+function isExcluded(title) {
+  const t = title.toLowerCase()
+  return EXCLUDE_TERMS.some(term => t.includes(term))
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
@@ -25,24 +32,44 @@ module.exports = async function handler(req, res) {
     const baseUrl = `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/2025-01`
     const headers = { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
 
-    // PRODUCTS endpoint
-  if (req.query.type === 'products') {
-  let products = []
-  let page = `${baseUrl}/products.json?limit=250&status=active`
-  while (page) {
-    const pRes = await fetch(page, { headers })
-    const pData = await pRes.json()
-    const filtered = (pData.products||[])
-      .filter(p => p.vendor === 'Torque Coffees' && !p.title.toLowerCase().includes('xpod'))
-    products = products.concat(filtered.map(p => p.title))
-    const linkHeader = pRes.headers.get('link') || ''
-    const next = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
-    page = next ? next[1] : null
-  }
-  // Deduplicate and sort
-  products = [...new Set(products)].sort()
-  return res.status(200).json({ products })
-}
+    // PRODUCTS endpoint — active products + roast-profile tagged drafts
+    if (req.query.type === 'products') {
+      let products = []
+
+      // Fetch active Torque Coffees products
+      let page = `${baseUrl}/products.json?limit=250&status=active`
+      while (page) {
+        const pRes = await fetch(page, { headers })
+        const pData = await pRes.json()
+        const filtered = (pData.products||[])
+          .filter(p => p.vendor === 'Torque Coffees' && !isExcluded(p.title))
+        products = products.concat(filtered.map(p => p.title))
+        const linkHeader = pRes.headers.get('link') || ''
+        const next = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
+        page = next ? next[1] : null
+      }
+
+      // Fetch draft products tagged roast-profile
+      let draftPage = `${baseUrl}/products.json?limit=250&status=draft`
+      while (draftPage) {
+        const pRes = await fetch(draftPage, { headers })
+        const pData = await pRes.json()
+        const filtered = (pData.products||[])
+          .filter(p =>
+            p.vendor === 'Torque Coffees' &&
+            !isExcluded(p.title) &&
+            p.tags && p.tags.toLowerCase().includes('roast-profile')
+          )
+        products = products.concat(filtered.map(p => p.title))
+        const linkHeader = pRes.headers.get('link') || ''
+        const next = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
+        draftPage = next ? next[1] : null
+      }
+
+      products = [...new Set(products)].sort()
+      return res.status(200).json({ products })
+    }
+
     // Fetch all unfulfilled orders
     let orders = []
     let ordersPage = `${baseUrl}/orders.json?status=unfulfilled&limit=250`
@@ -88,7 +115,7 @@ module.exports = async function handler(req, res) {
       const companies = Object.values(companyMap).map(c => ({
         ...c,
         items: Object.values(c.items)
-      })).sort((a, b) => a.company_name.localeCompare(b.company_name))
+      })).sort((a,b) => a.company_name.localeCompare(b.company_name))
       return res.status(200).json({ companies })
     }
 
