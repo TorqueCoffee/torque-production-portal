@@ -908,8 +908,7 @@ async function renderBlendEditor() {
   const container = document.getElementById('blendCards')
   const originsBody = document.getElementById('originsBody')
   const blendNames = [...new Set(blendMatrix.map(b=>b.product_name))].sort()
-  const productOptions = shopifyProducts.map(p=>`<option value="${p}">${p}</option>`).join('')
-
+  const productOptions = greenSettings.map(g=>`<option value="${g.component_name}">${g.component_name}</option>`).join('')
   if (!blendNames.length) {
     container.innerHTML = '<div class="empty">No blends yet. Click "+ New Blend".</div>'
   } else {
