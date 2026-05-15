@@ -75,9 +75,8 @@ module.exports = async function handler(req, res) {
     if (req.query.type === 'b2b') {
       const companyMap = {}
       for (const order of orders) {
-        const companyName = o.customer?.company ||
-          order.billing_address?.company ||
-          order.shipping_address?.company
+        const companyName = order.billing_address?.company ||
+  order.shipping_address?.company
         if (!companyName) continue
         if (!companyMap[companyName]) {
           companyMap[companyName] = {
