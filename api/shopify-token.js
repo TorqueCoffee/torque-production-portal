@@ -5,7 +5,6 @@ module.exports = async function handler(req, res) {
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
 
   try {
-    // Get access token
     const tokenRes = await fetch(
       `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/oauth/access_token`,
       {
@@ -42,7 +41,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ products })
     }
 
-    // Fetch all unfulfilled orders — shared by orders + b2b + debug endpoints
+    // Fetch all unfulfilled orders
     let orders = []
     let ordersPage = `${baseUrl}/orders.json?status=unfulfilled&limit=250`
     while (ordersPage) {
@@ -54,29 +53,12 @@ module.exports = async function handler(req, res) {
       ordersPage = next ? next[1] : null
     }
 
-    // DEBUG endpoint — shows raw company fields on first 5 orders
-    if (req.query.type === 'debug') {
-      return res.status(200).json({
-        total_orders: orders.length,
-        sample: orders.slice(0, 5).map(o => ({
-          order_id: o.id,
-          order_name: o.name,
-          customer_company: o.customer?.company,
-          shipping_company: o.shipping_address?.company,
-          billing_company: o.billing_address?.company,
-          has_company_object: !!o.company,
-          company_object: o.company || null,
-          tags: o.tags
-        }))
-      })
-    }
-
     // B2B endpoint
     if (req.query.type === 'b2b') {
       const companyMap = {}
       for (const order of orders) {
         const companyName = order.billing_address?.company ||
-  order.shipping_address?.company
+          order.shipping_address?.company
         if (!companyName) continue
         if (!companyMap[companyName]) {
           companyMap[companyName] = {
