@@ -52,19 +52,18 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.query.type === 'b2b') {
-      const b2bOrders = orders.filter(o => o.shipping_address?.company && o.shipping_address.company.trim() !== '')
-      const companyMap = {}
-      for (const order of b2bOrders) {
-        const companyName = order.shipping_address.company.trim()
-        if (!companyMap[companyName]) {
-          companyMap[companyName] = {
-            company_name: companyName,
-            contact_name: [order.shipping_address.first_name, order.shipping_address.last_name].filter(Boolean).join(' ') || null,
-            email: order.email || null,
-            order_count: 0,
-            itemMap: {}
-          }
-        }
+  return res.status(200).json({
+    sample: orders.slice(0, 3).map(o => ({
+      order_id: o.id,
+      order_name: o.name,
+      customer_company: o.customer?.company,
+      shipping_company: o.shipping_address?.company,
+      billing_company: o.billing_address?.company,
+      tags: o.tags,
+      note: o.note
+    }))
+  })
+}
         companyMap[companyName].order_count += 1
         for (const item of order.line_items) {
           if (item.vendor !== 'Torque Coffees') continue
