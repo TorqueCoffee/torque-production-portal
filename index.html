@@ -878,7 +878,11 @@ async function adjustBatches(greenName, delta) {
   }
   renderRoasting()
 }
-
+function toggleRoastLock(coffeeName) {
+  roastLocks[coffeeName] = !roastLocks[coffeeName]
+  renderRoasting()
+}
+  
 function addCustomRoastRow() {
   const tbody = document.getElementById('customRoastBody')
   const id = `cr-${Date.now()}`
