@@ -146,6 +146,26 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
   .help-grid{grid-template-columns:1fr}
   .status-text{display:none}
 }
+
+/* SCHEDULE TAB */
+.schedule-table{width:100%;border-collapse:collapse;background:white;border-radius:6px;overflow:hidden;border:1px solid var(--border)}
+.schedule-table th{font-family:var(--font-mono);font-size:.7rem;font-weight:600;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.08em;padding:.75rem 1rem;border-bottom:1px solid var(--border);background:#fafaf8;text-align:left}
+.schedule-table td{padding:.6rem 1rem;border-bottom:1px solid #f0efeb;vertical-align:middle;font-size:.85rem}
+.schedule-table tr:last-child td{border-bottom:none}
+.schedule-table tr.week-past td{color:var(--mid-gray);background:#fafaf8}
+.schedule-table tr.week-current{background:var(--amber-light)}
+.schedule-table tr.week-current td{font-weight:500}
+.week-label{font-family:var(--font-mono);font-size:.75rem;white-space:nowrap}
+.schedule-table select{width:100%;padding:.3rem .5rem;border:1px solid var(--border);border-radius:3px;font-size:.82rem;background:var(--off-white);font-family:var(--font-sans)}
+.schedule-table select:focus{outline:2px solid var(--black);border-color:transparent;background:white}
+.save-row-btn{font-family:var(--font-mono);font-size:.68rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:3px;background:white;cursor:pointer;white-space:nowrap}
+.save-row-btn:hover{background:var(--black);color:white;border-color:var(--black)}
+.save-row-btn.saved{background:var(--green-light);color:var(--green);border-color:var(--green)}
+.current-week-card{background:var(--amber-light);border:1px solid #ffcc99;border-radius:6px;padding:1rem 1.25rem;margin-bottom:1.25rem;display:flex;gap:2rem;flex-wrap:wrap}
+.cwc-item{display:flex;flex-direction:column;gap:.2rem}
+.cwc-label{font-family:var(--font-mono);font-size:.65rem;color:var(--amber);text-transform:uppercase;letter-spacing:.08em}
+.cwc-value{font-family:var(--font-mono);font-size:.9rem;font-weight:600;color:var(--black)}
+
 </style>
 </head>
 <body>
@@ -162,6 +182,7 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
     <button class="tab" onclick="switchTab('addorder',this)">Add Order</button>
     <button class="tab" onclick="switchTab('blends',this)">Blends</button>
     <button class="tab" onclick="switchTab('b2b',this)">B2B</button>
+    <button class="tab" onclick="switchTab('schedule',this)">Schedule</button>
     <button class="tab" onclick="switchTab('help',this)">Help</button>
   </div>
 </div>
@@ -310,6 +331,35 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
   <div id="b2bBody"><div class="empty" style="padding:3rem;background:white;border:1px solid var(--border);border-radius:6px;">Click "Refresh B2B" to load wholesale orders</div></div>
 </div>
 
+
+<!-- SCHEDULE -->
+<div id="schedule" class="view">
+  <div id="subMissingAlert" style="display:none" class="alert alert-amber"></div>
+  <div class="current-week-card" id="currentWeekCard" style="display:none">
+    <div class="cwc-item"><div class="cwc-label">This Week</div><div class="cwc-value" id="cwcDate"></div></div>
+    <div class="cwc-item"><div class="cwc-label">Modernist</div><div class="cwc-value" id="cwcModernist">—</div></div>
+    <div class="cwc-item"><div class="cwc-label">Classicist</div><div class="cwc-value" id="cwcClassicist">—</div></div>
+    <div class="cwc-item"><div class="cwc-label">Espressoist</div><div class="cwc-value" id="cwcEspressoist">—</div></div>
+  </div>
+  <div class="table-wrap">
+    <table class="schedule-table">
+      <thead>
+        <tr>
+          <th>Week of</th>
+          <th>Modernist</th>
+          <th>Classicist</th>
+          <th>Espressoist</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="scheduleBody"><tr><td colspan="5" class="empty">Loading schedule...</td></tr></tbody>
+    </table>
+  </div>
+  <div style="margin-top:1rem">
+    <button class="btn btn-secondary" onclick="addScheduleWeek()">+ Add Future Week</button>
+  </div>
+</div>
+
 <!-- HELP -->
 <div id="help" class="view">
   <div style="font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem">How to use — read once, you're done</div>
@@ -383,8 +433,8 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 
 <script>
 const TEAM_ID = 'torque2026'
-const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_UCzUCyiWEtzqRxQcnhpSyw_BrYBKCz-'
+const SUPABASE_URL = '%%SUPABASE_URL%%'
+const SUPABASE_ANON_KEY = '%%SUPABASE_ANON_KEY%%'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 let planData = []
@@ -406,6 +456,7 @@ function switchTab(tab, el) {
   if (el) el.classList.add('active')
   if (tab === 'blends') renderBlendEditor()
   if (tab === 'b2b') loadB2B()
+  if (tab === 'schedule') loadSchedule()
 }
 
 function qtyRemaining(row) {
@@ -504,6 +555,9 @@ async function refreshOrders() {
     if (data.error) throw new Error(data.error)
 
     document.getElementById('noOrdersAlert').style.display = data.items.length===0 ? 'flex' : 'none'
+
+    // Apply subscription coffee substitution
+    data.items = applySubscriptionSubstitution(data.items)
 
     // Rolling ledger
     const { data: existing } = await sb.from('daily_plan').select('*').eq('team_id', TEAM_ID).eq('source','shopify')
@@ -1102,6 +1156,207 @@ async function viewArchive() {
       </tr>`).join('')
 }
 
+
+// SUBSCRIPTION SCHEDULE
+let scheduleData = []
+
+function getCurrentWeekStart() {
+  // Returns the most recent Sunday at midnight Pacific
+  const now = new Date()
+  // Convert to Pacific time
+  const pacificOffset = -7 // PDT; use -8 for PST
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000)
+  const pacific = new Date(utc + (3600000 * pacificOffset))
+  const day = pacific.getDay() // 0=Sun
+  pacific.setDate(pacific.getDate() - day)
+  pacific.setHours(0,0,0,0)
+  // Return as YYYY-MM-DD
+  const y = pacific.getFullYear()
+  const m = String(pacific.getMonth()+1).padStart(2,'0')
+  const d = String(pacific.getDate()).padStart(2,'0')
+  return `${y}-${m}-${d}`
+}
+
+async function loadSchedule() {
+  const { data } = await sb.from('subscription_schedule')
+    .select('*')
+    .order('week_start', { ascending: true })
+  scheduleData = data || []
+  renderSchedule()
+}
+
+function renderSchedule() {
+  const tbody = document.getElementById('scheduleBody')
+  const currentWeek = getCurrentWeekStart()
+  const allCoffees = [...shopifyProducts]
+  const coffeeOptions = allCoffees.map(c => `<option value="${c}">${c}</option>`).join('')
+
+  // Update current week card
+  const currentRow = scheduleData.find(r => r.week_start === currentWeek)
+  const cardEl = document.getElementById('currentWeekCard')
+  if (currentRow) {
+    cardEl.style.display = 'flex'
+    document.getElementById('cwcDate').textContent = formatWeekDate(currentWeek)
+    document.getElementById('cwcModernist').textContent = currentRow.modernist || '—'
+    document.getElementById('cwcClassicist').textContent = currentRow.classicist || '—'
+    document.getElementById('cwcEspressoist').textContent = currentRow.espressoist || '—'
+  } else {
+    cardEl.style.display = 'none'
+  }
+
+  if (!scheduleData.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">No schedule data</td></tr>'
+    return
+  }
+
+  tbody.innerHTML = scheduleData.map(row => {
+    const isPast = row.week_start < currentWeek
+    const isCurrent = row.week_start === currentWeek
+    const rowClass = isPast ? 'week-past' : isCurrent ? 'week-current' : 'week-future'
+    const dateLabel = formatWeekDate(row.week_start)
+    const currentBadge = isCurrent ? ' <span class="badge badge-amber" style="font-size:.6rem;vertical-align:middle">NOW</span>' : ''
+
+    if (isPast) {
+      return `<tr class="${rowClass}" data-week="${row.week_start}">
+        <td class="week-label">${dateLabel}${currentBadge}</td>
+        <td>${row.modernist || '—'}</td>
+        <td>${row.classicist || '—'}</td>
+        <td>${row.espressoist || '—'}</td>
+        <td></td>
+      </tr>`
+    }
+
+    const modVal = row.modernist || ''
+    const clasVal = row.classicist || ''
+    const espVal = row.espressoist || ''
+
+    return `<tr class="${rowClass}" data-week="${row.week_start}">
+      <td class="week-label">${dateLabel}${currentBadge}</td>
+      <td>
+        <select id="mod-${row.week_start}" onchange="markRowDirty('${row.week_start}')">
+          <option value="">— select —</option>
+          ${modVal && !allCoffees.includes(modVal) ? `<option value="${modVal}" selected>${modVal}</option>` : ''}
+          ${allCoffees.map(c => `<option value="${c}" ${c===modVal?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <select id="clas-${row.week_start}" onchange="markRowDirty('${row.week_start}')">
+          <option value="">— select —</option>
+          ${clasVal && !allCoffees.includes(clasVal) ? `<option value="${clasVal}" selected>${clasVal}</option>` : ''}
+          ${allCoffees.map(c => `<option value="${c}" ${c===clasVal?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <select id="esp-${row.week_start}" onchange="markRowDirty('${row.week_start}')">
+          <option value="">— select —</option>
+          ${espVal && !allCoffees.includes(espVal) ? `<option value="${espVal}" selected>${espVal}</option>` : ''}
+          ${allCoffees.map(c => `<option value="${c}" ${c===espVal?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <button class="save-row-btn" id="save-${row.week_start}" onclick="saveScheduleRow('${row.week_start}', '${row.id}')">Save</button>
+      </td>
+    </tr>`
+  }).join('')
+}
+
+function formatWeekDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
+}
+
+function markRowDirty(weekStart) {
+  const btn = document.getElementById(`save-${weekStart}`)
+  if (btn) {
+    btn.textContent = 'Save *'
+    btn.classList.remove('saved')
+  }
+}
+
+async function saveScheduleRow(weekStart, id) {
+  const mod = document.getElementById(`mod-${weekStart}`)?.value || null
+  const clas = document.getElementById(`clas-${weekStart}`)?.value || null
+  const esp = document.getElementById(`esp-${weekStart}`)?.value || null
+  const btn = document.getElementById(`save-${weekStart}`)
+
+  await sb.from('subscription_schedule').update({
+    modernist: mod || null,
+    classicist: clas || null,
+    espressoist: esp || null,
+    updated_at: new Date().toISOString()
+  }).eq('id', id)
+
+  // Update local data
+  scheduleData = scheduleData.map(r => r.id === id ? {...r, modernist:mod, classicist:clas, espressoist:esp} : r)
+
+  if (btn) {
+    btn.textContent = 'Saved ✓'
+    btn.classList.add('saved')
+    setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved') }, 2000)
+  }
+
+  // Refresh current week card
+  renderSchedule()
+}
+
+async function addScheduleWeek() {
+  // Find the latest week in schedule and add 7 days
+  if (!scheduleData.length) return
+  const lastWeek = scheduleData[scheduleData.length - 1].week_start
+  const next = new Date(lastWeek + 'T12:00:00')
+  next.setDate(next.getDate() + 7)
+  const y = next.getFullYear()
+  const m = String(next.getMonth()+1).padStart(2,'0')
+  const d = String(next.getDate()).padStart(2,'0')
+  const newWeek = `${y}-${m}-${d}`
+
+  const { data, error } = await sb.from('subscription_schedule').insert({
+    week_start: newWeek, modernist: null, classicist: null, espressoist: null
+  }).select().single()
+
+  if (!error && data) {
+    scheduleData.push(data)
+    renderSchedule()
+  }
+}
+
+// Subscription substitution — call this inside refreshOrders after fetching items
+function applySubscriptionSubstitution(items) {
+  const currentWeek = getCurrentWeekStart()
+  const currentRow = scheduleData.find(r => r.week_start === currentWeek)
+
+  const subMap = {
+    'Modernist - Coffee Subscription': currentRow?.modernist,
+    'Classicist - Coffee Subscription': currentRow?.classicist,
+    'Espressoist - Coffee Subscription': currentRow?.espressoist
+  }
+
+  const missing = []
+  const result = items.map(item => {
+    const sub = subMap[item.product_name]
+    if (sub === undefined) return item // not a subscription item
+    if (!sub) {
+      missing.push(item.product_name)
+      return { ...item, note: '⚠ No coffee set for this week' }
+    }
+    return { ...item, product_name: sub }
+  })
+
+  // Show warning if any subscription has no coffee set
+  const alertEl = document.getElementById('subMissingAlert')
+  if (alertEl) {
+    if (missing.length) {
+      alertEl.style.display = 'flex'
+      alertEl.textContent = `⚠ No coffee selected in Schedule for: ${[...new Set(missing)].join(', ')} — go to Schedule tab to set this week\'s coffees`
+    } else {
+      alertEl.style.display = 'none'
+    }
+  }
+
+  return result
+}
+
+
 // Realtime
 sb.channel('plan_changes')
   .on('postgres_changes',{event:'*',schema:'public',table:'daily_plan'},()=>loadPlan())
@@ -1118,6 +1373,7 @@ sb.channel('roast_changes')
 async function init() {
   await loadBlends()
   await loadPlan()
+  await loadSchedule()
 }
 init()
 </script>
