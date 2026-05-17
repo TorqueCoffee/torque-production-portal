@@ -166,6 +166,22 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 .cwc-label{font-family:var(--font-mono);font-size:.65rem;color:var(--amber);text-transform:uppercase;letter-spacing:.08em}
 .cwc-value{font-family:var(--font-mono);font-size:.9rem;font-weight:600;color:var(--black)}
 
+
+/* MIX GUIDE TAB */
+.mix-selector{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.mix-selector-btn{font-family:var(--font-mono);font-size:.85rem;font-weight:600;padding:.5rem 1.25rem;border-radius:6px;border:2px solid var(--border);background:white;cursor:pointer;transition:all .15s;color:var(--mid-gray)}
+.mix-selector-btn:hover{border-color:var(--black);color:var(--black)}
+.mix-selector-btn.active{background:var(--black);color:white;border-color:var(--black)}
+.mix-card{background:white;border:1px solid var(--border);border-radius:12px;padding:2.5rem;max-width:700px}
+.mix-blend-name{font-family:var(--font-mono);font-size:2.8rem;font-weight:700;color:var(--black);letter-spacing:-.02em;margin-bottom:2rem;line-height:1}
+.mix-component{display:flex;align-items:baseline;gap:1.5rem;padding:1.25rem 0;border-bottom:1px solid var(--border)}
+.mix-component:last-child{border-bottom:none}
+.mix-pct{font-family:var(--font-mono);font-size:3.5rem;font-weight:700;color:var(--black);line-height:1;min-width:140px}
+.mix-coffee-name{font-family:var(--font-sans);font-size:1.25rem;font-weight:500;color:#333;line-height:1.3}
+.mix-coffee-sub{font-family:var(--font-mono);font-size:.8rem;color:var(--mid-gray);margin-top:.25rem}
+.mix-total{font-family:var(--font-mono);font-size:.8rem;color:var(--mid-gray);margin-top:1.5rem;padding-top:1rem;border-top:2px solid var(--border)}
+.mix-empty{font-family:var(--font-mono);font-size:1rem;color:var(--mid-gray);padding:3rem;text-align:center}
+
 </style>
 </head>
 <body>
@@ -183,6 +199,7 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
     <button class="tab" onclick="switchTab('blends',this)">Blends</button>
     <button class="tab" onclick="switchTab('b2b',this)">B2B</button>
     <button class="tab" onclick="switchTab('schedule',this)">Subscriptions</button>
+    <button class="tab" onclick="switchTab('mix',this)">Mix Guide</button>
     <button class="tab" onclick="switchTab('help',this)">Help</button>
   </div>
 </div>
@@ -360,6 +377,14 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
   </div>
 </div>
 
+
+<!-- MIX GUIDE -->
+<div id="mix" class="view">
+  <div style="font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem">Blend Mix Guide — production reference</div>
+  <div class="mix-selector" id="mixSelector"></div>
+  <div id="mixCard"><div class="mix-empty">Select a blend above</div></div>
+</div>
+
 <!-- HELP -->
 <div id="help" class="view">
   <div style="font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem">How to use — read once, you're done</div>
@@ -465,8 +490,8 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 
 <script>
 const TEAM_ID = 'torque2026'
-const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_UCzUCyiWEtzqRxQcnhpSyw_BrYBKCz-'
+const SUPABASE_URL = '%%SUPABASE_URL%%'
+const SUPABASE_ANON_KEY = '%%SUPABASE_ANON_KEY%%'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 let planData = []
@@ -489,6 +514,7 @@ function switchTab(tab, el) {
   if (tab === 'blends') renderBlendEditor()
   if (tab === 'b2b') loadB2B()
   if (tab === 'schedule') loadSchedule()
+  if (tab === 'mix') renderMixGuide()
 }
 
 function qtyRemaining(row) {
@@ -1388,6 +1414,74 @@ function applySubscriptionSubstitution(items) {
   return result
 }
 
+
+
+// MIX GUIDE
+let activeMix = null
+
+function renderMixGuide() {
+  const blendNames = [...new Set(blendMatrix.map(b => b.product_name))].sort()
+  const selectorEl = document.getElementById('mixSelector')
+  const cardEl = document.getElementById('mixCard')
+
+  if (!blendNames.length) {
+    selectorEl.innerHTML = ''
+    cardEl.innerHTML = '<div class="mix-empty">No blends configured — go to Blends tab</div>'
+    return
+  }
+
+  // Build selector buttons
+  selectorEl.innerHTML = blendNames.map(name => `
+    <button class="mix-selector-btn ${activeMix === name ? 'active' : ''}"
+      onclick="selectMix('${name.replace(/'/g, "\'")}')">
+      ${name}
+    </button>
+  `).join('')
+
+  // Auto-select first if none selected
+  if (!activeMix || !blendNames.includes(activeMix)) {
+    activeMix = blendNames[0]
+    renderMixGuide()
+    return
+  }
+
+  // Render card for active blend
+  const components = blendMatrix.filter(b => b.product_name === activeMix)
+  if (!components.length) {
+    cardEl.innerHTML = '<div class="mix-empty">No components for this blend</div>'
+    return
+  }
+
+  const totalRatio = components.reduce((s, c) => s + Number(c.ratio), 0)
+  const ratioOk = Math.abs(totalRatio - 1) < 0.01
+
+  cardEl.innerHTML = `
+    <div class="mix-card">
+      <div class="mix-blend-name">${activeMix}</div>
+      ${components.map(comp => {
+        const pct = Math.round(Number(comp.ratio) * 100)
+        const nameParts = comp.component_name.split(' - ')
+        const coffeeName = nameParts[0]
+        const coffeeSub = nameParts.slice(1).join(' - ')
+        return `
+          <div class="mix-component">
+            <div class="mix-pct">${pct}%</div>
+            <div>
+              <div class="mix-coffee-name">${coffeeName}</div>
+              ${coffeeSub ? `<div class="mix-coffee-sub">${coffeeSub}</div>` : ''}
+            </div>
+          </div>
+        `
+      }).join('')}
+      <div class="mix-total">${ratioOk ? '✓ Total: 100%' : `⚠ Total: ${Math.round(totalRatio * 100)}% — check Blends tab`}</div>
+    </div>
+  `
+}
+
+function selectMix(name) {
+  activeMix = name
+  renderMixGuide()
+}
 
 // Realtime
 sb.channel('plan_changes')
