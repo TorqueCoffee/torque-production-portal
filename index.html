@@ -226,7 +226,7 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
       <thead>
         <tr>
           <th>Coffee</th><th>Roasted lbs</th><th>Green lbs</th>
-            <th>Batch size</th><th>Batches Needed</th><th>Batches Done</th><th>Remaining</th><th>Notes</th><th>Lock</th>
+          <th>Batch size</th><th>Batches Needed</th><th>Batches Done</th><th>Remaining</th><th>Notes</th><th>Lock</th>
         </tr>
       </thead>
       <tbody id="roastingBody"><tr><td colspan="8" class="empty">Load bagging plan first</td></tr></tbody>
@@ -383,8 +383,8 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 
 <script>
 const TEAM_ID = 'torque2026'
-const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_UCzUCyiWEtzqRxQcnhpSyw_BrYBKCz-'
+const SUPABASE_URL = '%%SUPABASE_URL%%'
+const SUPABASE_ANON_KEY = '%%SUPABASE_ANON_KEY%%'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 let planData = []
@@ -496,7 +496,7 @@ async function refreshOrders() {
     shopifyProducts = pData.products || []
 
     // Sync green coffee settings
-await syncGreenCoffeeSettings(shopifyProducts)
+    await syncGreenCoffeeSettings(shopifyProducts)
 
     // Load orders
     const res = await fetch('/api/shopify-token')
@@ -708,27 +708,27 @@ function renderRoasting() {
   }
 
   const coffeeNeeded = {}
-for (const [product, roastedLbs] of Object.entries(roastedByProduct)) {
-  const components = blendMatrix.filter(b=>b.product_name.toLowerCase()===product.toLowerCase())
-  if (components.length>0) {
-    for (const comp of components) {
-      const key = comp.component_name
-      if (roastLocks[key]) continue
-      if (!coffeeNeeded[key]) {
-        const gs = greenSettings.find(g=>g.component_name===key)
-        coffeeNeeded[key] = { roasted:0, batch_size: gs?gs.batch_size_lbs:comp.batch_size_lbs }
+  for (const [product, roastedLbs] of Object.entries(roastedByProduct)) {
+    const components = blendMatrix.filter(b=>b.product_name.toLowerCase()===product.toLowerCase())
+    if (components.length>0) {
+      for (const comp of components) {
+        const key = comp.component_name
+        if (roastLocks[key]) continue
+        if (!coffeeNeeded[key]) {
+          const gs = greenSettings.find(g=>g.component_name===key)
+          coffeeNeeded[key] = { roasted:0, batch_size: gs?gs.batch_size_lbs:comp.batch_size_lbs }
+        }
+        coffeeNeeded[key].roasted += roastedLbs*comp.ratio
       }
-      coffeeNeeded[key].roasted += roastedLbs*comp.ratio
+    } else {
+      const key = product
+      if (roastLocks[key]) continue
+      const gs = greenSettings.find(g=>g.component_name===key)
+      const batchSize = gs?gs.batch_size_lbs:8
+      if (!coffeeNeeded[key]) coffeeNeeded[key] = { roasted:0, batch_size:batchSize }
+      coffeeNeeded[key].roasted += roastedLbs
     }
-  } else {
-    const key = product
-    if (roastLocks[key]) continue
-    const gs = greenSettings.find(g=>g.component_name===key)
-    const batchSize = gs?gs.batch_size_lbs:8
-    if (!coffeeNeeded[key]) coffeeNeeded[key] = { roasted:0, batch_size:batchSize }
-    coffeeNeeded[key].roasted += roastedLbs
   }
-}
 
   const SHRINKAGE = 1.176
   let totalGreen=0, totalBatchesNeeded=0, totalBatchesDone=0
@@ -757,11 +757,8 @@ for (const [product, roastedLbs] of Object.entries(roastedByProduct)) {
         </div>
       </td>
       <td><span class="badge ${batchesLeft===0?'badge-green':'badge-amber'}">${batchesLeft}</span></td>
-     <td><input type="text" placeholder="Notes..." style="border:none;background:transparent;font-size:.78rem;width:100%;min-width:80px" onfocus="this.style.background='var(--off-white)'" onblur="this.style.background='transparent'"></td>
-      <td><button class="lock-btn ${roastLocks[coffeeName]?'locked':''}" onclick="toggleRoastLock('${coffeeName.replace(/'/g,"\\'")}')">
-        ${roastLocks[coffeeName]?'🔒':'Lock'}
-      </button></td>
-    </tr>`
+      <td><input type="text" placeholder="Notes..." style="border:none;background:transparent;font-size:.78rem;width:100%;min-width:80px" onfocus="this.style.background='var(--off-white)'" onblur="this.style.background='transparent'"></td>
+      <td><button class="lock-btn ${roastLocks[coffeeName]?'locked':''}" onclick="toggleRoastLock(this.dataset.name)" data-name="${coffeeName}">${roastLocks[coffeeName]?'🔒':'Lock'}</button></td>
     </tr>`
   }).join('')
 
@@ -884,11 +881,12 @@ async function adjustBatches(greenName, delta) {
   }
   renderRoasting()
 }
+
 function toggleRoastLock(coffeeName) {
   roastLocks[coffeeName] = !roastLocks[coffeeName]
   renderRoasting()
 }
-  
+
 function addCustomRoastRow() {
   const tbody = document.getElementById('customRoastBody')
   const id = `cr-${Date.now()}`
@@ -919,7 +917,8 @@ async function renderBlendEditor() {
   const container = document.getElementById('blendCards')
   const originsBody = document.getElementById('originsBody')
   const blendNames = [...new Set(blendMatrix.map(b=>b.product_name))].sort()
-  const productOptions = greenSettings.map(g=>`<option value="${g.component_name}">${g.component_name}</option>`).join('')
+  const productOptions = shopifyProducts.map(p=>`<option value="${p}">${p}</option>`).join('')
+
   if (!blendNames.length) {
     container.innerHTML = '<div class="empty">No blends yet. Click "+ New Blend".</div>'
   } else {
