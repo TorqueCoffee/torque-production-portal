@@ -757,7 +757,11 @@ for (const [product, roastedLbs] of Object.entries(roastedByProduct)) {
         </div>
       </td>
       <td><span class="badge ${batchesLeft===0?'badge-green':'badge-amber'}">${batchesLeft}</span></td>
-      <td><input type="text" placeholder="Notes..." style="border:none;background:transparent;font-size:.78rem;width:100%;min-width:80px" onfocus="this.style.background='var(--off-white)'" onblur="this.style.background='transparent'"></td>
+     <td><input type="text" placeholder="Notes..." style="border:none;background:transparent;font-size:.78rem;width:100%;min-width:80px" onfocus="this.style.background='var(--off-white)'" onblur="this.style.background='transparent'"></td>
+      <td><button class="lock-btn ${roastLocks[coffeeName]?'locked':''}" onclick="toggleRoastLock('${coffeeName.replace(/'/g,"\\'")}')">
+        ${roastLocks[coffeeName]?'🔒':'Lock'}
+      </button></td>
+    </tr>`
     </tr>`
   }).join('')
 
