@@ -708,25 +708,27 @@ function renderRoasting() {
   }
 
   const coffeeNeeded = {}
-  for (const [product, roastedLbs] of Object.entries(roastedByProduct)) {
-    const components = blendMatrix.filter(b=>b.product_name.toLowerCase()===product.toLowerCase())
-    if (components.length>0) {
-      for (const comp of components) {
-        const key = comp.component_name
-        if (!coffeeNeeded[key]) {
-          const gs = greenSettings.find(g=>g.component_name===key)
-          coffeeNeeded[key] = { roasted:0, batch_size: gs?gs.batch_size_lbs:comp.batch_size_lbs }
-        }
-        coffeeNeeded[key].roasted += roastedLbs*comp.ratio
+for (const [product, roastedLbs] of Object.entries(roastedByProduct)) {
+  const components = blendMatrix.filter(b=>b.product_name.toLowerCase()===product.toLowerCase())
+  if (components.length>0) {
+    for (const comp of components) {
+      const key = comp.component_name
+      if (roastLocks[key]) continue
+      if (!coffeeNeeded[key]) {
+        const gs = greenSettings.find(g=>g.component_name===key)
+        coffeeNeeded[key] = { roasted:0, batch_size: gs?gs.batch_size_lbs:comp.batch_size_lbs }
       }
-    } else {
-      const key = product
-      const gs = greenSettings.find(g=>g.component_name===key)
-      const batchSize = gs?gs.batch_size_lbs:8
-      if (!coffeeNeeded[key]) coffeeNeeded[key] = { roasted:0, batch_size:batchSize }
-      coffeeNeeded[key].roasted += roastedLbs
+      coffeeNeeded[key].roasted += roastedLbs*comp.ratio
     }
+  } else {
+    const key = product
+    if (roastLocks[key]) continue
+    const gs = greenSettings.find(g=>g.component_name===key)
+    const batchSize = gs?gs.batch_size_lbs:8
+    if (!coffeeNeeded[key]) coffeeNeeded[key] = { roasted:0, batch_size:batchSize }
+    coffeeNeeded[key].roasted += roastedLbs
   }
+}
 
   const SHRINKAGE = 1.176
   let totalGreen=0, totalBatchesNeeded=0, totalBatchesDone=0
