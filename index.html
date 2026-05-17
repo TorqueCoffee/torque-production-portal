@@ -149,7 +149,7 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 
 /* SCHEDULE TAB */
 .schedule-table{width:100%;border-collapse:collapse;background:white;border-radius:6px;overflow:hidden;border:1px solid var(--border)}
-.schedule-table th{font-family:var(--font-mono);font-size:.7rem;font-weight:600;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.08em;padding:.75rem 1rem;border-bottom:1px solid var(--border);background:#fafaf8;text-align:left}
+.schedule-table th{font-family:var(--font-mono);font-size:.78rem;font-weight:700;color:var(--black);text-transform:uppercase;letter-spacing:.06em;padding:.75rem 1rem;border-bottom:1px solid var(--border);background:#fafaf8;text-align:left}
 .schedule-table td{padding:.6rem 1rem;border-bottom:1px solid #f0efeb;vertical-align:middle;font-size:.85rem}
 .schedule-table tr:last-child td{border-bottom:none}
 .schedule-table tr.week-past td{color:var(--mid-gray);background:#fafaf8}
@@ -182,7 +182,7 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
     <button class="tab" onclick="switchTab('addorder',this)">Add Order</button>
     <button class="tab" onclick="switchTab('blends',this)">Blends</button>
     <button class="tab" onclick="switchTab('b2b',this)">B2B</button>
-    <button class="tab" onclick="switchTab('schedule',this)">Schedule</button>
+    <button class="tab" onclick="switchTab('schedule',this)">Subscriptions</button>
     <button class="tab" onclick="switchTab('help',this)">Help</button>
   </div>
 </div>
@@ -365,76 +365,108 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
   <div style="font-family:var(--font-mono);font-size:.7rem;color:var(--mid-gray);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem">How to use — read once, you're done</div>
   <div class="help-grid">
     <div class="help-card">
-      <div class="help-card-title"><span>☀️</span> Every morning</div>
+      <div class="help-card-title"><span>☀️</span> Every morning — start here</div>
       <ul>
-        <li>Hit <strong>Pull Orders</strong> — Shopify loads automatically</li>
-        <li>Check Bagging tab for today's list</li>
-        <li>Check Roasting tab for batch counts</li>
-        <li><strong>Start here before printing Shopify labels</strong></li>
+        <li>Hit <strong>Pull Orders</strong> — loads all unfulfilled Shopify orders</li>
+        <li>Subscription orders auto-resolve to this week's coffee from the Subscriptions tab</li>
+        <li>Check Bagging tab for today's pick/pack list</li>
+        <li>Check Roasting tab for green coffee and batch counts</li>
+        <li><strong>Do this before printing Shopify labels</strong></li>
       </ul>
     </div>
     <div class="help-card">
       <div class="help-card-title"><span>📦</span> Bagging tab</div>
       <ul>
-        <li><strong>Needed</strong> = total bags required</li>
-        <li><strong>Bagged</strong> = tap + as you bag each one</li>
-        <li><strong>Remaining</strong> = what's still left to bag</li>
+        <li><strong>Needed</strong> = total bags required from all orders</li>
+        <li><strong>Bagged</strong> = tap + each time you bag one</li>
+        <li><strong>Remaining</strong> = bags still to go</li>
         <li>Row auto-completes when Bagged = Needed</li>
-        <li>Lock a row to protect qty from Shopify refresh</li>
-        <li>Sort by bag size to group work efficiently</li>
+        <li><strong>Lock</strong> protects a row from being overwritten on next Pull</li>
+        <li>Sort by bag size or type to match your physical workflow</li>
+        <li>Oldest order date shown — amber = order is from a prior day</li>
+        <li>Internal tag = order added manually via Add Order tab</li>
       </ul>
     </div>
     <div class="help-card">
       <div class="help-card-title"><span>🔥</span> Roasting tab</div>
       <ul>
-        <li><strong>Batches Needed</strong> = calculated from remaining bags</li>
-        <li>Tap + on <strong>Batches Done</strong> as you finish each drop</li>
-        <li><strong>Remaining</strong> updates live across all devices</li>
-        <li>Red banner = broken blend ratio — fix in Blends tab</li>
+        <li>Driven by <strong>Remaining</strong> bags — updates as you bag</li>
+        <li><strong>Batches Needed</strong> = green lbs ÷ batch size (15% shrinkage applied)</li>
+        <li>Tap <strong>+</strong> on Batches Done as you finish each drop</li>
+        <li><strong>Remaining batches</strong> updates live across all devices</li>
+        <li><strong>Lock</strong> freezes a row so new orders don't change it mid-roast</li>
+        <li>Add custom one-time roasts with the + Add button</li>
+        <li>Red banner = broken blend ratio or retired coffee — fix in Blends tab</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <div class="help-card-title"><span>📅</span> Subscriptions tab</div>
+      <ul>
+        <li>13-week rolling schedule — 6 past (locked), current (amber), 6 future</li>
+        <li>Set this week's coffee for Modernist, Classicist, Espressoist</li>
+        <li>Pull Orders uses this to replace subscription line items with real coffee names</li>
+        <li>Past weeks are permanent history — no editing</li>
+        <li>Use <strong>+ Add Future Week</strong> to extend the schedule</li>
+        <li>Save button per row — changes don't save until you click Save</li>
       </ul>
     </div>
     <div class="help-card">
       <div class="help-card-title"><span>🏢</span> B2B tab</div>
       <ul>
-        <li>Shows all wholesale orders grouped by company</li>
-        <li>Use as a double-check against Shopify</li>
-        <li>Hit Refresh B2B to reload latest orders</li>
+        <li>Shows all wholesale orders grouped by company name</li>
+        <li>Double-check against Shopify for multi-order accounts</li>
+        <li>Read-only — for reference and shift handoff</li>
+        <li>Hit <strong>Refresh B2B</strong> to reload latest</li>
       </ul>
     </div>
     <div class="help-card">
       <div class="help-card-title"><span>➕</span> Add Order</div>
       <ul>
         <li>For café, wholesale, or staff orders not in Shopify</li>
-        <li>Pick coffee → bag size → qty → Add to Plan</li>
-        <li>Shows instantly in Bagging and Roasting</li>
+        <li>Pick coffee → bag size → qty → note → Add to Plan</li>
+        <li>Shows instantly in Bagging and Roasting tabs</li>
+        <li>Tagged as "Internal" so it's visually distinct from Shopify orders</li>
       </ul>
     </div>
     <div class="help-card">
       <div class="help-card-title"><span>⚗️</span> Blends tab</div>
       <ul>
-        <li>Edit blend recipes — ratios must add to 100%</li>
-        <li>All coffees pulled from Shopify — no free typing</li>
-        <li>Red border = blend has a retired coffee — update it</li>
-        <li>Single origin batch sizes editable here</li>
+        <li>Edit blend recipes — ratios must add to 100% or roasting math breaks</li>
+        <li>Coffee dropdowns sourced from Shopify active products only</li>
+        <li>Red border on a blend card = retired coffee in that blend — update it</li>
+        <li>Single origin batch sizes editable here — new coffees default to 8lb</li>
+        <li>Decaf coffees = 7lb batch size</li>
       </ul>
     </div>
     <div class="help-card">
       <div class="help-card-title"><span>🌙</span> End of day</div>
       <ul>
-        <li>Rows auto-complete when fully bagged</li>
-        <li>Click <strong>Archive Done</strong> to clear completed rows</li>
-        <li>View Archive shows what was completed today</li>
-        <li>Partial rows carry over automatically</li>
+        <li>Rows auto-complete when Bagged = Needed</li>
+        <li>Click <strong>Archive Done</strong> to sweep completed rows out of the plan</li>
+        <li><strong>View Archive</strong> shows everything completed today — useful for shift handoff</li>
+        <li>Partial rows carry forward automatically — nothing is lost</li>
+        <li>Roast batch counts reset at midnight for the next day</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <div class="help-card-title"><span>🔄</span> How Pull Orders works</div>
+      <ul>
+        <li>Recalculates Needed from scratch based on current Shopify unfulfilled orders</li>
+        <li>Preserves Bagged counts — never overwrites work already done</li>
+        <li>Locked rows are never touched by a pull</li>
+        <li>Cancelled or fulfilled orders are automatically removed</li>
+        <li>New active coffees in Shopify are auto-added to settings at 8lb default</li>
+        <li>Retired coffees are auto-removed from settings</li>
       </ul>
     </div>
   </div>
-  <div class="help-note">Pull Orders anytime — locked rows won't be overwritten. Unlocked rows recalculate from Shopify. All changes sync instantly across all devices.</div>
+  <div class="help-note">All changes sync in real time across every device. Pull Orders anytime — locked rows are never overwritten. Partial work carries forward. History lives in View Archive.</div>
 </div>
 
 <script>
 const TEAM_ID = 'torque2026'
-const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_UCzUCyiWEtzqRxQcnhpSyw_BrYBKCz-'
+const SUPABASE_URL = '%%SUPABASE_URL%%'
+const SUPABASE_ANON_KEY = '%%SUPABASE_ANON_KEY%%'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 let planData = []
