@@ -502,8 +502,8 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 
 <script>
 const TEAM_ID = 'torque2026'
-const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_UCzUCyiWEtzqRxQcnhpSyw_BrYBKCz-'
+const SUPABASE_URL = '%%SUPABASE_URL%%'
+const SUPABASE_ANON_KEY = '%%SUPABASE_ANON_KEY%%'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 let planData = []
@@ -1449,12 +1449,12 @@ function renderMixGuide() {
     return
   }
 
-  // Selector buttons — use data-name to avoid quote escaping issues
+  // Selector buttons
   selectorEl.innerHTML = blendNames.map(name =>
     `<button class="mix-selector-btn ${activeMix === name ? 'active' : ''}" onclick="selectMix(this.dataset.name)" data-name="${name.replace(/"/g,'&quot;')}">${name}</button>`
   ).join('')
 
-  // Auto-select first blend if none active
+  // Auto-select first blend
   if (!activeMix || !blendNames.includes(activeMix)) {
     activeMix = blendNames[0]
     renderMixGuide()
@@ -1471,10 +1471,10 @@ function renderMixGuide() {
   const totalRatio = components.reduce((s,c) => s + Number(c.ratio), 0)
   const ratioOk = Math.abs(totalRatio - 1) < 0.01
 
-  // Calculator — always reset inputs on blend switch
+  // Calculator inputs — horizontal row, styled card
   calcEl.innerHTML = `
     <div class="mix-calc">
-      <div class="mix-calc-title">Bag Calculator — how much of each coffee to weigh out?</div>
+      <div class="mix-calc-title">Bag Calculator — enter quantities to see how much of each coffee to weigh</div>
       <div class="mix-calc-inputs">
         <div class="mix-calc-field">
           <label>12oz Bags</label>
@@ -1489,13 +1489,11 @@ function renderMixGuide() {
           <input type="number" id="calc5lb" min="0" value="0" oninput="calcMix()">
         </div>
       </div>
-      <div id="calcResult" class="mix-calc-result">
-        <div class="mix-calc-empty">Enter bag quantities above</div>
-      </div>
+      <div class="mix-calc-total-line" id="calcTotalLine" style="display:none"></div>
     </div>
   `
 
-  // Blend reference card
+  // Blend card — each row has a weight span updated in-place by calcMix()
   cardEl.innerHTML = `
     <div class="mix-card">
       <div class="mix-blend-name">${activeMix}</div>
@@ -1504,12 +1502,14 @@ function renderMixGuide() {
         const parts = comp.component_name.split(' - ')
         const coffeeName = parts[0]
         const coffeeSub = parts.slice(1).join(' - ')
+        const safeKey = comp.component_name.replace(/"/g, '&quot;')
         return `<div class="mix-component">
           <div class="mix-pct">${pct}%</div>
-          <div>
+          <div class="mix-coffee-info">
             <div class="mix-coffee-name">${coffeeName}</div>
             ${coffeeSub ? `<div class="mix-coffee-sub">${coffeeSub}</div>` : ''}
           </div>
+          <div class="mix-weight" id="weight-${pct}-${coffeeName.replace(/[^a-z0-9]/gi,'')}" data-ratio="${comp.ratio}"></div>
         </div>`
       }).join('')}
       <div class="mix-total">${ratioOk ? '✓ Total: 100%' : `⚠ Total: ${Math.round(totalRatio*100)}% — check Blends tab`}</div>
@@ -1526,36 +1526,32 @@ function calcMix() {
   const q12  = Math.max(0, parseInt(document.getElementById('calc12oz')?.value) || 0)
   const q2lb = Math.max(0, parseInt(document.getElementById('calc2lb')?.value)  || 0)
   const q5lb = Math.max(0, parseInt(document.getElementById('calc5lb')?.value)  || 0)
-  const resultEl = document.getElementById('calcResult')
-  if (!resultEl) return
 
   const totalLbs = (q12 * BAG_WEIGHTS['12oz'].lbs) + (q2lb * BAG_WEIGHTS['2lb'].lbs) + (q5lb * BAG_WEIGHTS['5lb'].lbs)
   const totalG   = (q12 * BAG_WEIGHTS['12oz'].g)   + (q2lb * BAG_WEIGHTS['2lb'].g)   + (q5lb * BAG_WEIGHTS['5lb'].g)
+  const totalLine = document.getElementById('calcTotalLine')
 
-  if (totalLbs === 0) {
-    resultEl.innerHTML = '<div class="mix-calc-empty">Enter bag quantities above</div>'
-    return
+  // Update weight spans in the blend card in-place — no re-render
+  document.querySelectorAll('.mix-weight[data-ratio]').forEach(el => {
+    const ratio = parseFloat(el.dataset.ratio)
+    if (totalLbs === 0) {
+      el.innerHTML = ''
+    } else {
+      const lbs = (totalLbs * ratio).toFixed(2)
+      const g   = Math.round(totalG * ratio)
+      el.innerHTML = `${lbs} lbs<br><span class="mix-weight-g">${g}g</span>`
+    }
+  })
+
+  // Update total line
+  if (totalLine) {
+    if (totalLbs === 0) {
+      totalLine.style.display = 'none'
+    } else {
+      totalLine.style.display = 'block'
+      totalLine.textContent = `Total: ${totalLbs.toFixed(2)} lbs / ${totalG}g`
+    }
   }
-
-  const components = blendMatrix.filter(b => b.product_name === activeMix)
-  const rows = components.map(comp => {
-    const ratio = Number(comp.ratio)
-    const lbs   = (totalLbs * ratio).toFixed(2)
-    const g     = Math.round(totalG * ratio)
-    const name  = comp.component_name.split(' - ')[0]
-    return `<div class="mix-result-row">
-      <div class="mix-result-coffee">${name}</div>
-      <div class="mix-result-amounts">
-        ${lbs} lbs <span class="mix-result-sub">/ ${g}g</span>
-      </div>
-    </div>`
-  }).join('')
-
-  resultEl.innerHTML = `
-    <div class="mix-calc-result-title">Amounts needed for ${totalLbs.toFixed(2)} lbs total</div>
-    ${rows}
-    <div class="mix-calc-total">Total: ${totalLbs.toFixed(2)} lbs / ${totalG}g</div>
-  `
 }
 
 // Realtime
