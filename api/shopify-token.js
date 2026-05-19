@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 
-const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle', 'xbloom', 'xpods', 'x pods']
+const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle']
 
 function isExcluded(title) {
   const t = title.toLowerCase()
