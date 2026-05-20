@@ -738,7 +738,9 @@ function populateCoffeeDropdown() {
   const sel = document.getElementById('addCoffee')
   if (!sel) return
   const fromPlan = [...new Set(planData.map(r => r.product_name))]
-  const all = [...new Set([...fromPlan, ...shopifyProducts])].sort()
+  const fromOrigins = greenSettings.map(g => g.component_name)
+  const fromBlends = [...new Set(blendMatrix.map(b => b.product_name))]
+  const all = [...new Set([...fromPlan, ...fromOrigins, ...fromBlends, ...shopifyProducts])].sort()
   sel.innerHTML = all.length
     ? all.map(n => `<option value="${n}">${n}</option>`).join('')
     : '<option value="">Pull Orders first</option>'
