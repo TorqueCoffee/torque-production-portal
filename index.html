@@ -648,7 +648,12 @@ async function refreshOrders() {
     for (const row of (existing||[])) existingMap[row.sku] = row
     const pulledSkus = new Set(data.items.map(i => i.sku))
 
+    // Don't re-insert SKUs that were already archived today
+    const { data: archivedToday } = await sb.from('archived_plan').select('sku').eq('team_id', TEAM_ID).eq('archive_date', todayStr)
+    const archivedTodaySkus = new Set((archivedToday || []).map(r => r.sku))
+
     for (const item of data.items) {
+      if (archivedTodaySkus.has(item.sku)) continue
       const ex = existingMap[item.sku]
       if (!ex) {
         await sb.from('daily_plan').insert({
