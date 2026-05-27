@@ -244,8 +244,8 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
     <table>
       <thead>
         <tr>
-          <th>Done</th><th>Product</th><th>Bag Size</th><th>Oldest Order</th>
-          <th>Source</th><th>Needed</th><th>Bagged</th><th>Remaining</th><th>Progress</th><th>Lock</th>
+          <th>Done</th><th>Product</th><th>Bag Size</th><th>Source</th>
+          <th>Needed</th><th>Bagged</th><th>Remaining</th><th>Progress</th><th>Oldest Order</th><th>Lock</th>
         </tr>
       </thead>
       <tbody id="baggingBody"><tr><td colspan="10" class="empty">Click "Pull Orders" to load</td></tr></tbody>
@@ -786,7 +786,6 @@ function renderBagging() {
       <td><input type="checkbox" ${row.done?'checked':''} onchange="toggleDone('${row.id}',this.checked)"></td>
       <td style="font-weight:500">${row.product_name}${row.note?`<br><span style="font-size:.72rem;color:var(--mid-gray)">${row.note}</span>`:''}</td>
       <td style="font-family:var(--font-mono);font-size:.8rem">${row.variant_title}</td>
-      <td>${dateLabel}</td>
       <td><span class="source-tag ${row.source==='manual'?'manual':''}">${row.source==='manual'?'Internal':'Shopify'}</span></td>
       <td style="font-family:var(--font-mono);font-weight:600">${needed}</td>
       <td>
@@ -803,11 +802,12 @@ function renderBagging() {
           <span class="progress-text">${pct}%</span>
         </div>
       </td>
+      <td>${dateLabel}</td>
       <td><button class="lock-btn ${row.locked?'locked':''}" onclick="toggleLock('${row.id}',${!row.locked})">${row.locked?'🔒':'Lock'}</button></td>
     </tr>`
   }).join('')
 
-  tfoot.innerHTML = `<tr class="tfoot-row"><td></td><td>TOTAL</td><td></td><td></td><td></td><td>${totalNeeded}</td><td>${totalBagged}</td><td>${totalRemaining}</td><td></td><td></td></tr>`
+  tfoot.innerHTML = `<tr class="tfoot-row"><td></td><td>TOTAL</td><td></td><td></td><td>${totalNeeded}</td><td>${totalBagged}</td><td>${totalRemaining}</td><td></td><td></td><td></td></tr>`
 }
 
 function renderRoasting() {
