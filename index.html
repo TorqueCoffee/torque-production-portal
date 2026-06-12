@@ -1249,6 +1249,7 @@ async function viewArchive() {
 
 // SUBSCRIPTION SCHEDULE
 let scheduleData = []
+let scheduleCoffeeOptions = []
 
 function getCurrentWeekStart() {
   // Returns the most recent Sunday at midnight Pacific
@@ -1268,6 +1269,13 @@ function getCurrentWeekStart() {
 }
 
 async function loadSchedule() {
+  // Fetch the master coffee list directly so the dropdowns are populated even
+  // when the user lands on this tab first (shopifyProducts may still be empty).
+  const { data: coffees } = await sb.from('green_coffee_settings')
+    .select('component_name')
+    .order('component_name', { ascending: true })
+  scheduleCoffeeOptions = (coffees || []).map(c => c.component_name).filter(Boolean)
+
   const { data } = await sb.from('subscription_schedule')
     .select('*')
     .order('week_start', { ascending: true })
@@ -1278,8 +1286,7 @@ async function loadSchedule() {
 function renderSchedule() {
   const tbody = document.getElementById('scheduleBody')
   const currentWeek = getCurrentWeekStart()
-  const allCoffees = [...shopifyProducts]
-  const coffeeOptions = allCoffees.map(c => `<option value="${c}">${c}</option>`).join('')
+  const allCoffees = [...scheduleCoffeeOptions]
 
   // Update current week card
   const currentRow = scheduleData.find(r => r.week_start === currentWeek)
