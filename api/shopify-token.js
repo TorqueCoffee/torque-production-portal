@@ -72,7 +72,7 @@ module.exports = async function handler(req, res) {
 
     // Fetch all unfulfilled orders
     let orders = []
-    let ordersPage = `${baseUrl}/orders.json?status=unfulfilled&limit=250`
+    let ordersPage = `${baseUrl}/orders.json?status=open&fulfillment_status=unfulfilled&limit=250`
     while (ordersPage) {
       const oRes = await fetch(ordersPage, { headers })
       const oData = await oRes.json()
@@ -125,6 +125,7 @@ module.exports = async function handler(req, res) {
       const orderDate = order.created_at ? order.created_at.split('T')[0] : null
       for (const item of order.line_items) {
         if (item.vendor !== 'Torque Coffees') continue
+        if (item.fulfillment_status === 'fulfilled') continue
         const key = `${item.sku || item.title}||${item.variant_title || 'Default'}`
         if (!aggregated[key]) {
           aggregated[key] = {

@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-06-20 — Fix: stuck orders / wrong Shopify order filter
+
+### Work done
+
+- **Root cause.** The orders pull used `orders.json?status=unfulfilled`. The REST `status` param only accepts `open`/`closed`/`cancelled`/`any`; `unfulfilled` is not a valid value, so Shopify silently treated it as `any` and returned every open order — including ones that were fulfilled but payment-pending. Those line items kept getting aggregated into the bagging list forever, so they never cleared ("stuck orders").
+- **Fix** in `api/shopify-token.js`:
+  - Order pull now uses `orders.json?status=open&fulfillment_status=unfulfilled&limit=250` — `fulfillment_status=unfulfilled` is the correct param for "not yet fulfilled."
+  - The default ORDERS aggregation loop now skips line items already fulfilled: `if (item.fulfillment_status === 'fulfilled') continue`, so partially-fulfilled orders don't re-bag shipped items.
+
+### Verification
+
+- `node --check api/shopify-token.js` passes. Live behavior depends on Shopify OAuth creds (Vercel env), verified via deploy.
+
 ## 2026-06-11 — Fix: Subscription tab coffee dropdowns empty / not changeable
 
 ### Work done
