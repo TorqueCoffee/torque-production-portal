@@ -189,9 +189,8 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 .mix-pct{font-family:var(--font-mono);font-size:1.6rem;font-weight:700;color:var(--black);line-height:1;min-width:80px;flex-shrink:0}
 .mix-coffee-info{flex:1;min-width:0}
 .mix-coffee-name{font-family:var(--font-sans);font-size:1rem;font-weight:600;color:var(--black);line-height:1.2}
-.mix-coffee-sub{font-family:var(--font-mono);font-size:.68rem;color:var(--mid-gray);margin-top:.1rem}
-.mix-weight{font-family:var(--font-mono);font-size:.88rem;font-weight:600;color:var(--black);text-align:right;min-width:120px;flex-shrink:0;white-space:nowrap}
-.mix-weight-g{font-weight:400;color:var(--mid-gray);margin-left:.25rem}
+.mix-weight{font-family:var(--font-mono);font-size:1rem;font-weight:600;color:var(--black);text-align:left;min-width:120px;flex-shrink:0;white-space:nowrap}
+.mix-weight-g{font-weight:600;color:var(--black);margin-left:.25rem}
 .mix-total{font-family:var(--font-mono);font-size:.72rem;color:var(--mid-gray);margin-top:.75rem;padding-top:.625rem;border-top:1px solid var(--border)}
 .mix-empty{font-family:var(--font-mono);font-size:.9rem;color:var(--mid-gray);padding:2rem;text-align:center}
 
@@ -1528,15 +1527,13 @@ function renderMixGuide() {
         const pct = Math.round(Number(comp.ratio) * 100)
         const parts = comp.component_name.split(' - ')
         const coffeeName = parts[0]
-        const coffeeSub = parts.slice(1).join(' - ')
         const safeKey = comp.component_name.replace(/"/g, '&quot;')
         return `<div class="mix-component">
           <div class="mix-pct">${pct}%</div>
+          <div class="mix-weight" id="weight-${pct}-${coffeeName.replace(/[^a-z0-9]/gi,'')}" data-ratio="${comp.ratio}"></div>
           <div class="mix-coffee-info">
             <div class="mix-coffee-name">${coffeeName}</div>
-            ${coffeeSub ? `<div class="mix-coffee-sub">${coffeeSub}</div>` : ''}
           </div>
-          <div class="mix-weight" id="weight-${pct}-${coffeeName.replace(/[^a-z0-9]/gi,'')}" data-ratio="${comp.ratio}"></div>
         </div>`
       }).join('')}
       <div class="mix-total">${ratioOk ? '✓ Total: 100%' : `⚠ Total: ${Math.round(totalRatio*100)}% — check Blends tab`}</div>
