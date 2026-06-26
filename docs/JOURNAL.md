@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-06-26 — Mixing Guide: row reorder, drop sub-info, unify weight typography
+
+### Work done
+
+- Reworked each blend-component row in the Mixing Guide (`index.html`, `renderMixGuide()` + `.mix-*` CSS).
+- **Reorder.** Flex row changed from `[pct | name+sub | weight]` to `[pct | weight | name]`. Weight moved from far-right to the middle slot; `.mix-coffee-info` (name) now sits last and flexes to fill. `.mix-weight` `text-align` flipped right→left.
+- **Removed sub-info.** Dropped the producer/origin secondary line — deleted the `coffeeSub` variable + its `<div>`, and removed the now-unused `.mix-coffee-sub` CSS rule. Rows show only `coffeeName` (`component_name.split(' - ')[0]`).
+- **Typography unified.** `.mix-weight` font-size .88rem→1rem; `.mix-weight-g` (the `/` separator + grams) weight 400→600 and color mid-gray→black, so lbs, `/`, grams, and coffee name all read at 1rem / 600 / black. The grams value is no longer faint. `.mix-pct` (20%, 30%…) untouched. Weight string format (`0.40 lbs / 181g`) and the Total row unchanged.
+
+### Verification
+
+- Visual change only; rendered in Launch preview. No JS logic touched beyond removing the unused `coffeeSub` var.
+
 ## 2026-06-20 — Fix: stuck orders / wrong Shopify order filter
 
 ### Work done
