@@ -130,8 +130,28 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 .help-card li{margin-bottom:.2rem}
 .help-note{background:var(--amber-light);border:1px solid #ffcc99;border-radius:6px;padding:.75rem 1rem;font-size:.8rem;color:var(--amber);font-family:var(--font-mono)}
 .stale-detail{font-size:.75rem;margin-top:.25rem;font-family:var(--font-mono);opacity:.85}
+/* SHIP (B2B cubic shipping) */
+.ship-bar{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
+.ship-bar-title{font-family:var(--font-mono);font-size:.8rem;font-weight:600}
+.ship-bar-spacer{margin-left:auto}
+.ship-order-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 1rem;border-bottom:1px solid #f0efeb;flex-wrap:wrap}
+.ship-order-row:last-child{border-bottom:none}
+.ship-addr{font-size:.8rem;color:#444;line-height:1.5}
+.ship-addr-name{font-weight:600;color:var(--black)}
+.ship-box{border:1px solid var(--border);border-radius:6px;background:white;margin-bottom:.75rem;overflow:hidden}
+.ship-box-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.55rem .9rem;background:#fafaf8;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.ship-box-title{font-family:var(--font-mono);font-weight:600;font-size:.78rem}
+.ship-box-body{padding:.6rem .9rem;font-size:.82rem}
+.ship-content-line{display:flex;gap:.5rem;padding:.15rem 0}
+.ship-content-qty{font-family:var(--font-mono);font-weight:600;min-width:34px}
+.ship-actionbar{background:white;border:1px solid var(--border);border-radius:6px;padding:1rem 1.25rem;margin-top:1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.ship-total{font-family:var(--font-mono);font-size:1.15rem;font-weight:600;white-space:nowrap}
+.ship-total span{font-size:.6rem;color:var(--mid-gray);display:block;text-transform:uppercase;letter-spacing:.07em;font-weight:500}
+.ship-track{font-family:var(--font-mono);font-size:.78rem}
+.ship-track a{color:var(--blue);text-decoration:none}
+.ship-step{font-size:.8rem;color:#444;line-height:1.5}
 @media print{
-  .header,.toolbar,#bagging,#addorder,#blends,#b2b,#help,.sort-bar{display:none!important}
+  .header,.toolbar,#bagging,#addorder,#blends,#b2b,#ship,#help,.sort-bar{display:none!important}
   #roasting{display:block!important;padding:0}
   .summary-row{display:none}
   body{background:white}
@@ -210,6 +230,7 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
     <button class="tab" onclick="switchTab('addorder',this)">Add Order</button>
     <button class="tab" onclick="switchTab('blends',this)">Blends</button>
     <button class="tab" onclick="switchTab('b2b',this)">B2B</button>
+    <button class="tab" onclick="switchTab('ship',this)">Ship</button>
     <button class="tab" onclick="switchTab('schedule',this)">Subscriptions</button>
     <button class="tab" onclick="switchTab('mix',this)">Mix Guide</button>
     <button class="tab" onclick="switchTab('help',this)">Help</button>
@@ -360,6 +381,12 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
   <div id="b2bBody"><div class="empty" style="padding:3rem;background:white;border:1px solid var(--border);border-radius:6px;">Click "Refresh B2B" to load wholesale orders</div></div>
 </div>
 
+<!-- SHIP (B2B Cubic Shipping) -->
+<div id="ship" class="view">
+  <div class="summary-row" id="shipSummary"></div>
+  <div id="shipBody"><div class="empty" style="padding:3rem;background:white;border:1px solid var(--border);border-radius:6px;">Loading shippable B2B orders…</div></div>
+</div>
+
 
 <!-- SCHEDULE -->
 <div id="schedule" class="view">
@@ -469,6 +496,19 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
       </ul>
     </div>
     <div class="help-card">
+      <div class="help-card-title"><span>🚚</span> Ship tab — buy USPS labels</div>
+      <ul>
+        <li>Lists each B2B order with its ship-to and how many 14×10×10 boxes it packs into</li>
+        <li>Tap <strong>Ship →</strong> to open an order; the box split is auto-figured — eyeball it</li>
+        <li><strong>Get rates</strong> shows the cubic Ground Advantage cost per box — no money moves yet</li>
+        <li><strong>Buy labels</strong> charges Shippo only after you confirm the total</li>
+        <li>If a box fails, only the failed ones retry — bought labels are never re-charged</li>
+        <li><strong>Print label + slip</strong> sends the shipping label then the contents slip (ZPL) to the Zebra</li>
+        <li><strong>Fulfill order</strong> writes all tracking to Shopify with one customer email — only after every box has a label</li>
+        <li>An already-fulfilled order shows calmly and is never notified twice</li>
+      </ul>
+    </div>
+    <div class="help-card">
       <div class="help-card-title"><span>➕</span> Add Order</div>
       <ul>
         <li>For café, wholesale, or staff orders not in Shopify</li>
@@ -525,6 +565,8 @@ let roastingProgress = {}
 let shopifyProducts = []
 let staleBlends = []
 let roastLocks = {}
+let b2bShipOrders = []   // from /api/shopify-token?type=b2b-ship — the ship-order list
+let shipState = null     // current open order's ship flow (in-memory), or null = list
 
 const today = new Date()
 const todayStr = today.toISOString().split('T')[0]
@@ -537,6 +579,7 @@ function switchTab(tab, el) {
   if (el) el.classList.add('active')
   if (tab === 'blends') renderBlendEditor()
   if (tab === 'b2b') loadB2B()
+  if (tab === 'ship') initShipTab()
   if (tab === 'schedule') loadSchedule()
   if (tab === 'mix') renderMixGuide()
 }
@@ -996,6 +1039,553 @@ async function loadB2B() {
 
   btn.disabled = false
   btn.textContent = 'Refresh B2B'
+}
+
+// ── B2B Cubic Shipping · Step 1: box packer (pure, no side effects) ──────────
+// Packs order line items into the fewest 14x10x10 boxes, each <= weight cap.
+// weight_lb = per-UNIT net weight (BAG_WEIGHTS / Shopify variant grams).
+// The 20 lb cap is the USPS Ground Advantage *cubic* eligibility ceiling. It is
+// applied to NET weight; real shipped weight adds bag + box tare (see docs).
+// Fit/volume is NOT modeled by design — the human eyeball-confirm step verifies
+// physical fit before any label is bought. Tested: docs/b2b-cubic-shipping.md.
+const PACK_BOX = Object.freeze({ label: '14x10x10', maxWeightLb: 20 })
+
+function packBoxes(items, opts = {}) {
+  const cap = opts.maxWeightLb ?? PACK_BOX.maxWeightLb
+  const boxLabel = opts.boxLabel ?? PACK_BOX.label
+  const EPS = 1e-9
+  const units = [], unpackable = []
+
+  for (const it of (items || [])) {
+    const qty = Math.max(0, Math.floor(Number(it.qty) || 0))
+    const w = Number(it.weight_lb)
+    if (qty === 0) continue
+    if (!Number.isFinite(w) || w <= 0) {
+      unpackable.push({ product_name: it.product_name, variant_title: it.variant_title, qty, weight_lb: it.weight_lb, reason: 'unknown_or_invalid_weight' })
+      continue
+    }
+    if (w > cap + EPS) {
+      unpackable.push({ product_name: it.product_name, variant_title: it.variant_title, qty, weight_lb: w, reason: 'unit_exceeds_box_cap' })
+      continue
+    }
+    for (let i = 0; i < qty; i++) units.push({ product_name: it.product_name, variant_title: it.variant_title, weight_lb: w })
+  }
+
+  // First-Fit Decreasing: heaviest first, into the first box that still fits.
+  units.sort((a, b) => b.weight_lb - a.weight_lb)
+  const bins = []
+  for (const u of units) {
+    let placed = false
+    for (const bin of bins) {
+      if (bin.weight_lb + u.weight_lb <= cap + EPS) { bin.units.push(u); bin.weight_lb += u.weight_lb; placed = true; break }
+    }
+    if (!placed) bins.push({ weight_lb: u.weight_lb, units: [u] })
+  }
+
+  const box_count = bins.length
+  const boxes = bins.map((bin, idx) => ({
+    box_index: idx + 1, box_count, box_label: boxLabel,
+    weight_lb: Math.round(bin.weight_lb * 100) / 100,
+    contents: packAggregate(bin.units)
+  }))
+  return { boxes, unpackable, box_count, total_weight_lb: Math.round(bins.reduce((s, b) => s + b.weight_lb, 0) * 100) / 100 }
+}
+
+// Collapse units back into {product, variant, qty} lines for the contents block.
+function packAggregate(units) {
+  const map = new Map()
+  for (const u of units) {
+    const key = `${u.product_name} ${u.variant_title}`
+    if (!map.has(key)) map.set(key, { product_name: u.product_name, variant_title: u.variant_title, qty: 0, unit_weight_lb: u.weight_lb })
+    map.get(key).qty += 1
+  }
+  return [...map.values()]
+}
+
+// ── B2B Cubic Shipping · Step 3: contents-block (packing slip) ZPL ───────────
+// A SECOND 4x6 thermal print per box, on the same roll AFTER the Shippo shipping
+// label — NOT part of the shipping label canvas. 203 dpi: 4x6 = 812x1219 dots.
+// box = one entry from packBoxes(); opts = { order_name, company_name, footer }.
+// Verified via Labelary render (docs/b2b-cubic-shipping.md).
+function zEsc(s) {
+  return String(s == null ? '' : s).replace(/[\^~\\]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function composeContentsZPL(box, opts = {}) {
+  const W = 812, H = 1219, m = 30, blockW = W - m * 2
+  const boxId = `BOX ${box.box_index} OF ${box.box_count}`
+  const weight = (Number.isFinite(box.weight_lb) ? box.weight_lb.toFixed(1) : '?') + ' lb'
+  const sub = [zEsc(opts.order_name), zEsc(opts.company_name)].filter(Boolean).join('  ·  ')
+  const items = box.contents || []
+
+  let z = '^XA^CI28' + `^PW${W}^LL${H}^LH0,0`
+  z += `^FO${m},28^A0N,56,56^FDTORQUE COFFEE^FS`
+  z += `^FO${m},92^GB${blockW},3,3^FS`
+
+  let y = 110
+  if (sub) { z += `^FO${m},${y}^A0N,30,30^FB${blockW},2,0,L,0^FD${sub}^FS`; y += 72 }
+
+  z += `^FO${m},${y}^GB${blockW},82,2^FS`
+  z += `^FO${m + 14},${y + 16}^A0N,52,52^FD${boxId}^FS`
+  z += `^FO${m},${y + 24}^A0N,40,40^FB${blockW - 16},1,0,R,0^FD${weight}^FS`
+  y += 112
+
+  z += `^FO${m},${y}^A0N,28,28^FDCONTENTS^FS`; y += 34
+  z += `^FO${m},${y}^GB${blockW},2,2^FS`; y += 14
+
+  if (!items.length) {
+    z += `^FO${m},${y}^A0N,34,34^FD(no items)^FS`
+  } else {
+    for (const it of items) {
+      z += `^FO${m},${y}^A0N,40,40^FD${it.qty} x^FS`
+      const label = it.variant_title ? `${zEsc(it.product_name)}  (${zEsc(it.variant_title)})` : zEsc(it.product_name)
+      z += `^FO${m + 96},${y}^A0N,34,34^FB${blockW - 96},2,0,L,0^FD${label}^FS`
+      y += 64
+    }
+  }
+
+  z += `^FO${m},${H - 48}^A0N,22,22^FB${blockW},1,0,L,0^FD${zEsc(opts.footer || 'Packing list - not a shipping label')}^FS`
+  z += '^XZ'
+  return z
+}
+
+// ── B2B Cubic Shipping · Step 5 Slice B: the ship UI flow ────────────────────
+// open order → pack → confirm rate → buy labels → print label+slip → fulfill →
+// tracking back. Wires the Step 1–4b backend pieces (packBoxes, /api/shippo-label,
+// composeContentsZPL, /api/shopify-fulfill); it does NOT re-derive their behavior.
+// The in-flight shipment lives in shipState (memory) only until fulfilled — the
+// bought labels + cost rows are the durable record (Shippo + shipping_labels).
+
+// Open the Ship tab without clobbering an in-flight shipment.
+function initShipTab() {
+  if (shipState) { renderShip(); return }       // mid-flow — keep it
+  if (b2bShipOrders.length) renderShip()         // already loaded the list
+  else loadShipOrders()
+}
+
+async function loadShipOrders() {
+  shipState = null
+  const body = document.getElementById('shipBody')
+  document.getElementById('shipSummary').innerHTML = ''
+  body.innerHTML = '<div class="empty" style="padding:3rem;background:white;border:1px solid var(--border);border-radius:6px;">Loading shippable B2B orders…</div>'
+  try {
+    const res = await fetch('/api/shopify-token?type=b2b-ship')
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+    b2bShipOrders = data.orders || []
+  } catch (err) {
+    b2bShipOrders = []
+    body.innerHTML = `<div class="alert alert-red">Couldn't load B2B orders: ${err.message}</div>`
+    return
+  }
+  renderShip()
+}
+
+function renderShip() {
+  if (shipState) renderShipDetail()
+  else renderShipList()
+}
+
+// ---- the order list -----------------------------------------------------------
+function renderShipList() {
+  const summary = document.getElementById('shipSummary')
+  const body = document.getElementById('shipBody')
+
+  // Pre-pack every order so the list already shows the box count — the system
+  // does the work; the human just confirms (packBoxes is pure, cheap, no I/O).
+  const rows = b2bShipOrders.map(order => ({ order, pack: packBoxes(order.items) }))
+  const totalBoxes = rows.reduce((s, r) => s + r.pack.box_count, 0)
+  const totalBags = b2bShipOrders.reduce((s, o) => s + o.items.reduce((ss, i) => ss + (i.qty || 0), 0), 0)
+
+  summary.innerHTML = `
+    <div class="summary-card"><div class="summary-label">Orders</div><div class="summary-value">${b2bShipOrders.length}</div><div class="summary-sub">to ship</div></div>
+    <div class="summary-card"><div class="summary-label">Boxes</div><div class="summary-value">${totalBoxes}</div><div class="summary-sub">14x10x10</div></div>
+    <div class="summary-card"><div class="summary-label">Bags</div><div class="summary-value">${totalBags}</div><div class="summary-sub">across orders</div></div>
+  `
+
+  const bar = `<div class="ship-bar">
+    <div class="ship-bar-title">Ship B2B orders — cubic Ground Advantage</div>
+    <button class="btn btn-primary ship-bar-spacer" onclick="loadShipOrders()">Refresh Orders</button>
+  </div>`
+
+  if (!b2bShipOrders.length) {
+    body.innerHTML = bar + '<div class="empty" style="padding:3rem;background:white;border:1px solid var(--border);border-radius:6px;">No shippable B2B orders in the current unfulfilled set.</div>'
+    return
+  }
+
+  const list = rows.map((r, i) => {
+    const o = r.order, sa = o.shipping_address || {}
+    const where = [sa.city, sa.province_code, sa.zip].filter(Boolean).join(', ')
+    const unp = r.pack.unpackable.length
+    const boxChip = unp
+      ? `<span class="badge badge-red">⚠ ${unp} can't pack</span>`
+      : `<span class="badge badge-blue">${r.pack.box_count} box${r.pack.box_count !== 1 ? 'es' : ''}</span>`
+    const bags = o.items.reduce((s, it) => s + (it.qty || 0), 0)
+    return `<div class="ship-order-row">
+      <div class="ship-addr">
+        <div class="ship-addr-name">${sa.company || sa.name || '—'}</div>
+        <div>${o.order_name} · ${where || 'no address'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+        ${boxChip}
+        <span class="badge badge-gray">${bags} bag${bags !== 1 ? 's' : ''}</span>
+        <button class="btn btn-primary btn-sm" onclick="openShipOrder(${i})">Ship →</button>
+      </div>
+    </div>`
+  }).join('')
+
+  body.innerHTML = bar + `<div class="table-wrap" style="padding:.25rem 0">${list}</div>`
+}
+
+function openShipOrder(i) {
+  const order = b2bShipOrders[i]
+  if (!order) return
+  const pack = packBoxes(order.items)
+  shipState = {
+    order, pack,
+    boxes: pack.boxes.map(box => ({ box, rate: null, rateError: null, rateAlt: null, label: null, labelError: null, status: 'packed', printed: false })),
+    phase: 'packed', fulfill: null, fulfillError: null
+  }
+  renderShip()
+}
+
+function backToShipList() {
+  // Warn if money's been spent but the order isn't fulfilled — going back drops
+  // this screen's state (the labels stay bought in Shippo regardless).
+  const bought = shipState && shipState.boxes.some(b => b.label)
+  const done = shipState && (shipState.phase === 'fulfilled' || shipState.phase === 'alreadyFulfilled')
+  if (bought && !done && !confirm('This order has purchased labels but is not fulfilled yet. Go back? The labels stay bought in Shippo, but this screen resets.')) return
+  shipState = null
+  renderShip()
+}
+
+// ---- the open-order detail flow ----------------------------------------------
+function renderShipDetail() {
+  const summary = document.getElementById('shipSummary')
+  const body = document.getElementById('shipBody')
+  const s = shipState, o = s.order, sa = o.shipping_address || {}
+
+  const boughtCount = s.boxes.filter(b => b.label).length
+  const { total, cur } = shipTotal()
+  summary.innerHTML = `
+    <div class="summary-card"><div class="summary-label">Boxes</div><div class="summary-value">${s.boxes.length}</div><div class="summary-sub">${s.pack.total_weight_lb} lb total</div></div>
+    <div class="summary-card"><div class="summary-label">Labels</div><div class="summary-value">${boughtCount}/${s.boxes.length}</div><div class="summary-sub">purchased</div></div>
+    <div class="summary-card"><div class="summary-label">Cost</div><div class="summary-value">${total > 0 ? '$' + total.toFixed(2) : '—'}</div><div class="summary-sub">${cur} GA cubic</div></div>
+  `
+
+  const bar = `<div class="ship-bar">
+    <button class="btn btn-secondary btn-sm" onclick="backToShipList()">← Orders</button>
+    <div class="ship-bar-title">${o.order_name}</div>
+  </div>`
+
+  const addr = `<div class="ship-addr" style="margin-bottom:1rem">
+    <div class="ship-addr-name">${sa.company || ''}${sa.name && sa.name !== sa.company ? ' · ' + sa.name : ''}</div>
+    <div>${[sa.address1, sa.address2].filter(Boolean).join(', ')}</div>
+    <div>${[sa.city, sa.province_code, sa.zip].filter(Boolean).join(', ')}</div>
+  </div>`
+
+  // Halt-and-warn: unpackable items block the buy (>20 lb single item, or unknown weight).
+  let warn = ''
+  if (s.pack.unpackable.length) {
+    const lines = s.pack.unpackable.map(u => {
+      const why = u.reason === 'unit_exceeds_box_cap' ? "over 20 lb — won't fit one box" : 'unknown weight'
+      return `${u.qty}× ${u.product_name} (${u.variant_title}) — ${why}`
+    }).join('<br>')
+    warn = `<div class="alert alert-red">⚠ Some items can't be auto-packed into a 14x10x10 box — resolve these before shipping (nothing has been charged):<div class="stale-detail">${lines}</div></div>`
+  }
+
+  const boxesHtml = s.boxes.map((b, idx) => renderShipBox(b, idx)).join('')
+  body.innerHTML = bar + addr + warn + boxesHtml + renderShipActions()
+}
+
+function renderShipBox(b, idx) {
+  const box = b.box
+  const contents = (box.contents || []).map(c =>
+    `<div class="ship-content-line"><span class="ship-content-qty">${c.qty}×</span><span>${c.product_name}${c.variant_title ? ` (${c.variant_title})` : ''}</span></div>`
+  ).join('')
+
+  let chip
+  if (b.label) chip = `<span class="badge badge-green">✓ Label${b.label.test ? ' (TEST)' : ''}</span>`
+  else if (b.status === 'buying') chip = `<span class="badge badge-amber">Buying…</span>`
+  else if (b.status === 'failed') chip = `<span class="badge badge-red">✕ Failed</span>`
+  else if (b.rate) chip = `<span class="badge badge-blue">$${Number(b.rate.amount).toFixed(2)} · zone ${b.rate.zone || '?'}${b.rate.is_cubic ? ' · cubic' : ''}</span>`
+  else if (b.rateError) chip = `<span class="badge badge-red">No rate</span>`
+  else chip = `<span class="badge badge-gray">Packed</span>`
+
+  let detail = ''
+  if (b.rateError) {
+    const alts = b.rateAlt && b.rateAlt.length ? ' · returned: ' + b.rateAlt.map(r => `${r.service || '?'} $${r.amount}`).join(', ') : ''
+    detail += `<div class="form-msg err" style="margin-top:.4rem">⚠ ${b.rateError}${alts}</div>`
+  }
+  if (b.labelError) {
+    detail += `<div class="form-msg err" style="margin-top:.4rem">✕ ${b.labelError} — no label was bought for this box; retry below.</div>`
+  }
+  if (b.label) {
+    const tn = b.label.tracking_url ? `<a href="${b.label.tracking_url}" target="_blank" rel="noopener">${b.label.tracking_number}</a>` : b.label.tracking_number
+    const costWarn = b.label.cost_logged === false ? ` <span class="badge badge-amber" title="${b.label.cost_log_error || ''}">cost not logged</span>` : ''
+    detail += `<div class="ship-track" style="margin-top:.4rem">📦 ${tn}${costWarn}</div>`
+    detail += `<div style="margin-top:.5rem"><button class="btn btn-secondary btn-sm" onclick="printBox(${idx})">🖨 ${b.printed ? 'Reprint' : 'Print'} label + slip</button></div>`
+  }
+
+  return `<div class="ship-box">
+    <div class="ship-box-head">
+      <div class="ship-box-title">BOX ${box.box_index} OF ${box.box_count} · ${box.weight_lb} lb · ${box.box_label}</div>
+      ${chip}
+    </div>
+    <div class="ship-box-body">${contents || '<em>(no items)</em>'}${detail}</div>
+  </div>`
+}
+
+// Phase-driven action bar. Reads computed booleans so a retry never desyncs.
+function renderShipActions() {
+  const s = shipState
+  const n = s.boxes.length
+  const { total } = shipTotal()
+
+  if (!n && !s.pack.unpackable.length) {
+    return `<div class="ship-actionbar"><div class="ship-step">Nothing to pack for this order.</div></div>`
+  }
+
+  // Terminal: fulfilled / already fulfilled.
+  if (s.phase === 'fulfilled' || s.phase === 'alreadyFulfilled') {
+    const f = s.fulfill || {}
+    const links = s.boxes.filter(b => b.label).map(b => {
+      const tn = b.label.tracking_url ? `<a href="${b.label.tracking_url}" target="_blank" rel="noopener">${b.label.tracking_number}</a>` : b.label.tracking_number
+      return `<div class="ship-track">📦 BOX ${b.box.box_index}: ${tn}</div>`
+    }).join('')
+    const head = s.phase === 'alreadyFulfilled'
+      ? `<div class="alert alert-blue" style="margin:0">This order was already fulfilled in Shopify — no new notification was sent. Tracking below.</div>`
+      : `<div class="alert alert-green" style="margin:0">✓ Fulfilled — ${f.notified ? 'customer notified once' : 'no notification'}; tracking written to ${f.order || s.order.order_name}.</div>`
+    return `<div class="ship-actionbar" style="flex-direction:column;align-items:stretch;gap:.6rem">${head}${links}<div><button class="btn btn-secondary btn-sm" onclick="backToShipList()">← Back to orders</button></div></div>`
+  }
+
+  // Halt-and-warn blocks everything downstream.
+  if (s.pack.unpackable.length) {
+    return `<div class="ship-actionbar"><div class="ship-step">Resolve the un-packable items above before buying labels. Nothing has been charged.</div></div>`
+  }
+
+  const allRated = n > 0 && s.boxes.every(b => b.rate)
+  const anyRateErr = s.boxes.some(b => b.rateError)
+  const allBought = n > 0 && s.boxes.every(b => b.label)
+  const anyFailed = s.boxes.some(b => !b.label && b.status === 'failed')
+
+  // Step 1 — get rates (no money).
+  if (!allRated && !anyRateErr) {
+    const busy = s.phase === 'rating'
+    return `<div class="ship-actionbar">
+      <div class="ship-step" style="flex:1">Step 1 — get the cubic rate for ${pluralBox(n)}. No money moves yet.</div>
+      <button class="btn btn-primary" onclick="getRates()" ${busy ? 'disabled' : ''}>${busy ? 'Getting rates…' : 'Get rates'}</button>
+    </div>`
+  }
+  if (anyRateErr) {
+    return `<div class="ship-actionbar">
+      <div class="ship-step" style="flex:1">⚠ Some boxes have no Ground Advantage rate (see above). Fix the address/box, then re-rate — no labels can be bought until every box rates.</div>
+      <button class="btn btn-secondary" onclick="reRate()">Re-rate</button>
+    </div>`
+  }
+
+  // Step 2 — buy (the spend gate; the visible total + a confirm dialog).
+  if (allRated && !allBought && s.phase !== 'buying' && !anyFailed) {
+    return `<div class="ship-actionbar">
+      <div class="ship-total">$${total.toFixed(2)}<span>${n} label${n !== 1 ? 's' : ''} · total</span></div>
+      <div class="ship-step" style="flex:1">Step 2 — buy labels for ${pluralBox(n)}. This charges the Shippo account.</div>
+      <button class="btn btn-primary" onclick="buyLabels()">Buy ${n} label${n !== 1 ? 's' : ''} — $${total.toFixed(2)}</button>
+    </div>`
+  }
+  if (s.phase === 'buying') {
+    return `<div class="ship-actionbar"><div class="ship-step">Buying labels… don't close this tab.</div></div>`
+  }
+
+  // Partial failure — retry only the failed boxes (bought labels are kept).
+  if (anyFailed) {
+    const ok = s.boxes.filter(b => b.label).length, bad = n - ok
+    return `<div class="ship-actionbar">
+      <div class="ship-step" style="flex:1">⚠ ${ok} label${ok !== 1 ? 's' : ''} bought, ${bad} failed. Retry only the failed ${bad === 1 ? 'box' : 'boxes'} — bought labels are kept and never re-charged.</div>
+      <button class="btn btn-primary" onclick="buyLabels()">Retry failed ${bad === 1 ? 'box' : 'boxes'}</button>
+    </div>`
+  }
+
+  // Step 3 — print + fulfill (only once every box has a label).
+  if (allBought) {
+    let block = ''
+    if (s.fulfillError) block = `<div class="alert alert-red" style="margin:0 0 .75rem">✕ Fulfillment didn't complete: ${s.fulfillError}. The labels are bought — retry the fulfillment; it won't re-buy.</div>`
+    const busy = s.phase === 'fulfilling'
+    return `<div class="ship-actionbar" style="flex-direction:column;align-items:stretch">
+      ${block}
+      <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+        <div class="ship-step" style="flex:1;margin:0">Step 3 — print every label + slip, then write tracking back to Shopify (one customer email).</div>
+        <button class="btn btn-secondary" onclick="printAll()">🖨 Print all</button>
+        <button class="btn btn-primary" onclick="fulfillOrder()" ${busy ? 'disabled' : ''}>${busy ? 'Fulfilling…' : 'Fulfill order'}</button>
+      </div>
+    </div>`
+  }
+  return ''
+}
+
+function pluralBox(num) { return `${num} box${num !== 1 ? 'es' : ''}` }
+
+// Map the Shopify ship-to (b2b-ship shape) onto Shippo's address shape. Deliberately
+// no email — passing the recipient email makes Shippo send a stray shipping notice
+// (the one customer email must come from Shopify only; see spec amendment #6).
+function toShippoAddress(sa) {
+  sa = sa || {}
+  return {
+    name: sa.name || sa.company || '',
+    company: sa.company || '',
+    street1: sa.address1 || '',
+    street2: sa.address2 || '',
+    city: sa.city || '',
+    state: sa.province_code || '',
+    zip: sa.zip || '',
+    country: sa.country_code || 'US',
+    phone: sa.phone || ''
+  }
+}
+
+function boxParcel(box) {
+  const dims = String(box.box_label || PACK_BOX.label).split('x').map(Number)
+  const ok = dims.length === 3 && dims.every(d => Number.isFinite(d) && d > 0)
+  const [length, width, height] = ok ? dims : [14, 10, 10]
+  return { length, width, height, weight: box.weight_lb }
+}
+
+function shipTotal() {
+  let total = 0, cur = 'USD'
+  for (const b of shipState.boxes) {
+    if (b.rate) { total += Number(b.rate.amount) || 0; cur = b.rate.currency || cur }
+  }
+  return { total: Math.round(total * 100) / 100, cur }
+}
+
+async function getRates() {
+  const s = shipState
+  s.phase = 'rating'
+  renderShip()
+  for (const b of s.boxes) {
+    if (b.rate) continue
+    try {
+      const res = await fetch('/api/shippo-label?action=rate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address_to: toShippoAddress(s.order.shipping_address), parcel: boxParcel(b.box) })
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        b.rateError = data.error || `No Ground Advantage rate (${res.status})`
+        b.rateAlt = data.rates || null
+        b.rate = null
+      } else {
+        b.rate = data; b.rateError = null; b.rateAlt = null
+      }
+    } catch (e) {
+      b.rateError = e.message
+    }
+    renderShip()
+  }
+  s.phase = s.boxes.every(b => b.rate) ? 'rated' : 'packed'
+  renderShip()
+}
+
+function reRate() {
+  for (const b of shipState.boxes) { if (!b.rate) { b.rateError = null; b.rateAlt = null } }
+  getRates()
+}
+
+async function buyLabels() {
+  const s = shipState
+  const todo = s.boxes.filter(b => !b.label)   // never re-buy a box that already has a label
+  if (!todo.length) return
+  const due = todo.reduce((sum, b) => sum + (b.rate ? Number(b.rate.amount) || 0 : 0), 0)
+  if (!confirm(`Buy ${todo.length} label${todo.length !== 1 ? 's' : ''} for ${s.order.order_name} — $${due.toFixed(2)}? This charges the Shippo account.`)) return
+  s.phase = 'buying'
+  renderShip()
+  for (const b of todo) {
+    b.status = 'buying'; b.labelError = null
+    renderShip()
+    try {
+      const res = await fetch('/api/shippo-label?action=label', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address_to: toShippoAddress(s.order.shipping_address),
+          parcel: boxParcel(b.box),
+          order_id: s.order.order_id,
+          order_name: s.order.order_name,
+          box_index: b.box.box_index,
+          box_count: b.box.box_count
+        })
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok || !data.tracking_number) {
+        b.labelError = data.error || `Label purchase failed (${res.status})`
+        b.status = 'failed'; b.label = null
+      } else {
+        b.label = data; b.labelError = null; b.status = 'bought'
+      }
+    } catch (e) {
+      b.labelError = e.message; b.status = 'failed'; b.label = null
+    }
+    renderShip()
+  }
+  s.phase = s.boxes.every(b => b.label) ? 'bought' : 'partial'
+  renderShip()
+}
+
+async function fulfillOrder() {
+  const s = shipState
+  if (!s.boxes.length || !s.boxes.every(b => b.label)) { alert('Every box needs a label before fulfilling.'); return }
+  s.phase = 'fulfilling'; s.fulfillError = null
+  renderShip()
+  try {
+    const tracking = s.boxes.map(b => ({ number: b.label.tracking_number, url: b.label.tracking_url }))
+    const res = await fetch('/api/shopify-fulfill', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_id: s.order.order_id, tracking, company: 'USPS', notifyCustomer: true })
+    })
+    const data = await res.json()
+    if (!res.ok || !data.ok) {
+      s.fulfillError = data.error || `Fulfillment failed (${res.status})`
+      s.phase = 'bought'   // labels stay bought; allow a fulfill retry without re-buying
+    } else {
+      s.fulfill = data
+      s.phase = data.alreadyFulfilled ? 'alreadyFulfilled' : 'fulfilled'
+    }
+  } catch (e) {
+    s.fulfillError = e.message
+    s.phase = 'bought'
+  }
+  renderShip()
+}
+
+// Print = two ordered jobs per box for the Zebra: the Shippo label first, then the
+// contents slip. Both are ZPL; on-hardware send is the station's print setup (Andy's
+// pending on-hardware test). See ADR 0005.
+function printBox(idx) {
+  const s = shipState, b = s.boxes[idx]
+  if (!b || !b.label) return
+  const slug = (s.order.order_name || 'order').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
+  openLabelFile(b.label.label_url, `${slug}-box${b.box.box_index}-label.zpl`)
+  const zpl = composeContentsZPL(b.box, { order_name: s.order.order_name, company_name: (s.order.shipping_address || {}).company })
+  openZplBlob(zpl, `${slug}-box${b.box.box_index}-slip.zpl`)
+  b.printed = true
+  renderShip()
+}
+
+function printAll() {
+  shipState.boxes.forEach((b, i) => { if (b.label) printBox(i) })
+}
+
+function openLabelFile(url, filename) {
+  if (!url) return
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.target = '_blank'; a.rel = 'noopener'
+  document.body.appendChild(a); a.click(); a.remove()
+}
+
+function openZplBlob(zpl, filename) {
+  const url = URL.createObjectURL(new Blob([zpl], { type: 'application/octet-stream' }))
+  const a = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
 }
 
 async function adjustBagged(id, delta) {

@@ -1,10 +1,33 @@
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 
 const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle']
 
 function isExcluded(title) {
   const t = title.toLowerCase()
   return EXCLUDE_TERMS.some(term => t.includes(term))
+}
+
+// Weight resolution for B2B cubic shipping. Prefer Shopify's per-line `grams` (the REST
+// line item is always in grams), else parse the variant title. Returns POUNDS, or null
+// if unknown — the packer flags null-weight items as unpackable rather than guessing.
+const GRAMS_PER_LB = 453.59237
+// Coffee bags come in clean 0.25-lb increments (12oz, 1/2/5 lb). Shopify stores grams
+// rounded (a "5 lb" bag = 2270 g = 5.004 lb), which would push 4×5lb to 20.016 > the 20 lb
+// cap and waste a box. Snap to the nearest quarter-pound to recover the nominal weight and
+// honor the "4×5lb = 20 flat" decision.
+function snapQuarterLb(lb) { return Math.round(lb * 4) / 4 }
+function resolveWeightLb(item) {
+  const g = Number(item && item.grams)
+  if (Number.isFinite(g) && g > 0) return snapQuarterLb(g / GRAMS_PER_LB)
+  return weightFromVariantTitle(item && item.variant_title)
+}
+function weightFromVariantTitle(variant) {
+  if (!variant) return null
+  const m = String(variant).match(/(\d+\.?\d*)\s*(lb|pound|oz|ounce)/i)
+  if (!m) return null
+  const n = parseFloat(m[1]), u = m[2].toLowerCase()
+  if (u[0] === 'o') return Math.round((n / 16) * 1000) / 1000   // ounces → lb
+  return n
 }
 
 module.exports = async function handler(req, res) {
@@ -119,6 +142,47 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ companies })
     }
 
+    // B2B per-order shipping endpoint — per-ORDER (not company-merged), with ship-to
+    // address + per-line weight, ready for the cubic-shipping packer + label + fulfill flow.
+    if (req.query.type === 'b2b-ship') {
+      const shipOrders = []
+      for (const order of orders) {
+        const sa = order.shipping_address
+        const company = (order.billing_address && order.billing_address.company) || (sa && sa.company) || null
+        if (!company) continue   // B2B only — wholesale accounts carry a company
+        if (!sa) continue        // can't ship without an address
+        const items = (order.line_items || [])
+          .filter(it => it.vendor === 'Torque Coffees' && it.fulfillment_status !== 'fulfilled')
+          .map(it => ({
+            product_name: it.title,
+            variant_title: it.variant_title || 'Default',
+            qty: it.quantity,
+            grams: it.grams != null ? it.grams : null,
+            weight_lb: resolveWeightLb(it)
+          }))
+        if (!items.length) continue
+        shipOrders.push({
+          order_id: order.admin_graphql_api_id || `gid://shopify/Order/${order.id}`,
+          order_name: order.name,
+          fulfillment_status: order.fulfillment_status || 'unfulfilled',
+          shipping_address: {
+            name: sa.name || [sa.first_name, sa.last_name].filter(Boolean).join(' '),
+            company,
+            address1: sa.address1 || '',
+            address2: sa.address2 || '',
+            city: sa.city || '',
+            province_code: sa.province_code || '',
+            zip: sa.zip || '',
+            country_code: sa.country_code || 'US',
+            phone: sa.phone || ''
+          },
+          items
+        })
+      }
+      shipOrders.sort((a, b) => (a.shipping_address.company || '').localeCompare(b.shipping_address.company || ''))
+      return res.status(200).json({ orders: shipOrders })
+    }
+
     // ORDERS endpoint (default)
     const aggregated = {}
     for (const order of orders) {
@@ -148,3 +212,7 @@ module.exports = async function handler(req, res) {
     res.status(500).json({ error: err.message })
   }
 }
+
+// Exposed for unit tests (Vercel still invokes module.exports(req, res) as the function).
+module.exports.resolveWeightLb = resolveWeightLb
+module.exports.weightFromVariantTitle = weightFromVariantTitle

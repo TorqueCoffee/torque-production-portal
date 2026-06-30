@@ -6,4 +6,6 @@ This project (Torque Roast Scheduler — a single-file PWA in `index.html`, back
 - **[RUNBOOK.md](./RUNBOOK.md)** — the clean, idempotent recipe to run/recreate the project from a blank machine.
 - **[decisions/](./decisions/)** — Architecture Decision Records (ADRs), one short file per non-obvious decision, numbered sequentially.
 
+Larger feature plans live alongside as their own spec, e.g. [b2b-cubic-shipping.md](./b2b-cubic-shipping.md).
+
 Start with the JOURNAL for "what happened", the RUNBOOK for "how do I run this", and the ADRs for "why is it built this way".
