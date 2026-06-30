@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-06-30 — Casual client-side password gate
+
+### Work done
+
+- Added a simple access gate to the top of `index.html` (purely additive — no existing code changed).
+- **CSS** (in `<style>`): `#tqGate` overlay + `html.tq-locked body > *:not(#tqGate){display:none}` so when locked every app element is hidden as it parses (no flash of the real app). Card styled with existing vars (off-white bg, white card, IBM Plex Sans).
+- **Markup + script** (right after `<body>`): a `<form>` prompt and an IIFE that runs as soon as the body opens. Reads cookie `tq_access`; if `=granted` it returns and the app renders normally, otherwise it adds the `tq-locked` class. `tqUnlock()` checks the password (`TT`), and on success sets `tq_access=granted` for 30 days (`path=/`) and reloads; on failure shows an "Incorrect" message and clears the field. Form `onsubmit` covers both Enter and button click.
+
+### Decisions captured
+
+- Client-side only by design — casual access control, not security. The correct password (`TT`) and the gate logic are visible in page source; anyone can read or bypass it. Accepted because the goal is to keep the production planner off casual/accidental viewing, not to secure data.
+- Gate is additive: the main app `<script>` still executes while locked (CSS `display:none` doesn't stop JS), so `init()`'s Supabase reads still fire in the background. Left untouched to keep the change low-risk; the UI is fully hidden/unusable when locked.
+
 ## 2026-06-30 — B2B Cubic Shipping: print mechanism correction — PDF label + HTML slip (Rollo, not Zebra)
 
 ### Work done

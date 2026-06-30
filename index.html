@@ -212,11 +212,52 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
 .mix-weight{font-family:var(--font-mono);font-size:1rem;font-weight:600;color:var(--black);text-align:left;min-width:120px;flex-shrink:0;white-space:nowrap}
 .mix-weight-g{font-weight:600;color:var(--black);margin-left:.25rem}
 .mix-total{font-family:var(--font-mono);font-size:.72rem;color:var(--mid-gray);margin-top:.75rem;padding-top:.625rem;border-top:1px solid var(--border)}
+/* --- Casual access gate --- */
+#tqGate{display:none}
+html.tq-locked #tqGate{display:flex;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:var(--off-white)}
+html.tq-locked body>*:not(#tqGate){display:none!important}
+.tq-gate-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:2rem;width:300px;max-width:90vw;display:flex;flex-direction:column;gap:.75rem;box-shadow:0 4px 24px rgba(0,0,0,.06)}
+.tq-gate-title{font-family:var(--font-sans);font-size:1rem;font-weight:600;color:var(--black);text-align:center}
+.tq-gate-card input{font-family:var(--font-sans);font-size:1rem;padding:.6rem .75rem;border:1px solid var(--border);border-radius:6px;width:100%;outline:none}
+.tq-gate-card input:focus{border-color:var(--mid-gray)}
+.tq-gate-err{display:none;font-family:var(--font-sans);font-size:.8rem;color:var(--red);text-align:center}
+.tq-gate-card button{font-family:var(--font-sans);font-size:.9rem;font-weight:600;padding:.6rem;border:none;border-radius:6px;background:var(--black);color:#fff;cursor:pointer}
 .mix-empty{font-family:var(--font-mono);font-size:.9rem;color:var(--mid-gray);padding:2rem;text-align:center}
 
 </style>
 </head>
 <body>
+
+<!-- Casual access gate: client-side only, intentional (not security) -->
+<div id="tqGate">
+  <form class="tq-gate-card" onsubmit="return tqUnlock(event)">
+    <div class="tq-gate-title">Enter password</div>
+    <input id="tqPass" type="password" autocomplete="off" autofocus placeholder="Password">
+    <div id="tqErr" class="tq-gate-err">Incorrect — try again</div>
+    <button type="submit">Enter</button>
+  </form>
+</div>
+<script>
+(function(){
+  var m = document.cookie.match(/(?:^|; )tq_access=([^;]*)/);
+  if (m && m[1] === 'granted') return;            // unlocked — app renders normally
+  document.documentElement.classList.add('tq-locked');
+  window.tqUnlock = function(e){
+    if (e && e.preventDefault) e.preventDefault();
+    var inp = document.getElementById('tqPass'), err = document.getElementById('tqErr');
+    if (inp.value === 'TT'){
+      var d = new Date(); d.setTime(d.getTime() + 2592000000);  // 30 days
+      document.cookie = 'tq_access=granted; expires=' + d.toUTCString() + '; path=/';
+      location.reload();
+    } else {
+      err.style.display = 'block';
+      inp.value = '';
+      inp.focus();
+    }
+    return false;
+  };
+})();
+</script>
 
 <div class="header">
   <div class="header-left">
