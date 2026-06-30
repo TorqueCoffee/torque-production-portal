@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-06-30 — Fix: cost capture silently failing (doubled `/rest/v1` Supabase path)
+
+### Work done
+
+- **Root cause:** Andy noticed an amber "cost not logged" badge on a bought label and asked whether it was a test-token artifact — it wasn't. `SUPABASE_URL` in the Vercel `coffee-planner` project was set to `https://gblkovtjylrfdotoktkb.supabase.co/rest/v1` (with the `/rest/v1` suffix already included). Both `api/shippo-label.js` (cost-row insert at purchase) and `api/shopify-fulfill.js` (status flip to `fulfilled`) append `/rest/v1/shipping_labels` themselves, so every request landed on the doubled path `/rest/v1/rest/v1/shipping_labels` and 404'd.
+- **Confirmed three ways before touching anything:** the `shipping_labels` table was completely empty (zero rows, ever — not scoped to test orders); Supabase's own API logs showed the exact doubled-path 404 on recent purchase attempts; RLS policies on the table were verified correct (anon INSERT + UPDATE present), ruling out the more common RLS-blocks-silently failure mode.
+- **Fix:** Andy corrected `SUPABASE_URL` in the Vercel dashboard to the bare project URL (no `/rest/v1` suffix) and redeployed. Verified fixed — a real row landed immediately after (`#6500`, $8.43, `status: purchased`).
+- **RUNBOOK.md** tightened: the `SUPABASE_URL` line now states explicitly that it must have no `/rest/v1` suffix and how to recognize the doubled-path 404 if this regresses, so the next setup/redeploy doesn't reintroduce it.
+
+### Detours & fixes
+
+- This was a deploy-config error, not a code bug — `index.html`'s client-side `SUPABASE_URL` constant was already correct (bare URL), only the Vercel serverless env var was wrong. No code changes were needed; this is a pure ops/config fix + a RUNBOOK clarification to prevent recurrence.
+
 ## 2026-06-30 — Fix: packing slip printed as a blank page in Safari
 
 ### Work done

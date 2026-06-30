@@ -55,6 +55,9 @@ Pure function `packBoxes()`; node assertions (20/20):
 - [x] Fulfillment flips the order's rows to `fulfilled` (`cost_updated`).
 - Deploy gate: `SUPABASE_URL` + `SUPABASE_ANON_KEY` in Vercel env (public values).
 
+**Run log:**
+- 2026-06-30: Deploy gate **FAIL** in production — `SUPABASE_URL` in Vercel had a `/rest/v1` suffix already on it; both functions append `/rest/v1/shipping_labels` themselves, so every cost-row write 404'd on the doubled path (`shipping_labels` table was empty, zero rows). Caught when Andy noticed the "cost not logged" badge on a real bought label. Fixed by correcting the env var in the Vercel dashboard + redeploy; confirmed PASS — a real row landed immediately after (`#6500`, $8.43, `purchased`). See JOURNAL "Fix: cost capture silently failing" and the tightened `SUPABASE_URL` guidance in RUNBOOK.md.
+
 ### Step 5 Slice A — per-order payload + weight resolver · DONE 2026-06-30
 `shopify-token.js?type=b2b-ship` + `resolveWeightLb`:
 - [x] Resolver: grams→lb snapped to 0.25 (2270g→5.0, 908g→2.0, 340g→0.75); variant-title fallback; null if unknown. 12/12.
