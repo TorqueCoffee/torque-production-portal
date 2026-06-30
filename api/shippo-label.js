@@ -3,7 +3,7 @@
 //
 //   POST /api/shippo-label?action=rate    { address_to, parcel } -> GA rate only (no purchase)
 //   POST /api/shippo-label?action=label   { address_to, parcel } -> buys label; returns
-//                                           tracking + ZPL label_url + cost (for capture)
+//                                           tracking + 4x6 PDF label_url + cost (for capture)
 //
 //   parcel: { length, width, height, weight }   (inches, pounds)
 //
@@ -93,10 +93,10 @@ module.exports = async function handler(req, res) {
 
     if (action === 'rate') return res.status(200).json({ ok: true, action: 'rate', ...rateOut })
 
-    // 2) Buy the label (ZPL II).
+    // 2) Buy the label (4x6 PDF — the Rollo is a normal system printer, not a raw-ZPL Zebra).
     const txnRes = await fetch(`${SHIPPO_BASE}/transactions/`, {
       method: 'POST', headers: auth,
-      body: JSON.stringify({ rate: ga.object_id, label_file_type: 'ZPLII', async: false })
+      body: JSON.stringify({ rate: ga.object_id, label_file_type: 'PDF_4x6', async: false })
     })
     const txn = await txnRes.json()
     if (txn.status !== 'SUCCESS' || !txn.tracking_number) {
@@ -148,7 +148,7 @@ module.exports = async function handler(req, res) {
       tracking_number: txn.tracking_number,
       tracking_url: txn.tracking_url_provider,
       label_url: txn.label_url,
-      label_file_type: 'ZPLII',
+      label_file_type: 'PDF_4x6',
       shippo_object_id: txn.object_id,
       test: txn.test === true,
       cost_logged, cost_log_error

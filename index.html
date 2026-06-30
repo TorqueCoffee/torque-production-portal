@@ -503,7 +503,7 @@ td select{padding:.25rem .4rem;border:1px solid var(--border);border-radius:3px;
         <li><strong>Get rates</strong> shows the cubic Ground Advantage cost per box — no money moves yet</li>
         <li><strong>Buy labels</strong> charges Shippo only after you confirm the total</li>
         <li>If a box fails, only the failed ones retry — bought labels are never re-charged</li>
-        <li><strong>Print label + slip</strong> sends the shipping label then the contents slip (ZPL) to the Zebra</li>
+        <li><strong>Open label</strong> opens the Shippo PDF in a new tab — print it yourself and pick the Rollo; <strong>Print slip</strong> auto-opens the print dialog for the contents slip (first time, you may need to pick 4×6 paper size manually in Safari)</li>
         <li><strong>Fulfill order</strong> writes all tracking to Shopify with one customer email — only after every box has a label</li>
         <li>An already-fulfilled order shows calmly and is never notified twice</li>
       </ul>
@@ -1102,57 +1102,70 @@ function packAggregate(units) {
   return [...map.values()]
 }
 
-// ── B2B Cubic Shipping · Step 3: contents-block (packing slip) ZPL ───────────
-// A SECOND 4x6 thermal print per box, on the same roll AFTER the Shippo shipping
-// label — NOT part of the shipping label canvas. 203 dpi: 4x6 = 812x1219 dots.
-// box = one entry from packBoxes(); opts = { order_name, company_name, footer }.
-// Verified via Labelary render (docs/b2b-cubic-shipping.md).
-function zEsc(s) {
-  return String(s == null ? '' : s).replace(/[\^~\\]/g, ' ').replace(/\s+/g, ' ').trim()
+// ── B2B Cubic Shipping · contents slip — printable HTML ──────────────────────
+// A SECOND 4x6 print per box, printed AFTER the Shippo shipping label — NOT part
+// of the shipping label canvas. The Rollo is a normal system printer (consumes
+// PDF/HTML at 4x6, no raw ZPL), so this renders as an HTML fragment the browser
+// prints directly — see ADR 0006. box = one entry from packBoxes();
+// opts = { order_name, company_name, footer }.
+function hEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
-function composeContentsZPL(box, opts = {}) {
-  const W = 812, H = 1219, m = 30, blockW = W - m * 2
+function composeContentsSlipHTML(box, opts = {}) {
   const boxId = `BOX ${box.box_index} OF ${box.box_count}`
   const weight = (Number.isFinite(box.weight_lb) ? box.weight_lb.toFixed(1) : '?') + ' lb'
-  const sub = [zEsc(opts.order_name), zEsc(opts.company_name)].filter(Boolean).join('  ·  ')
+  const sub = [hEsc(opts.order_name), hEsc(opts.company_name)].filter(Boolean).join(' &middot; ')
   const items = box.contents || []
+  const footer = hEsc(opts.footer || 'Packing list — not a shipping label')
 
-  let z = '^XA^CI28' + `^PW${W}^LL${H}^LH0,0`
-  z += `^FO${m},28^A0N,56,56^FDTORQUE COFFEE^FS`
-  z += `^FO${m},92^GB${blockW},3,3^FS`
+  const itemsHtml = items.length
+    ? items.map(it => {
+        const label = it.variant_title ? `${hEsc(it.product_name)} (${hEsc(it.variant_title)})` : hEsc(it.product_name)
+        return `<div class="item"><span class="qty">${Number(it.qty) || 0}&times;</span><span>${label}</span></div>`
+      }).join('')
+    : `<div class="item"><span>(no items)</span></div>`
 
-  let y = 110
-  if (sub) { z += `^FO${m},${y}^A0N,30,30^FB${blockW},2,0,L,0^FD${sub}^FS`; y += 72 }
-
-  z += `^FO${m},${y}^GB${blockW},82,2^FS`
-  z += `^FO${m + 14},${y + 16}^A0N,52,52^FD${boxId}^FS`
-  z += `^FO${m},${y + 24}^A0N,40,40^FB${blockW - 16},1,0,R,0^FD${weight}^FS`
-  y += 112
-
-  z += `^FO${m},${y}^A0N,28,28^FDCONTENTS^FS`; y += 34
-  z += `^FO${m},${y}^GB${blockW},2,2^FS`; y += 14
-
-  if (!items.length) {
-    z += `^FO${m},${y}^A0N,34,34^FD(no items)^FS`
-  } else {
-    for (const it of items) {
-      z += `^FO${m},${y}^A0N,40,40^FD${it.qty} x^FS`
-      const label = it.variant_title ? `${zEsc(it.product_name)}  (${zEsc(it.variant_title)})` : zEsc(it.product_name)
-      z += `^FO${m + 96},${y}^A0N,34,34^FB${blockW - 96},2,0,L,0^FD${label}^FS`
-      y += 64
-    }
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: 4in 6in; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    width: 4in; height: 6in; padding: 0.2in;
+    font-family: -apple-system, Helvetica, Arial, sans-serif; color: #000;
   }
-
-  z += `^FO${m},${H - 48}^A0N,22,22^FB${blockW},1,0,L,0^FD${zEsc(opts.footer || 'Packing list - not a shipping label')}^FS`
-  z += '^XZ'
-  return z
+  .header { font-size: 22px; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
+  .sub { font-size: 11px; color: #333; margin-bottom: 10px; }
+  .boxid-row { display: flex; justify-content: space-between; align-items: baseline; border: 2px solid #000; padding: 8px 10px; margin-bottom: 10px; }
+  .boxid { font-size: 22px; font-weight: 700; }
+  .weight { font-size: 16px; }
+  .contents-title { font-size: 12px; font-weight: 700; letter-spacing: .05em; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
+  .item { display: flex; gap: 8px; font-size: 14px; margin-bottom: 6px; }
+  .qty { font-weight: 700; min-width: 28px; }
+  .footer { font-size: 9px; color: #555; margin-top: 14px; }
+</style>
+</head>
+<body>
+  <div class="header">TORQUE COFFEE</div>
+  ${sub ? `<div class="sub">${sub}</div>` : ''}
+  <div class="boxid-row"><div class="boxid">${boxId}</div><div class="weight">${weight}</div></div>
+  <div class="contents-title">CONTENTS</div>
+  ${itemsHtml}
+  <div class="footer">${footer}</div>
+</body>
+</html>`
 }
 
 // ── B2B Cubic Shipping · Step 5 Slice B: the ship UI flow ────────────────────
 // open order → pack → confirm rate → buy labels → print label+slip → fulfill →
 // tracking back. Wires the Step 1–4b backend pieces (packBoxes, /api/shippo-label,
-// composeContentsZPL, /api/shopify-fulfill); it does NOT re-derive their behavior.
+// composeContentsSlipHTML, /api/shopify-fulfill); it does NOT re-derive their behavior.
 // The in-flight shipment lives in shipState (memory) only until fulfilled — the
 // bought labels + cost rows are the durable record (Shippo + shipping_labels).
 
@@ -1243,7 +1256,7 @@ function openShipOrder(i) {
   const pack = packBoxes(order.items)
   shipState = {
     order, pack,
-    boxes: pack.boxes.map(box => ({ box, rate: null, rateError: null, rateAlt: null, label: null, labelError: null, status: 'packed', printed: false })),
+    boxes: pack.boxes.map(box => ({ box, rate: null, rateError: null, rateAlt: null, label: null, labelError: null, status: 'packed', labelOpened: false, printed: false })),
     phase: 'packed', fulfill: null, fulfillError: null
   }
   renderShip()
@@ -1324,7 +1337,10 @@ function renderShipBox(b, idx) {
     const tn = b.label.tracking_url ? `<a href="${b.label.tracking_url}" target="_blank" rel="noopener">${b.label.tracking_number}</a>` : b.label.tracking_number
     const costWarn = b.label.cost_logged === false ? ` <span class="badge badge-amber" title="${b.label.cost_log_error || ''}">cost not logged</span>` : ''
     detail += `<div class="ship-track" style="margin-top:.4rem">📦 ${tn}${costWarn}</div>`
-    detail += `<div style="margin-top:.5rem"><button class="btn btn-secondary btn-sm" onclick="printBox(${idx})">🖨 ${b.printed ? 'Reprint' : 'Print'} label + slip</button></div>`
+    detail += `<div style="margin-top:.5rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="openLabel(${idx})">📄 ${b.labelOpened ? 'Reopen' : 'Open'} label</button>
+      <button class="btn btn-secondary btn-sm" onclick="printSlip(${idx})">🖨 ${b.printed ? 'Reprint' : 'Print'} slip</button>
+    </div>`
   }
 
   return `<div class="ship-box">
@@ -1413,10 +1429,11 @@ function renderShipActions() {
     return `<div class="ship-actionbar" style="flex-direction:column;align-items:stretch">
       ${block}
       <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
-        <div class="ship-step" style="flex:1;margin:0">Step 3 — print every label + slip, then write tracking back to Shopify (one customer email).</div>
-        <button class="btn btn-secondary" onclick="printAll()">🖨 Print all</button>
+        <div class="ship-step" style="flex:1;margin:0">Step 3 — open every label and print every slip on the Rollo, then write tracking back to Shopify (one customer email).</div>
+        <button class="btn btn-secondary" onclick="printAll()">🖨 Open + print all</button>
         <button class="btn btn-primary" onclick="fulfillOrder()" ${busy ? 'disabled' : ''}>${busy ? 'Fulfilling…' : 'Fulfill order'}</button>
       </div>
+      <div class="ship-step" style="margin:0">Safari doesn't always auto-apply the 4×6 page size — first slip print, you may need to pick 4×6 manually in the print dialog.</div>
     </div>`
   }
   return ''
@@ -1555,37 +1572,45 @@ async function fulfillOrder() {
   renderShip()
 }
 
-// Print = two ordered jobs per box for the Zebra: the Shippo label first, then the
-// contents slip. Both are ZPL; on-hardware send is the station's print setup (Andy's
-// pending on-hardware test). See ADR 0005.
-function printBox(idx) {
+// Print = two INDEPENDENT triggers per box, label before slip by convention only —
+// see ADR 0006. The Rollo is a normal system printer (4x6 PDF/HTML, no raw ZPL):
+// "open label" hands the user the Shippo PDF to print themselves (cross-origin —
+// window.print() can't reach into it); "print slip" auto-prints our HTML via a
+// hidden iframe.
+function openLabel(idx) {
   const s = shipState, b = s.boxes[idx]
   if (!b || !b.label) return
-  const slug = (s.order.order_name || 'order').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
-  openLabelFile(b.label.label_url, `${slug}-box${b.box.box_index}-label.zpl`)
-  const zpl = composeContentsZPL(b.box, { order_name: s.order.order_name, company_name: (s.order.shipping_address || {}).company })
-  openZplBlob(zpl, `${slug}-box${b.box.box_index}-slip.zpl`)
+  const a = document.createElement('a')
+  a.href = b.label.label_url; a.target = '_blank'; a.rel = 'noopener'
+  document.body.appendChild(a); a.click(); a.remove()
+  b.labelOpened = true
+  renderShip()
+}
+
+function printSlip(idx) {
+  const s = shipState, b = s.boxes[idx]
+  if (!b || !b.label) return
+  const html = composeContentsSlipHTML(b.box, { order_name: s.order.order_name, company_name: (s.order.shipping_address || {}).company })
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
+  iframe.setAttribute('aria-hidden', 'true')
+  iframe.onload = () => {
+    iframe.contentWindow.focus()
+    iframe.contentWindow.print()
+    setTimeout(() => iframe.remove(), 1000)   // clean up so repeated clicks don't pile up
+  }
+  document.body.appendChild(iframe)
+  iframe.srcdoc = html
   b.printed = true
   renderShip()
 }
 
 function printAll() {
-  shipState.boxes.forEach((b, i) => { if (b.label) printBox(i) })
-}
-
-function openLabelFile(url, filename) {
-  if (!url) return
-  const a = document.createElement('a')
-  a.href = url; a.download = filename; a.target = '_blank'; a.rel = 'noopener'
-  document.body.appendChild(a); a.click(); a.remove()
-}
-
-function openZplBlob(zpl, filename) {
-  const url = URL.createObjectURL(new Blob([zpl], { type: 'application/octet-stream' }))
-  const a = document.createElement('a')
-  a.href = url; a.download = filename
-  document.body.appendChild(a); a.click(); a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 5000)
+  shipState.boxes.forEach((b, i) => {
+    if (!b.label) return
+    openLabel(i)
+    printSlip(i)
+  })
 }
 
 async function adjustBagged(id, delta) {

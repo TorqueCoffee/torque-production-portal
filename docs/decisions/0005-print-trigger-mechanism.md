@@ -1,7 +1,9 @@
 # 0005 — Browser print trigger for label + contents slip
 
-- **Status**: Accepted
+- **Status**: Superseded by [`0006`](./0006-pdf-label-html-slip-print-mechanism.md)
 - **Date**: 2026-06-30
+
+> Superseded 2026-06-30: this ADR assumed a bare Zebra (raw ZPL). The actual hardware is a Rollo, a normal system printer that consumes PDF/HTML at 4x6 — see 0006.
 
 ## Context
 

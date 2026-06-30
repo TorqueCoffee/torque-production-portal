@@ -152,3 +152,15 @@ These supersede or sharpen the body above; the body is left intact for provenanc
 
 ### Known prerequisite (Steps 4–5) — ✅ RESOLVED 2026-06-30
 - **Extend the Shopify b2b payload.** ✅ DONE — added `api/shopify-token.js?type=b2b-ship`: per-ORDER (not company-merged) with `order_id`/`order_name`, `shipping_address`, and `items[]` carrying `grams` + resolved `weight_lb` (grams→lb snapped to 0.25, variant-title fallback). Feeds packer + label + fulfill.
+
+## Amendment — actual hardware is a Rollo, not a bare Zebra (2026-06-30)
+
+Step 3 and Step 5 Slice B above describe ZPL printed via download/hand-off to a raw-ZPL Zebra (ADR 0005). The actual production hardware is a **Rollo thermal printer**, which shows up as a normal system printer and consumes standard PDFs/HTML at 4x6 — it does not need raw ZPL streamed to it. This corrects both print artifacts; **it is a locked decision, not a temporary one — do not revert toward ZPL in a future session.**
+
+- **Shippo label is now PDF, not ZPL.** `api/shippo-label.js` requests `label_file_type: "PDF_4x6"` (was `ZPLII`); `label_url` resolves to a `.pdf`.
+- **Contents slip is now HTML, not ZPL.** `composeContentsZPL()` is replaced by `composeContentsSlipHTML(box, opts)` — a fresh HTML/CSS layout (`@page { size: 4in 6in; margin: 0; }`), not a transliteration of the old ZPL layout.
+- **Print step is two independent triggers per box**, not one combined action: **Open label** opens the Shippo PDF in a new tab — cross-origin, so the user prints it themselves from the system PDF viewer, picking the Rollo. **Print slip** injects the slip HTML into a hidden `<iframe srcdoc>` and calls `iframe.contentWindow.print()`, then removes the iframe. Label-before-slip stays the presentation order in the UI by convention; the two are not coupled.
+- A low-key UI note tells the operator that Safari doesn't always auto-apply the `@page` size, so the first slip print may need a manual 4x6 pick in the print dialog.
+- **Kill condition #3 ("thermal printer can't render ZPL cleanly → fall back to paper slip") is moot** — the Rollo never needed ZPL in the first place.
+
+See ADR [`0006`](./decisions/0006-pdf-label-html-slip-print-mechanism.md), which supersedes ADR [`0005`](./decisions/0005-print-trigger-mechanism.md).

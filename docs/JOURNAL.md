@@ -1,5 +1,30 @@
 # Journal
 
+## 2026-06-30 — B2B Cubic Shipping: print mechanism correction — PDF label + HTML slip (Rollo, not Zebra)
+
+### Work done
+
+- **Root cause:** Steps 3 and 5 Slice B were built assuming a bare Zebra printer driven by raw ZPL. The actual production hardware is a **Rollo thermal printer**, which shows up as a normal system printer and consumes standard PDFs/HTML at 4x6 — it has no use for ZPL at all. This session corrects both print artifacts to match the real hardware and re-verifies the print step end to end.
+- **`api/shippo-label.js`** — the `?action=label` Shippo transaction call now sets `label_file_type: "PDF_4x6"` (was `ZPLII`); `label_url` resolves to a `.pdf`. One-field addition; rate/purchase/error-handling logic (422 no-GA-rate, 502 purchase failure, non-blocking cost capture) untouched.
+- **`composeContentsSlipHTML(box, opts)`** in [`index.html`](../index.html) replaces `composeContentsZPL()` — a fresh HTML/CSS layout (`@page { size: 4in 6in; margin: 0; }`), not a transliteration of the ZPL one. Same inputs/contract (order number, "Box X of Y", line items, total weight); no barcode (the ZPL version had none either).
+- **Print step now two independent triggers per box**, not one combined action: **Open label** opens the Shippo PDF in a new tab (`<a target="_blank">`, no `download` — the system PDF viewer handles it, since `window.print()` can't reach a cross-origin PDF); **Print slip** injects the slip HTML into a hidden `<iframe srcdoc>`, waits for load, calls `iframe.contentWindow.print()`, then removes the iframe so repeated clicks don't pile up hidden iframes. Label-before-slip stays the presentation order (per-box buttons, "Open + print all" action bar button) but the two are not coupled — confirmed by driving box 1's "Open label" and box 2's "Print slip" independently and checking neither's state leaked into the other.
+- **Safari paper-size hint** — a one-line, low-key note near the print buttons: Safari doesn't always auto-apply the `@page` size, so the first slip print may need a manual 4x6 pick in the print dialog.
+- Removed the now-orphaned `composeContentsZPL`, `zEsc`, `openLabelFile`, `openZplBlob`; updated the Ship-tab help-card copy to describe Open label / Print slip instead of "sends... to the Zebra".
+
+### Detours & fixes
+
+- **Slip rendered unreadable in the browser preview** — the slip HTML had no explicit background color, so it inherited the browser's dark color-scheme default and rendered near-black text on a near-black background. Fixed by adding `background:#fff` to `html, body` in the slip's `<style>` block. Caught during the Safari-path legibility check before it reached Andy.
+- **Local preview server port conflict** — another session already had `coffee-planner` bound to port 3007 in `~/.claude/launch.json`. Set `autoPort: true` and switched the start command to `$PORT` so concurrent sessions don't collide; doesn't change the deployed Vercel setup.
+
+### Decisions captured
+
+- [`0006-pdf-label-html-slip-print-mechanism.md`](./decisions/0006-pdf-label-html-slip-print-mechanism.md) — locks in PDF_4x6 + HTML-slip-via-iframe as the print mechanism; supersedes [`0005-print-trigger-mechanism.md`](./decisions/0005-print-trigger-mechanism.md) (which assumed a bare Zebra). **This is a deliberate, locked decision — do not revert toward ZPL in a future session.**
+
+### Still pending (deploy gate, unchanged in kind from before this session)
+
+- **LIVE e2e (Andy):** purchase a real label on the Shippo test token and confirm `label_url` resolves to a real, renderable `.pdf` — needs `SHIPPO_TOKEN` on Vercel, can't run from local.
+- **On-hardware print (Andy):** label PDF + HTML slip print cleanly from Safari/iPad-Mac with the Rollo selected in the system print dialog. The slip's legibility-at-4x6 and the iframe-print/cleanup mechanics were verified in a Chromium-based preview, not actual Safari/WebKit — Safari-specific rendering is still Andy's to confirm.
+
 ## 2026-06-30 — B2B Cubic Shipping, Step 5 (Slice B): the ship UI flow — **closes Step 5**
 
 ### Work done
