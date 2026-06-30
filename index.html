@@ -1181,7 +1181,9 @@ function composeContentsSlipHTML(box, opts = {}) {
     width: 4in; height: 6in; padding: 0.2in;
     font-family: -apple-system, Helvetica, Arial, sans-serif; color: #000;
   }
-  .header { font-size: 22px; font-weight: 700; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
+  .header { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
+  .header img { max-width: 140px; height: auto; }
+  .header-text { font-size: 22px; font-weight: 700; }
   .sub { font-size: 11px; color: #333; margin-bottom: 10px; }
   .boxid-row { display: flex; justify-content: space-between; align-items: baseline; border: 2px solid #000; padding: 8px 10px; margin-bottom: 10px; }
   .boxid { font-size: 22px; font-weight: 700; }
@@ -1193,7 +1195,10 @@ function composeContentsSlipHTML(box, opts = {}) {
 </style>
 </head>
 <body>
-  <div class="header">TORQUE COFFEE</div>
+  <div class="header">
+    <img src="https://cdn.shopify.com/s/files/1/0622/2866/0444/files/Torque-logo.png?v=1647031588" alt="Torque Coffee" onerror="this.style.display='none'">
+    <div class="header-text">TORQUE COFFEE</div>
+  </div>
   ${sub ? `<div class="sub">${sub}</div>` : ''}
   <div class="boxid-row"><div class="boxid">${boxId}</div><div class="weight">${weight}</div></div>
   <div class="contents-title">CONTENTS</div>

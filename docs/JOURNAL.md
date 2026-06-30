@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-06-30 — Add Torque logo to contents slip
+
+### Work done
+
+- Added the Torque logo (black-on-white, CDN-hosted) to the header of `composeContentsSlipHTML()` in [`index.html`](../index.html), beside the "TORQUE COFFEE" text. `max-width:140px` keeps it modest against the 4x6 page; `onerror="this.style.display='none'"` degrades quietly to text-only if the CDN is unreachable at print time, rather than leaving a broken-image icon.
+- Verified in the preview browser at the exact 4x6 print pixel size: logo and header text sit on one line, no overlap with the boxid/contents block below, and the page still fits one print page per box.
+- Verified the `onerror` fallback by pointing the `src` at a bad URL — image disappears cleanly, header text reflows to fill the space, no broken-image icon.
+- Confirmed the existing Safari print path (`printSlip()`, see the 2026-06-30 blank-page fix above) is unaffected: the iframe's `onload` event — which gates when `print()` fires — only resolves after the framed document's resources (including this image) finish loading or failing, so the logo (or its fallback) is settled before the print snapshot is taken.
+- Did not touch `api/shippo-label.js` — the carrier shipping label is a Shippo-rendered PDF and cannot carry custom branding; that's a Shippo label-format constraint, not a settings gap, so no further work should be attempted there. Branding lives on the custom contents slip only.
+
+### Detours & fixes
+
+- Could not drive an actual Safari print dialog from this session — computer-use treats browsers as read-tier (screenshots only; clicks/typing blocked), so Cmd+P couldn't be triggered programmatically. Browser-rendered verification at exact print dimensions was completed instead; **Andy should do one real print-preview pass in Safari on iPad/Mac to fully close out the print-path verification** called for in the task.
+
 ## 2026-06-30 — Fix: cost capture silently failing (doubled `/rest/v1` Supabase path)
 
 ### Work done
