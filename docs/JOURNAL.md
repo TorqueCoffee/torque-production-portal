@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-06-30 — Fix: packing slip printed as a blank page in Safari
+
+### Work done
+
+- **Root cause:** `printSlip()`'s hidden print iframe was sized `width:0;height:0`. Chromium decouples an iframe's print rendering from its host element's box size, so the preview testing in the prior session (Chromium-based) showed the print pipeline firing correctly — but Safari/WebKit computes the print canvas for an embedded frame from the frame element's own rendered box, so a 0×0 iframe prints a genuinely blank page even though the `srcdoc` content inside has its own `width:4in;height:6in`. Andy confirmed: printing a slip to PDF from the real app produced a 1-page, ~885-byte PDF — empty.
+- **Fix** in `printSlip()` ([`index.html`](../index.html)): the iframe now gets real off-screen dimensions (`width:4in;height:6in`, positioned at `left:-10000px;top:-10000px`) instead of `width:0;height:0`. Also added a 50ms delay between `iframe.onload` firing and calling `contentWindow.print()`, to give Safari layout one more tick to settle before the print snapshot is taken (defensive; the sizing fix is the primary cause).
+- This was flagged as an open risk in the prior session's TESTS.md ("Safari-specific rendering is still Andy's to confirm" — the Chromium-based preview tool can't reproduce WebKit-only print bugs) and surfaced on the first real-world test, exactly as expected.
+
+### Still pending
+
+- **Andy to re-verify:** print a slip from the real app in Safari/iPad-Mac and confirm the resulting page/PDF has content, not blank. The "Open label" PDF path is unaffected (it was never the iframe path — different bug surface).
+
 ## 2026-06-30 — Casual client-side password gate
 
 ### Work done

@@ -95,5 +95,7 @@ The actual hardware is a Rollo (system printer, 4x6 PDF/HTML), not a bare Zebra 
 - [x] No console errors across the drive.
 - [ ] **On-hardware (Andy, deploy-gated):** label PDF + slip print cleanly from Safari/iPad-Mac with the Rollo selected in the system print dialog.
 
+**Run log:**
+- 2026-06-30: On-hardware gate **FAIL** (Andy) — printed slip came back as a 1-page, ~885-byte (effectively blank) PDF in Safari. Root cause: the print iframe was sized `width:0;height:0`; Chromium prints a 0×0 iframe's content fine (why the preview-tool check above missed it), but Safari computes the print canvas from the iframe's own rendered box, so a 0×0 frame yields a blank page regardless of the `srcdoc` content's own size. Fixed: real off-screen dimensions (`width:4in;height:6in`, `left/top:-10000px` instead of `width/height:0`) + a 50ms settle delay before calling `print()`. See JOURNAL "Fix: packing slip printed as a blank page in Safari". **Re-run by Andy still pending** — this exact gate is what caught the bug, so it's the one that must re-PASS before calling this closed.
 ### Step 6 — live cutover — TBD
 Switch `SHIPPO_TOKEN` test→live only after 1–5b pass end to end on deploy. Confirm Shippo funding + live multi-zone $ (near + far) first; planner-app fulfillment scope + all env vars set in Vercel.

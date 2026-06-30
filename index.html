@@ -1633,12 +1633,16 @@ function printSlip(idx) {
   if (!b || !b.label) return
   const html = composeContentsSlipHTML(b.box, { order_name: s.order.order_name, company_name: (s.order.shipping_address || {}).company })
   const iframe = document.createElement('iframe')
-  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
+  // Safari prints a genuinely blank page from a 0x0 iframe — it sizes the print
+  // canvas from the frame's own rendered box, not just the srcdoc's @page size
+  // (Chromium doesn't have this bug, which is why preview testing missed it).
+  // Real off-screen dimensions instead of width/height:0 fixes it.
+  iframe.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:4in;height:6in;border:0'
   iframe.setAttribute('aria-hidden', 'true')
   iframe.onload = () => {
     iframe.contentWindow.focus()
-    iframe.contentWindow.print()
-    setTimeout(() => iframe.remove(), 1000)   // clean up so repeated clicks don't pile up
+    setTimeout(() => iframe.contentWindow.print(), 50)   // let layout settle before printing
+    setTimeout(() => iframe.remove(), 1500)   // clean up so repeated clicks don't pile up
   }
   document.body.appendChild(iframe)
   iframe.srcdoc = html
