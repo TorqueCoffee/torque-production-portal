@@ -1,6 +1,6 @@
 # 0006 — PDF label + HTML contents slip, printed via the system dialog (Rollo)
 
-- **Status**: Accepted — supersedes [`0005`](./0005-print-trigger-mechanism.md)
+- **Status**: Superseded by [`0007`](./0007-combined-png-print-document.md) for the label format + the "print all" mechanism; the HTML-slip and print-via-system-dialog decisions still stand
 - **Date**: 2026-06-30
 
 ## Context

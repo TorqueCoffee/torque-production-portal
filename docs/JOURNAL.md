@@ -1,5 +1,22 @@
 # Journal
 
+## 2026-07-02 — Re-architect "Open + print all": PNG labels + one combined print document
+
+### Work done
+
+- **Why the previous two fixes couldn't fully work:** the real constraint isn't standalone-PWA mode (an earlier guess) — it's that Safari (iPad/iPhone/Mac, confirmed as Andy's devices, all normal Safari tabs) only lets a script open a new tab **synchronously inside the tap**. Any per-box label tab opened after an `await` is popup-blocked, or — with a reused named tab — overwritten, so only the last box's label is ever printable. Slips (same-origin iframes) printed fine; multi-box labels never could via the tab loop.
+- **New architecture (ADR [`0007`](./decisions/0007-combined-png-print-document.md)):** buy the label as a **PNG** and print the whole order as **one combined same-origin document** — label 1, slip 1, label 2, slip 2, … — in a single print job. A cross-origin `<img>` prints cleanly from our own page (a cross-origin PDF can't), so this sidesteps the popup blocker entirely and, as a bonus, kills the earlier blank-slip race (no concurrent iframes anymore).
+- **Code:**
+  - `api/shippo-label.js`: `label_file_type` `PDF_4x6` → `PNG` (transaction + response).
+  - `index.html`: factored the slip into `SLIP_ELEMENT_STYLES` + `slipBodyMarkup()` so single and combined prints render identically; `composeContentsSlipHTML()` (per-box) now wraps those; new `composeCombinedPrintHTML()` builds the interleaved 4x6-per-page doc; `printAll()` rewritten to compose that doc and print once via `printCombinedDoc()`, which waits for every image (label PNGs + logos) to load before printing and resolves on `afterprint` (20s CDN-slowness fallback).
+  - Per-box "Open label" / "Print slip" buttons unchanged in purpose (single reprints); help-card copy updated.
+
+### Verification
+
+- `node --check` on `api/shippo-label.js` + both inline `<script>` blocks passes.
+- Browser preview: `composeCombinedPrintHTML()` on a 2-box fixture produced exactly 4 pages in order — LABEL 1 → SLIP 1 → LABEL 2 → SLIP 2 — with correct box IDs, item counts, `@page 4in 6in`, and the label-image sizing rule. Rendered visibly at 4x6: label fills the page, page-breaks, slip follows with logo + order sub + box id + weight. No console errors.
+- **Not certified, by design:** a **live Shippo PNG purchase** — the format change touches the money path and can't run from local. **Andy to buy one real 4x6 PNG label on the token and confirm** `label_url` resolves to a renderable `.png`, then run "Open + print all" on a 2-3 box order and confirm the Rollo emits label/slip/label/slip in order. (The prior orders were bought as PDF; only new purchases are PNG.)
+
 ## 2026-07-02 — Incident: two paid B2B orders stuck UNFULFILLED; "order not found" was a missing app scope
 
 ### Work done

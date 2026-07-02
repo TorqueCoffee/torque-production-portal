@@ -544,8 +544,8 @@ html.tq-locked body>*:not(#tqGate){display:none!important}
         <li><strong>Get rates</strong> shows the cubic Ground Advantage cost per box — no money moves yet</li>
         <li><strong>Buy labels</strong> charges Shippo only after you confirm the total</li>
         <li>If a box fails, only the failed ones retry — bought labels are never re-charged</li>
-        <li><strong>Open label</strong> opens the Shippo PDF in a new tab — print it yourself and pick the Rollo; <strong>Print slip</strong> auto-opens the print dialog for the contents slip (first time, you may need to pick 4×6 paper size manually in Safari)</li>
-        <li><strong>Open + print all</strong> works one box at a time — label 1, slip 1, label 2, slip 2, etc. — so the printer output stays grouped per box; wait for it to finish before doing anything else</li>
+        <li><strong>Open + print all</strong> prints the whole order in one job, grouped per box — label 1, slip 1, label 2, slip 2, etc. — so it comes off the Rollo in packing order; pick the Rollo (and 4×6 the first time) in the print dialog</li>
+        <li>The per-box <strong>Open label</strong> / <strong>Print slip</strong> buttons are for a single reprint — Open label shows that box's label to print by hand, Print slip re-prints one contents slip</li>
         <li><strong>Fulfill order</strong> writes all tracking to Shopify with one customer email — only after every box has a label</li>
         <li>An already-fulfilled order shows calmly and is never notified twice</li>
       </ul>
@@ -1156,7 +1156,24 @@ function hEsc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
-function composeContentsSlipHTML(box, opts = {}) {
+// Shared slip styling — used both by the single-slip doc (composeContentsSlipHTML) and by
+// the combined label+slip print doc (composeCombinedPrintHTML), so the slip looks identical
+// in both. Element rules only; the page/body sizing lives in each doc's own wrapper.
+const SLIP_ELEMENT_STYLES = `
+  .header { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
+  .header img { max-width: 140px; height: auto; }
+  .header-text { font-size: 22px; font-weight: 700; }
+  .sub { font-size: 11px; color: #333; margin-bottom: 10px; }
+  .boxid-row { display: flex; justify-content: space-between; align-items: baseline; border: 2px solid #000; padding: 8px 10px; margin-bottom: 10px; }
+  .boxid { font-size: 22px; font-weight: 700; }
+  .weight { font-size: 16px; }
+  .contents-title { font-size: 12px; font-weight: 700; letter-spacing: .05em; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
+  .item { display: flex; gap: 8px; font-size: 14px; margin-bottom: 6px; }
+  .qty { font-weight: 700; min-width: 28px; }
+  .footer { font-size: 9px; color: #555; margin-top: 14px; }`
+
+// The inner markup of one slip (no page/doc wrapper) — reused by both composers.
+function slipBodyMarkup(box, opts = {}) {
   const boxId = `BOX ${box.box_index} OF ${box.box_count}`
   const weight = (Number.isFinite(box.weight_lb) ? box.weight_lb.toFixed(1) : '?') + ' lb'
   const sub = [hEsc(opts.order_name), hEsc(opts.company_name)].filter(Boolean).join(' &middot; ')
@@ -1170,6 +1187,20 @@ function composeContentsSlipHTML(box, opts = {}) {
       }).join('')
     : `<div class="item"><span>(no items)</span></div>`
 
+  return `
+  <div class="header">
+    <img src="https://cdn.shopify.com/s/files/1/0622/2866/0444/files/Torque-logo.png?v=1647031588" alt="Torque Coffee" onerror="this.style.display='none'">
+    <div class="header-text">TORQUE COFFEE</div>
+  </div>
+  ${sub ? `<div class="sub">${sub}</div>` : ''}
+  <div class="boxid-row"><div class="boxid">${boxId}</div><div class="weight">${weight}</div></div>
+  <div class="contents-title">CONTENTS</div>
+  ${itemsHtml}
+  <div class="footer">${footer}</div>`
+}
+
+// Single 4x6 slip document — used by the per-box "Print slip" button.
+function composeContentsSlipHTML(box, opts = {}) {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -1182,30 +1213,45 @@ function composeContentsSlipHTML(box, opts = {}) {
     width: 4in; height: 6in; padding: 0.2in;
     font-family: -apple-system, Helvetica, Arial, sans-serif; color: #000;
   }
-  .header { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
-  .header img { max-width: 140px; height: auto; }
-  .header-text { font-size: 22px; font-weight: 700; }
-  .sub { font-size: 11px; color: #333; margin-bottom: 10px; }
-  .boxid-row { display: flex; justify-content: space-between; align-items: baseline; border: 2px solid #000; padding: 8px 10px; margin-bottom: 10px; }
-  .boxid { font-size: 22px; font-weight: 700; }
-  .weight { font-size: 16px; }
-  .contents-title { font-size: 12px; font-weight: 700; letter-spacing: .05em; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
-  .item { display: flex; gap: 8px; font-size: 14px; margin-bottom: 6px; }
-  .qty { font-weight: 700; min-width: 28px; }
-  .footer { font-size: 9px; color: #555; margin-top: 14px; }
+  ${SLIP_ELEMENT_STYLES}
 </style>
 </head>
-<body>
-  <div class="header">
-    <img src="https://cdn.shopify.com/s/files/1/0622/2866/0444/files/Torque-logo.png?v=1647031588" alt="Torque Coffee" onerror="this.style.display='none'">
-    <div class="header-text">TORQUE COFFEE</div>
-  </div>
-  ${sub ? `<div class="sub">${sub}</div>` : ''}
-  <div class="boxid-row"><div class="boxid">${boxId}</div><div class="weight">${weight}</div></div>
-  <div class="contents-title">CONTENTS</div>
-  ${itemsHtml}
-  <div class="footer">${footer}</div>
-</body>
+<body>${slipBodyMarkup(box, opts)}</body>
+</html>`
+}
+
+// The combined print document for "Open + print all": one same-origin doc with the pages in
+// physical order — label 1, slip 1, label 2, slip 2, … — printed as ONE job. Labels are 4x6
+// PNGs (see ADR 0007) embedded as <img>, which — unlike a cross-origin PDF — print cleanly
+// from inside our own document. This is what makes the grouped one-click workflow possible
+// without opening N popup-blocked tabs.
+function composeCombinedPrintHTML(boxWrappers, opts = {}) {
+  const pages = boxWrappers.map(bw => {
+    const labelPage = bw.label && bw.label.label_url
+      ? `<div class="page label-page"><img src="${bw.label.label_url}" alt="shipping label"></div>`
+      : ''
+    const slipPage = `<div class="page slip-page">${slipBodyMarkup(bw.box, opts)}</div>`
+    return labelPage + slipPage
+  }).join('')
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: 4in 6in; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #000; }
+  .page { width: 4in; height: 6in; overflow: hidden; page-break-after: always; break-after: page; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .label-page { display: flex; align-items: center; justify-content: center; }
+  .label-page img { width: 4in; height: 6in; object-fit: contain; display: block; }
+  .slip-page { padding: 0.2in; }
+  ${SLIP_ELEMENT_STYLES}
+</style>
+</head>
+<body>${pages}</body>
 </html>`
 }
 
@@ -1622,24 +1668,16 @@ async function fulfillOrder() {
   renderShip()
 }
 
-// Print = two INDEPENDENT triggers per box, label before slip by convention only —
-// see ADR 0006. The Rollo is a normal system printer (4x6 PDF/HTML, no raw ZPL):
-// "open label" hands the user the Shippo PDF to print themselves (cross-origin —
-// window.print() can't reach into it); "print slip" auto-prints our HTML via a
-// hidden iframe.
+// Printing — see ADR 0007. The Rollo is a normal system printer (4x6 PNG label / HTML slip,
+// no raw ZPL). There are two paths:
+//   • Per-box buttons ("Open label" / "Print slip") — single-box reprints. "Open label"
+//     opens the Shippo PNG in a tab to print by hand; "Print slip" auto-prints our HTML.
+//   • "Open + print all" — the whole order as ONE combined print job (printAll below).
 //
-// openLabel() always targets the SAME named window instead of '_blank'. A fresh
-// '_blank' per call is what broke "open + print all": browsers allow only one new
-// tab per user gesture, so boxes 2 and 3 got silently popup-blocked. Navigating an
-// already-open named window is not a new popup, so this works for any number of
-// boxes off a single click.
-//
-// This has to be a real <a> click, not window.open(): on an iPad home-screen
-// install (standalone display mode, no Safari chrome/tabs), window.open() is a
-// silent no-op — there's no tab for it to open into — so it printed slips but
-// never opened a single label. A named-target <a> click is what already worked
-// for box 1 pre-fix, so it keeps that working behavior and only changes the
-// target from '_blank' (always-new, gets blocked) to a fixed name (reused).
+// Why not a loop of per-box tab-opens for "print all": Safari only lets a script open a new
+// tab synchronously inside the tap, so only box 1's label tab would open; boxes 2+ (after an
+// await) get popup-blocked or, with a reused named tab, just overwrite each other so only the
+// last label is printable. The combined-document approach sidesteps all of that.
 function openLabel(idx) {
   const s = shipState, b = s.boxes[idx]
   if (!b || !b.label) return
@@ -1691,25 +1729,64 @@ function printSlip(idx) {
   })
 }
 
-// Sequenced, not fired-all-at-once: label 1 -> slip 1 -> label 2 -> slip 2 -> ...
-// so the printer output is grouped per box, and so only one print/tab action is
-// ever in flight (see openLabel/printSlip comments for why concurrency broke both).
+// "Open + print all" — build ONE document with every box's label then slip, in order, and
+// print it as a single job (ADR 0007). One tap, one print dialog, output grouped per box:
+// label 1, slip 1, label 2, slip 2, … No tabs (so no popup blocker), no concurrent iframes
+// (so no blank-slip race) — the combined doc is a strict improvement over the old loop.
 async function printAll() {
-  if (shipState.printingAll) return
-  shipState.printingAll = true
+  const s = shipState
+  if (s.printingAll) return
+  const bought = s.boxes.filter(b => b.label && b.label.label_url)
+  if (!bought.length) { alert('No purchased labels to print yet.'); return }
+  s.printingAll = true
   renderShip()
   try {
-    for (let i = 0; i < shipState.boxes.length; i++) {
-      const b = shipState.boxes[i]
-      if (!b.label) continue
-      openLabel(i)
-      await new Promise(r => setTimeout(r, 400))   // let the label tab load before the slip print steals focus
-      await printSlip(i)
-    }
+    const html = composeCombinedPrintHTML(bought, {
+      order_name: s.order.order_name, company_name: (s.order.shipping_address || {}).company
+    })
+    await printCombinedDoc(html)
+    bought.forEach(b => { b.labelOpened = true; b.printed = true })
   } finally {
-    shipState.printingAll = false
+    s.printingAll = false
     renderShip()
   }
+}
+
+// Print a full combined HTML doc via one hidden iframe. Resolves after the print job
+// completes (afterprint) or a generous fallback. Waits for every image — the label PNGs
+// and the slip logos — to finish loading first, so nothing prints half-rendered.
+function printCombinedDoc(html) {
+  return new Promise(resolve => {
+    const iframe = document.createElement('iframe')
+    // Real off-screen size, not 0x0 — Safari sizes the print canvas from the frame's own
+    // box, so a 0x0 iframe prints blank (same fix as the single-slip path).
+    iframe.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:4in;height:6in;border:0'
+    iframe.setAttribute('aria-hidden', 'true')
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(fallback)
+      iframe.remove()
+      resolve()
+    }
+    // Generous fallback: cross-origin label PNGs load from Shippo's CDN, which can be slow.
+    const fallback = setTimeout(finish, 20000)
+    iframe.onload = () => {
+      const win = iframe.contentWindow, doc = win.document
+      const imgs = Array.from(doc.images || [])
+      const waitImgs = Promise.all(imgs.map(img => img.complete
+        ? Promise.resolve()
+        : new Promise(r => { img.addEventListener('load', r, { once: true }); img.addEventListener('error', r, { once: true }) })))
+      waitImgs.then(() => {
+        win.addEventListener('afterprint', finish, { once: true })
+        win.focus()
+        setTimeout(() => win.print(), 100)   // let layout settle after images resolve
+      })
+    }
+    document.body.appendChild(iframe)
+    iframe.srcdoc = html
+  })
 }
 
 async function adjustBagged(id, delta) {
