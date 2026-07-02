@@ -60,7 +60,17 @@ module.exports = async function handler(req, res) {
       { id: orderId }
     )
     const order = foRes.data && foRes.data.order
-    if (!order) return res.status(404).json({ error: 'Order not found', detail: foRes.errors || null })
+    if (!order) {
+      // A null order with GraphQL errors is almost always a missing app scope (this query
+      // reads `fulfillmentOrders`, which needs read_merchant_managed_fulfillment_orders) —
+      // NOT a genuinely absent order. Say so, so it isn't mistaken for a bad order id.
+      const errs = foRes.errors || []
+      const accessDenied = errs.some(e => /access denied|scope|not approved|permission/i.test(e.message || ''))
+      const msg = accessDenied || errs.length
+        ? 'Could not read the order — the planner app is likely missing the read/write_merchant_managed_fulfillment_orders scopes. Grant them to the custom app and reinstall.'
+        : 'Order not found'
+      return res.status(accessDenied || errs.length ? 502 : 404).json({ error: msg, detail: errs.length ? errs : null })
+    }
     const openFOs = (order.fulfillmentOrders.edges || []).map(e => e.node)
       .filter(n => n.status === 'OPEN' || n.status === 'IN_PROGRESS')
     if (!openFOs.length) {

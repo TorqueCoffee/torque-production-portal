@@ -1,5 +1,26 @@
 # Journal
 
+## 2026-07-02 — Incident: two paid B2B orders stuck UNFULFILLED; "order not found" was a missing app scope
+
+### Work done
+
+- **Symptom (Andy, live):** #6518 (3rd St Market, 3 boxes) showed unfulfilled with no printed-label state; fulfilling #6529 (1 box) errored `Fulfillment didn't complete: order not found`, and retry failed the same way.
+- **Ground truth pulled from Shopify + Supabase before touching anything:**
+  - `shipping_labels` had all 4 labels safely `purchased` with tracking — #6518 boxes `…589183/…589213/…589251` ($8.50×3), #6529 `…600451` ($8.25). No labels or money lost.
+  - Both orders in Shopify were genuinely `UNFULFILLED`, fulfillment orders `OPEN`, zero fulfillments — never fulfilled, not a display glitch. The `order_id`s in the labels table matched Shopify exactly, so the id handed to the fulfill endpoint was correct.
+  - A direct `order(id:)` GraphQL query (via the authorized MCP connection) found #6529 fine — so the order exists; the endpoint's own lookup was the thing returning null.
+- **Root cause:** the fulfill endpoint's first query reads the order **with its `fulfillmentOrders`** ([`api/shopify-fulfill.js`](../api/shopify-fulfill.js) step 1), which requires `read_merchant_managed_fulfillment_orders`. The planner's custom app has `read_orders` (so listing orders + buying labels works) but appears to lack the fulfillment-order scopes. Shopify rejects the query → `data: null` → the code misreported it as **"Order not found."** The same missing scope would also block `fulfillmentCreate`. This was the exact deploy gate flagged on 2026-06-30 (Step 4) and never closed.
+- **Remedy (with Andy's go-ahead — sends customer emails):** fulfilled both orders directly via Admin API `fulfillmentCreate` — one fulfillment per order carrying all box tracking (so #6518's customer got ONE email with all three numbers), `notifyCustomer:true`, `company:USPS`. Both returned `status: SUCCESS`, zero `userErrors`. Then flipped the four `shipping_labels` rows `purchased → fulfilled` to match what the endpoint would have done.
+- **Code fix (diagnosability, so this can't masquerade again):** the endpoint now distinguishes a scope/access GraphQL error (→ 502 + a message naming the missing `*_merchant_managed_fulfillment_orders` scopes) from a genuinely absent order (→ 404 "Order not found"); the client (`fulfillOrder`) now appends `data.detail` to the on-screen error instead of showing only the top-line message.
+
+### Detours & fixes
+
+- **#6518's "lost" printed-label state was the in-memory `shipState` limitation, not lost labels.** The ship flow keeps state only in memory (accepted limitation, 2026-06-30 Step 5); this session's two deploys forced a reload that dropped it. But #6518 was never fulfilled regardless, so the remedy was identical to #6529 — the state loss changed nothing material (labels were safe in Shippo + the DB the whole time).
+
+### Still pending — Andy (the real fix)
+
+- **Grant the planner's custom Shopify app `read_merchant_managed_fulfillment_orders` + `write_merchant_managed_fulfillment_orders`, then reinstall/reauthorize.** Until then the in-app Fulfill button will keep failing (now with a legible scope message instead of "order not found"). Direct-API fulfillment (as done here) is the manual fallback in the meantime.
+
 ## 2026-07-02 — Fix: "Open + print all" only opened one label and printed blank slips
 
 ### Work done

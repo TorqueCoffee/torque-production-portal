@@ -1606,7 +1606,10 @@ async function fulfillOrder() {
     })
     const data = await res.json()
     if (!res.ok || !data.ok) {
-      s.fulfillError = data.error || `Fulfillment failed (${res.status})`
+      // Surface the real detail (e.g. a Shopify scope/access GraphQL error) instead of
+      // just the top-line message — a bare "Order not found" hid an app-scope problem.
+      const detail = data.detail ? ' — ' + (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : ''
+      s.fulfillError = (data.error || `Fulfillment failed (${res.status})`) + detail
       s.phase = 'bought'   // labels stay bought; allow a fulfill retry without re-buying
     } else {
       s.fulfill = data
