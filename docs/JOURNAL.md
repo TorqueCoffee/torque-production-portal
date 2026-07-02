@@ -1,5 +1,23 @@
 # Journal
 
+## 2026-07-02 — Fix: "Open + print all" only opened one label and printed blank slips
+
+### Work done
+
+- **Root cause 1 (only one label opened):** `openLabel()` opened the Shippo PDF via `a.target = '_blank'`, and `printAll()` called it once per box in a tight loop. Browsers allow only one new tab/window per user gesture; Safari silently popup-blocked every box after the first.
+- **Root cause 2 (blank/missing packing slips):** `printAll()` fired all boxes' `printSlip()` calls synchronously with no waiting between them, so 2-3 hidden print iframes loaded and printed concurrently. Each was force-removed on a flat `setTimeout(1500ms)` regardless of whether the print job had actually captured its content yet — under that concurrent load the timer sometimes won the race and yanked an iframe before its print snapshot finished, producing a blank page.
+- **Fix** in [`index.html`](../index.html):
+  - `openLabel()` now opens/navigates a single named window (`window.open(url, 'torque-ship-label')`) instead of a fresh `_blank` per call. The first call opens a real tab (spends the click's gesture allowance); every later call just navigates that same tab, which browsers never treat as a new popup.
+  - `printSlip()` now returns a Promise that resolves on the iframe's `afterprint` event (with a 5s fallback for iOS Safari, which doesn't always fire `afterprint` inside an iframe), and only removes the iframe once that fires — no more racing a flat timer against the real print job.
+  - `printAll()` is now `async` and processes boxes one at a time (`open label → settle → await print slip → next box`), guarded by a `shipState.printingAll` flag so the action-bar button disables itself and shows "Printing…" mid-run instead of allowing re-entrant clicks.
+- Updated the Ship-tab help card to describe the new one-box-at-a-time behavior.
+
+### Verification
+
+- `node --check` on both extracted inline `<script>` blocks passes.
+- Live-browser test (Chromium preview) with a faked `shipState` of 3 boxes each carrying a bought label: driving the real "Open + print all" button showed `window.open` called 3 times, all targeting the same window name (`torque-ship-label`) — confirming the popup-reuse fix — and each box's `printed`/`labelOpened` flags only flipped in order, one box completing (via its real print job or the fallback) before the next box started. No console errors. `shipState.printingAll` correctly reset to `false` at the end.
+- **Not certified, by design:** real Safari/iPad + Rollo behavior for `window.open` tab-reuse and `afterprint` timing — same posture as every prior print-path change on this feature. **Andy to confirm on the real hardware**: click "Open + print all" on a real 2-3 box order and verify all labels appear (in the one reused tab) and every slip has content, in order.
+
 ## 2026-06-30 — Add Torque logo to contents slip
 
 ### Work done

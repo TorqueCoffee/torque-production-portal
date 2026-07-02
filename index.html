@@ -545,6 +545,7 @@ html.tq-locked body>*:not(#tqGate){display:none!important}
         <li><strong>Buy labels</strong> charges Shippo only after you confirm the total</li>
         <li>If a box fails, only the failed ones retry — bought labels are never re-charged</li>
         <li><strong>Open label</strong> opens the Shippo PDF in a new tab — print it yourself and pick the Rollo; <strong>Print slip</strong> auto-opens the print dialog for the contents slip (first time, you may need to pick 4×6 paper size manually in Safari)</li>
+        <li><strong>Open + print all</strong> works one box at a time — label 1, slip 1, label 2, slip 2, etc. — so the printer output stays grouped per box; wait for it to finish before doing anything else</li>
         <li><strong>Fulfill order</strong> writes all tracking to Shopify with one customer email — only after every box has a label</li>
         <li>An already-fulfilled order shows calmly and is never notified twice</li>
       </ul>
@@ -1476,7 +1477,7 @@ function renderShipActions() {
       ${block}
       <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
         <div class="ship-step" style="flex:1;margin:0">Step 3 — open every label and print every slip on the Rollo, then write tracking back to Shopify (one customer email).</div>
-        <button class="btn btn-secondary" onclick="printAll()">🖨 Open + print all</button>
+        <button class="btn btn-secondary" onclick="printAll()" ${s.printingAll ? 'disabled' : ''}>🖨 ${s.printingAll ? 'Printing…' : 'Open + print all'}</button>
         <button class="btn btn-primary" onclick="fulfillOrder()" ${busy ? 'disabled' : ''}>${busy ? 'Fulfilling…' : 'Fulfill order'}</button>
       </div>
       <div class="ship-step" style="margin:0">Safari doesn't always auto-apply the 4×6 page size — first slip print, you may need to pick 4×6 manually in the print dialog.</div>
@@ -1623,19 +1624,26 @@ async function fulfillOrder() {
 // "open label" hands the user the Shippo PDF to print themselves (cross-origin —
 // window.print() can't reach into it); "print slip" auto-prints our HTML via a
 // hidden iframe.
+//
+// openLabel() always targets the SAME named window instead of '_blank'. A fresh
+// '_blank' per call is what broke "open + print all": browsers allow only one new
+// tab per user gesture, so boxes 2 and 3 got silently popup-blocked. Navigating an
+// already-open named window is not a new popup, so this works for any number of
+// boxes off a single click.
 function openLabel(idx) {
   const s = shipState, b = s.boxes[idx]
   if (!b || !b.label) return
-  const a = document.createElement('a')
-  a.href = b.label.label_url; a.target = '_blank'; a.rel = 'noopener'
-  document.body.appendChild(a); a.click(); a.remove()
+  const w = window.open(b.label.label_url, 'torque-ship-label')
+  if (w) w.focus()
   b.labelOpened = true
   renderShip()
 }
 
+// Returns a Promise that resolves once the print job is done (or a fallback
+// timeout elapses), so callers can sequence multiple slips without racing.
 function printSlip(idx) {
   const s = shipState, b = s.boxes[idx]
-  if (!b || !b.label) return
+  if (!b || !b.label) return Promise.resolve()
   const html = composeContentsSlipHTML(b.box, { order_name: s.order.order_name, company_name: (s.order.shipping_address || {}).company })
   const iframe = document.createElement('iframe')
   // Safari prints a genuinely blank page from a 0x0 iframe — it sizes the print
@@ -1644,23 +1652,53 @@ function printSlip(idx) {
   // Real off-screen dimensions instead of width/height:0 fixes it.
   iframe.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:4in;height:6in;border:0'
   iframe.setAttribute('aria-hidden', 'true')
-  iframe.onload = () => {
-    iframe.contentWindow.focus()
-    setTimeout(() => iframe.contentWindow.print(), 50)   // let layout settle before printing
-    setTimeout(() => iframe.remove(), 1500)   // clean up so repeated clicks don't pile up
-  }
-  document.body.appendChild(iframe)
-  iframe.srcdoc = html
   b.printed = true
   renderShip()
+  return new Promise(resolve => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(fallback)
+      iframe.remove()
+      resolve()
+    }
+    // Removing the iframe on a flat timer (the old approach) races the actual
+    // print job — under "print all"'s back-to-back load that race is what
+    // produced blank slips. Wait for the real afterprint signal instead; the
+    // fallback only covers iOS Safari cases where afterprint doesn't fire
+    // inside an iframe.
+    const fallback = setTimeout(finish, 5000)
+    iframe.onload = () => {
+      const win = iframe.contentWindow
+      win.addEventListener('afterprint', finish, { once: true })
+      win.focus()
+      setTimeout(() => win.print(), 50)   // let layout settle before printing
+    }
+    document.body.appendChild(iframe)
+    iframe.srcdoc = html
+  })
 }
 
-function printAll() {
-  shipState.boxes.forEach((b, i) => {
-    if (!b.label) return
-    openLabel(i)
-    printSlip(i)
-  })
+// Sequenced, not fired-all-at-once: label 1 -> slip 1 -> label 2 -> slip 2 -> ...
+// so the printer output is grouped per box, and so only one print/tab action is
+// ever in flight (see openLabel/printSlip comments for why concurrency broke both).
+async function printAll() {
+  if (shipState.printingAll) return
+  shipState.printingAll = true
+  renderShip()
+  try {
+    for (let i = 0; i < shipState.boxes.length; i++) {
+      const b = shipState.boxes[i]
+      if (!b.label) continue
+      openLabel(i)
+      await new Promise(r => setTimeout(r, 400))   // let the label tab load before the slip print steals focus
+      await printSlip(i)
+    }
+  } finally {
+    shipState.printingAll = false
+    renderShip()
+  }
 }
 
 async function adjustBagged(id, delta) {
