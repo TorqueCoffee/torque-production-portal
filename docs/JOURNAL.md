@@ -18,6 +18,10 @@
 - Live-browser test (Chromium preview) with a faked `shipState` of 3 boxes each carrying a bought label: driving the real "Open + print all" button showed `window.open` called 3 times, all targeting the same window name (`torque-ship-label`) — confirming the popup-reuse fix — and each box's `printed`/`labelOpened` flags only flipped in order, one box completing (via its real print job or the fallback) before the next box started. No console errors. `shipState.printingAll` correctly reset to `false` at the end.
 - **Not certified, by design:** real Safari/iPad + Rollo behavior for `window.open` tab-reuse and `afterprint` timing — same posture as every prior print-path change on this feature. **Andy to confirm on the real hardware**: click "Open + print all" on a real 2-3 box order and verify all labels appear (in the one reused tab) and every slip has content, in order.
 
+### Detours & fixes
+
+- **Deployed, then Andy reported the opposite regression: every slip printed, but zero labels opened.** The `window.open(url, 'torque-ship-label')` swap (chosen to dodge the popup blocker) is very likely a silent no-op on this iPad, because the planner is used as a home-screen install (standalone display mode — no Safari chrome/tabs to open a window into), whereas a real `<a target="_blank">` click is handled as an actual link tap even in standalone mode and at least worked for box 1 before this session's fix. **Fix:** reverted `openLabel()` to the original `<a>`-click mechanism, changing only `target` from `_blank` (always-new, gets popup-blocked on box 2/3) to a fixed name `torque-ship-label` (reused on repeat clicks, same target-name semantics as `window.open`). This keeps the exact behavior that already worked for box 1 while still fixing the blocked-boxes-2/3 bug. Not yet confirmed on the real device — same "Andy to confirm on real hardware" gate as above.
+
 ## 2026-06-30 — Add Torque logo to contents slip
 
 ### Work done

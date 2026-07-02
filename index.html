@@ -1630,11 +1630,19 @@ async function fulfillOrder() {
 // tab per user gesture, so boxes 2 and 3 got silently popup-blocked. Navigating an
 // already-open named window is not a new popup, so this works for any number of
 // boxes off a single click.
+//
+// This has to be a real <a> click, not window.open(): on an iPad home-screen
+// install (standalone display mode, no Safari chrome/tabs), window.open() is a
+// silent no-op — there's no tab for it to open into — so it printed slips but
+// never opened a single label. A named-target <a> click is what already worked
+// for box 1 pre-fix, so it keeps that working behavior and only changes the
+// target from '_blank' (always-new, gets blocked) to a fixed name (reused).
 function openLabel(idx) {
   const s = shipState, b = s.boxes[idx]
   if (!b || !b.label) return
-  const w = window.open(b.label.label_url, 'torque-ship-label')
-  if (w) w.focus()
+  const a = document.createElement('a')
+  a.href = b.label.label_url; a.target = 'torque-ship-label'; a.rel = 'noopener'
+  document.body.appendChild(a); a.click(); a.remove()
   b.labelOpened = true
   renderShip()
 }
