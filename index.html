@@ -1207,6 +1207,7 @@ function composeContentsSlipHTML(box, opts = {}) {
 <meta charset="utf-8">
 <style>
   @page { size: 4in 6in; margin: 0; }
+  :root { color-scheme: light; }   /* never let dark mode invert the slip to black */
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #fff; }
   body {
@@ -1240,12 +1241,13 @@ function composeCombinedPrintHTML(boxWrappers, opts = {}) {
 <meta charset="utf-8">
 <style>
   @page { size: 4in 6in; margin: 0; }
+  :root { color-scheme: light; }   /* never let dark mode invert a label/slip to black */
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #fff; }
   body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #000; }
-  .page { width: 4in; height: 6in; overflow: hidden; page-break-after: always; break-after: page; }
+  .page { width: 4in; height: 6in; overflow: hidden; background: #fff; page-break-after: always; break-after: page; }
   .page:last-child { page-break-after: auto; break-after: auto; }
-  .label-page { display: flex; align-items: center; justify-content: center; }
+  .label-page { display: flex; align-items: center; justify-content: center; background: #fff; }
   .label-page img { width: 4in; height: 6in; object-fit: contain; display: block; }
   .slip-page { padding: 0.2in; }
   ${SLIP_ELEMENT_STYLES}
