@@ -1228,8 +1228,9 @@ function composeContentsSlipHTML(box, opts = {}) {
 // without opening N popup-blocked tabs.
 function composeCombinedPrintHTML(boxWrappers, opts = {}) {
   const pages = boxWrappers.map(bw => {
-    const labelPage = bw.label && bw.label.label_url
-      ? `<div class="page label-page"><img src="${bw.label.label_url}" alt="shipping label"></div>`
+    const labelSrc = bw.labelDataUrl || (bw.label && bw.label.label_url) || ''
+    const labelPage = labelSrc
+      ? `<div class="page label-page"><img src="${labelSrc}" alt="shipping label"></div>`
       : ''
     const slipPage = `<div class="page slip-page">${slipBodyMarkup(bw.box, opts)}</div>`
     return labelPage + slipPage
@@ -1254,6 +1255,48 @@ function composeCombinedPrintHTML(boxWrappers, opts = {}) {
 </style>
 </head>
 <body>${pages}</body>
+</html>`
+}
+
+// Fetch a label PNG through our same-origin proxy and return it as a self-contained data: URL.
+// WHY: the raw Shippo label_url is cross-origin; iOS Safari downloads it but will NOT paint a
+// cross-origin <img> into the print snapshot, so labels came out blank in "print all". A data:
+// URL is same-origin and fully inline, so it always prints. Cached per label_url.
+const _labelDataUrlCache = {}
+async function labelDataUrl(labelUrl) {
+  if (_labelDataUrlCache[labelUrl]) return _labelDataUrlCache[labelUrl]
+  const res = await fetch('/api/label-proxy?url=' + encodeURIComponent(labelUrl))
+  if (!res.ok) throw new Error('label fetch ' + res.status)
+  const blob = await res.blob()
+  const dataUrl = await new Promise((ok, no) => {
+    const fr = new FileReader()
+    fr.onload = () => ok(fr.result)
+    fr.onerror = () => no(new Error('label decode failed'))
+    fr.readAsDataURL(blob)
+  })
+  _labelDataUrlCache[labelUrl] = dataUrl
+  return dataUrl
+}
+
+// Single 4x6 label-only document — used by the per-box "Print label" button. Same page
+// geometry as the combined doc so a lone label prints as ONE clean 4x6 page. A raw PNG opened
+// directly in a tab has no page size, so the browser tiled it at native pixel resolution across
+// ~6 sheets (the "spread across 6 labels, resize to 44%" bug) — this wrapper constrains it.
+function composeSingleLabelHTML(dataUrl) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: 4in 6in; margin: 0; }
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .page { width: 4in; height: 6in; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
+  .page img { width: 4in; height: 6in; object-fit: contain; display: block; }
+</style>
+</head>
+<body><div class="page"><img src="${dataUrl}" alt="shipping label"></div></body>
 </html>`
 }
 
@@ -1433,7 +1476,7 @@ function renderShipBox(b, idx) {
     const costWarn = b.label.cost_logged === false ? ` <span class="badge badge-amber" title="${b.label.cost_log_error || ''}">cost not logged</span>` : ''
     detail += `<div class="ship-track" style="margin-top:.4rem">📦 ${tn}${costWarn}</div>`
     detail += `<div style="margin-top:.5rem;display:flex;gap:.5rem;flex-wrap:wrap">
-      <button class="btn btn-secondary btn-sm" onclick="openLabel(${idx})">📄 ${b.labelOpened ? 'Reopen' : 'Open'} label</button>
+      <button class="btn btn-secondary btn-sm" onclick="printLabel(${idx})">🖨 ${b.labelOpened ? 'Reprint' : 'Print'} label</button>
       <button class="btn btn-secondary btn-sm" onclick="printSlip(${idx})">🖨 ${b.printed ? 'Reprint' : 'Print'} slip</button>
     </div>`
   }
@@ -1680,14 +1723,17 @@ async function fulfillOrder() {
 // tab synchronously inside the tap, so only box 1's label tab would open; boxes 2+ (after an
 // await) get popup-blocked or, with a reused named tab, just overwrite each other so only the
 // last label is printable. The combined-document approach sidesteps all of that.
-function openLabel(idx) {
+async function printLabel(idx) {
   const s = shipState, b = s.boxes[idx]
-  if (!b || !b.label) return
-  const a = document.createElement('a')
-  a.href = b.label.label_url; a.target = 'torque-ship-label'; a.rel = 'noopener'
-  document.body.appendChild(a); a.click(); a.remove()
-  b.labelOpened = true
-  renderShip()
+  if (!b || !b.label || !b.label.label_url) return
+  try {
+    const dataUrl = await labelDataUrl(b.label.label_url)
+    await printCombinedDoc(composeSingleLabelHTML(dataUrl))
+    b.labelOpened = true
+    renderShip()
+  } catch (e) {
+    alert('Could not load the label image to print (' + (e && e.message ? e.message : 'network') + '). Please try again.')
+  }
 }
 
 // Returns a Promise that resolves once the print job is done (or a fallback
@@ -1743,11 +1789,17 @@ async function printAll() {
   s.printingAll = true
   renderShip()
   try {
+    // Pre-resolve every label PNG to a same-origin data URL BEFORE composing the print doc.
+    // Cross-origin Shippo images do NOT paint into iOS Safari's print snapshot (blank labels);
+    // an inline data: URL always does. Fails loud instead of printing blanks.
+    await Promise.all(bought.map(async b => { b.labelDataUrl = await labelDataUrl(b.label.label_url) }))
     const html = composeCombinedPrintHTML(bought, {
       order_name: s.order.order_name, company_name: (s.order.shipping_address || {}).company
     })
     await printCombinedDoc(html)
     bought.forEach(b => { b.labelOpened = true; b.printed = true })
+  } catch (e) {
+    alert('Could not load one or more label images (' + (e && e.message ? e.message : 'network') + '). Nothing was printed. Please try again.')
   } finally {
     s.printingAll = false
     renderShip()
@@ -1777,9 +1829,12 @@ function printCombinedDoc(html) {
     iframe.onload = () => {
       const win = iframe.contentWindow, doc = win.document
       const imgs = Array.from(doc.images || [])
-      const waitImgs = Promise.all(imgs.map(img => img.complete
-        ? Promise.resolve()
-        : new Promise(r => { img.addEventListener('load', r, { once: true }); img.addEventListener('error', r, { once: true }) })))
+      const waitImgs = Promise.all(imgs.map(img => {
+        const loaded = img.complete
+          ? Promise.resolve()
+          : new Promise(r => { img.addEventListener('load', r, { once: true }); img.addEventListener('error', r, { once: true }) })
+        return loaded.then(() => (img.decode ? img.decode().catch(() => {}) : null))
+      }))
       waitImgs.then(() => {
         win.addEventListener('afterprint', finish, { once: true })
         win.focus()

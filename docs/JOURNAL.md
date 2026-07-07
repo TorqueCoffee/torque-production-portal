@@ -1,5 +1,22 @@
 # Journal
 
+## 2026-07-07 — Fix blank/mis-scaled labels on iPad Safari: same-origin label proxy + inline data: URLs
+
+### Work done
+
+- **Root cause:** ADR 0007 (2026-07-02) moved labels to PNG and combined label+slip into one print document, but the label was still embedded as a cross-origin `<img src="{shippo label_url}">`. iOS Safari won't paint a cross-origin image into a print snapshot, so "Open + print all" printed the slips fine but the label pages came out blank. Separately, the old per-box "Open label" button opened the raw PNG directly in a tab — a bare image has no page size, so Safari tiled it across ~6 sheets at native resolution instead of one 4x6 page.
+- **Fix — same-origin proxy + inline `data:` URLs (ADR [`0008`](./decisions/0008-same-origin-label-proxy.md)):**
+  - New `api/label-proxy.js` — fetches the label PNG server-side (host-allowlisted to Shippo) and re-serves the bytes from our own origin, sidestepping Shippo's CORS-less CDN.
+  - `index.html`: `labelDataUrl(labelUrl)` pulls the label through that proxy and converts it to a same-origin `data:` URL (cached per URL); `composeCombinedPrintHTML()` renders `bw.labelDataUrl` instead of the raw label URL; `printAll()` resolves every box's data URL before composing and aborts (alerts, prints nothing) if any fails.
+  - Renamed `openLabel(idx)` → `printLabel(idx)`: resolves that box's data URL and prints it through new `composeSingleLabelHTML()`, a single 4x6-page document (same `@page` geometry as the combined doc), fixing the multi-sheet tiling bug. Button text: "Open label" → "Print/Reprint label".
+  - `printCombinedDoc()` now awaits `img.decode()` per image (not just `load`) before printing, closing a narrow race where the bitmap wasn't yet paintable at print time.
+
+### Verification
+
+- `node --check` passes on `api/label-proxy.js` and both inline `<script>` blocks.
+- Confirmed no `openLabel` references remain anywhere in `index.html`.
+- **Not yet certified against a real device, by design:** this fix targets an iPad Safari print-snapshot rendering behavior that can't be observed from a local/headless preview — it requires a live Shippo-purchased label and an actual iPad print. **Andy to run one real "Print label" reprint and one "Open + print all" on a purchased order and confirm both come out as full-bleed 4x6 pages** (not blank, not tiled).
+
 ## 2026-07-02 — Re-architect "Open + print all": PNG labels + one combined print document
 
 ### Work done
