@@ -1,5 +1,34 @@
 # Journal
 
+## 2026-07-07 — Fix: 4x6 label/slip printing on iPad Safari — native combined PDF (replace HTML/iframe/@page)
+
+### Work done
+
+- **Root cause (3-part, all confirmed by direct research, not guessed):**
+  1. The print documents declared `@page { size: 4in 6in }` inside an HTML `srcdoc`. Safari has never supported the `@page` size descriptor, so the 4x6 page geometry was silently ignored — content printed at the wrong scale (labels came out ~40% size).
+  2. The label was a PNG image. AirPrint's thermal-label path expects a native PDF whose MediaBox *is* the physical page; an image goes through AirPrint's scale/fit logic instead and mis-sizes.
+  3. Printing went through a hidden off-screen `<iframe>` + `iframe.contentWindow.print()`. iOS Safari iframe printing is long-broken — it prints the parent document or nothing, which is why packing slips weren't coming out at all.
+  - This supersedes the whole PNG/combined-HTML/data-URL line of fixes from the last two entries (2026-07-02, 2026-07-07 same-origin-proxy) — those were patching symptoms of an architecture (`@page` + iframe + image) that cannot work on iOS Safari, not fixable by better image handling.
+- **Fix — one native 4x6 PDF, opened in a new tab (ADR [`0009`](./decisions/0009-native-pdf-print-path.md)):**
+  - `api/shippo-label.js`: reverted `label_file_type` from `PNG` back to `PDF_4x6` (both the Shippo transaction call and the response field) — Shippo returns a native 4x6 PDF label again.
+  - New `api/ship-doc.js`: builds ONE combined 4x6 PDF server-side with `pdf-lib`. For each box, in packing order: fetches the Shippo label PDF (host-allowlisted to `*.goshippo.com` / shippo's S3 bucket — SSRF guard) and copies its page in unmodified (already 4x6); then draws a packing-slip page from scratch (Torque logo, box N of M, weight, contents) — no HTML, no `@page`, no iframe. Every page's MediaBox is exactly `[288, 432]` pt (4in × 6in).
+  - `index.html`: replaced the entire old print stack (`composeContentsSlipHTML`, `composeCombinedPrintHTML`, `composeSingleLabelHTML`, `labelDataUrl`/`_labelDataUrlCache`, `printCombinedDoc`, the slip-iframe body of `printSlip`, `slipBodyMarkup`, `SLIP_ELEMENT_STYLES`, `hEsc`) with a single `openShipPdf(boxes, { labels, slips })` helper: opens a blank tab **synchronously inside the tap** (so Safari's popup blocker doesn't fire), POSTs to `/api/ship-doc`, and points the tab at the returned PDF blob. `printLabel`, `printSlip`, and `printAll` are now thin wrappers around it.
+  - Deleted `api/label-proxy.js` (no longer needed — the browser never fetches the label directly; the server does).
+  - Updated the Ship-tab help-card copy to describe the new "opens a 4x6 PDF in a new tab, Share > Print > Rollo" flow instead of the old in-page print dialog.
+  - `package.json`: added `pdf-lib": "^1.17.1"`.
+
+### Verification
+
+- `node --check` passes on `api/shippo-label.js` and `api/ship-doc.js`, and on both inline `<script>` blocks extracted from `index.html`.
+- Grepped `index.html` for `labelDataUrl`, `composeCombinedPrintHTML`, `composeSingleLabelHTML`, `printCombinedDoc`, `label-proxy`, `contentWindow.print`, `@page` — all gone from the ship path (two remaining hits are prose in a code comment explaining *why* the old approach failed).
+- Confirmed `api/label-proxy.js` is deleted.
+- Local smoke test of `api/ship-doc.js` with a stubbed `fetch` (a tiny known 4x6 PDF for `label_url`, logo fetch simulated as failing to exercise the skip-on-failure path) and a 2-box payload: output starts with `%PDF`, has exactly 4 pages (label, slip, label, slip), and every page's MediaBox is 288×432pt. Also confirmed the SSRF host guard 400s a non-Shippo `label_url`.
+- **Not yet certified against a real device, by design:** this fix targets iOS Safari print behavior (popup-block timing, AirPrint's page handling) that can't be observed from a local/headless run. **Andy to run "Open + print all" on a real 2–3 box order on the iPad and confirm label/slip/label/slip all print at true 4x6 on the Rollo** (Rollo media set to 4x6, iOS print sheet Scale 100%).
+
+### Decisions captured
+
+- [`0009-native-pdf-print-path.md`](./decisions/0009-native-pdf-print-path.md)
+
 ## 2026-07-07 — Fix blank/mis-scaled labels on iPad Safari: same-origin label proxy + inline data: URLs
 
 ### Work done

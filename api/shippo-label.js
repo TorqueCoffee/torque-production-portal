@@ -93,13 +93,13 @@ module.exports = async function handler(req, res) {
 
     if (action === 'rate') return res.status(200).json({ ok: true, action: 'rate', ...rateOut })
 
-    // 2) Buy the label as a 4x6 PNG (was PDF_4x6). PNG so the label can be embedded as an
-    // <img> into our OWN same-origin combined print document (label+slip interleaved, one
-    // print job) — a cross-origin PDF can't be pulled into another page's print. The Rollo
-    // is a normal system printer that consumes 4x6 PNG/HTML fine. See ADR 0007.
+    // 2) Buy the label as a native 4x6 PDF (PDF_4x6) — the physical MediaBox is the 4x6
+    // page itself, which is what AirPrint/Rollo needs. Server-side /api/ship-doc merges
+    // this PDF page with the drawn packing-slip page into one combined 4x6 PDF opened in
+    // a Safari tab. See ADR 0009.
     const txnRes = await fetch(`${SHIPPO_BASE}/transactions/`, {
       method: 'POST', headers: auth,
-      body: JSON.stringify({ rate: ga.object_id, label_file_type: 'PNG', async: false })
+      body: JSON.stringify({ rate: ga.object_id, label_file_type: 'PDF_4x6', async: false })
     })
     const txn = await txnRes.json()
     if (txn.status !== 'SUCCESS' || !txn.tracking_number) {
@@ -151,7 +151,7 @@ module.exports = async function handler(req, res) {
       tracking_number: txn.tracking_number,
       tracking_url: txn.tracking_url_provider,
       label_url: txn.label_url,
-      label_file_type: 'PNG',
+      label_file_type: 'PDF_4x6',
       shippo_object_id: txn.object_id,
       test: txn.test === true,
       cost_logged, cost_log_error

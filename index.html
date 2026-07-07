@@ -544,8 +544,8 @@ html.tq-locked body>*:not(#tqGate){display:none!important}
         <li><strong>Get rates</strong> shows the cubic Ground Advantage cost per box — no money moves yet</li>
         <li><strong>Buy labels</strong> charges Shippo only after you confirm the total</li>
         <li>If a box fails, only the failed ones retry — bought labels are never re-charged</li>
-        <li><strong>Open + print all</strong> prints the whole order in one job, grouped per box — label 1, slip 1, label 2, slip 2, etc. — so it comes off the Rollo in packing order; pick the Rollo (and 4×6 the first time) in the print dialog</li>
-        <li>The per-box <strong>Open label</strong> / <strong>Print slip</strong> buttons are for a single reprint — Open label shows that box's label to print by hand, Print slip re-prints one contents slip</li>
+        <li><strong>Open + print all</strong> opens one combined 4×6 PDF for the whole order, grouped per box — label 1, slip 1, label 2, slip 2, etc. — in a new tab; tap Share &gt; Print &gt; Rollo, Scale 100%</li>
+        <li>The per-box <strong>Print label</strong> / <strong>Print slip</strong> buttons open a 4×6 PDF for just that one page — for a single reprint</li>
         <li><strong>Fulfill order</strong> writes all tracking to Shopify with one customer email — only after every box has a label</li>
         <li>An already-fulfilled order shows calmly and is never notified twice</li>
       </ul>
@@ -1144,166 +1144,16 @@ function packAggregate(units) {
   return [...map.values()]
 }
 
-// ── B2B Cubic Shipping · contents slip — printable HTML ──────────────────────
-// A SECOND 4x6 print per box, printed AFTER the Shippo shipping label — NOT part
-// of the shipping label canvas. The Rollo is a normal system printer (consumes
-// PDF/HTML at 4x6, no raw ZPL), so this renders as an HTML fragment the browser
-// prints directly — see ADR 0006. box = one entry from packBoxes();
-// opts = { order_name, company_name, footer }.
-function hEsc(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-}
-
-// Shared slip styling — used both by the single-slip doc (composeContentsSlipHTML) and by
-// the combined label+slip print doc (composeCombinedPrintHTML), so the slip looks identical
-// in both. Element rules only; the page/body sizing lives in each doc's own wrapper.
-const SLIP_ELEMENT_STYLES = `
-  .header { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
-  .header img { max-width: 140px; height: auto; }
-  .header-text { font-size: 22px; font-weight: 700; }
-  .sub { font-size: 11px; color: #333; margin-bottom: 10px; }
-  .boxid-row { display: flex; justify-content: space-between; align-items: baseline; border: 2px solid #000; padding: 8px 10px; margin-bottom: 10px; }
-  .boxid { font-size: 22px; font-weight: 700; }
-  .weight { font-size: 16px; }
-  .contents-title { font-size: 12px; font-weight: 700; letter-spacing: .05em; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
-  .item { display: flex; gap: 8px; font-size: 14px; margin-bottom: 6px; }
-  .qty { font-weight: 700; min-width: 28px; }
-  .footer { font-size: 9px; color: #555; margin-top: 14px; }`
-
-// The inner markup of one slip (no page/doc wrapper) — reused by both composers.
-function slipBodyMarkup(box, opts = {}) {
-  const boxId = `BOX ${box.box_index} OF ${box.box_count}`
-  const weight = (Number.isFinite(box.weight_lb) ? box.weight_lb.toFixed(1) : '?') + ' lb'
-  const sub = [hEsc(opts.order_name), hEsc(opts.company_name)].filter(Boolean).join(' &middot; ')
-  const items = box.contents || []
-  const footer = hEsc(opts.footer || 'Packing list — not a shipping label')
-
-  const itemsHtml = items.length
-    ? items.map(it => {
-        const label = it.variant_title ? `${hEsc(it.product_name)} (${hEsc(it.variant_title)})` : hEsc(it.product_name)
-        return `<div class="item"><span class="qty">${Number(it.qty) || 0}&times;</span><span>${label}</span></div>`
-      }).join('')
-    : `<div class="item"><span>(no items)</span></div>`
-
-  return `
-  <div class="header">
-    <img src="https://cdn.shopify.com/s/files/1/0622/2866/0444/files/Torque-logo.png?v=1647031588" alt="Torque Coffee" onerror="this.style.display='none'">
-    <div class="header-text">TORQUE COFFEE</div>
-  </div>
-  ${sub ? `<div class="sub">${sub}</div>` : ''}
-  <div class="boxid-row"><div class="boxid">${boxId}</div><div class="weight">${weight}</div></div>
-  <div class="contents-title">CONTENTS</div>
-  ${itemsHtml}
-  <div class="footer">${footer}</div>`
-}
-
-// Single 4x6 slip document — used by the per-box "Print slip" button.
-function composeContentsSlipHTML(box, opts = {}) {
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-  @page { size: 4in 6in; margin: 0; }
-  :root { color-scheme: light; }   /* never let dark mode invert the slip to black */
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #fff; }
-  body {
-    width: 4in; height: 6in; padding: 0.2in;
-    font-family: -apple-system, Helvetica, Arial, sans-serif; color: #000;
-  }
-  ${SLIP_ELEMENT_STYLES}
-</style>
-</head>
-<body>${slipBodyMarkup(box, opts)}</body>
-</html>`
-}
-
-// The combined print document for "Open + print all": one same-origin doc with the pages in
-// physical order — label 1, slip 1, label 2, slip 2, … — printed as ONE job. Labels are 4x6
-// PNGs (see ADR 0007) embedded as <img>, which — unlike a cross-origin PDF — print cleanly
-// from inside our own document. This is what makes the grouped one-click workflow possible
-// without opening N popup-blocked tabs.
-function composeCombinedPrintHTML(boxWrappers, opts = {}) {
-  const pages = boxWrappers.map(bw => {
-    const labelSrc = bw.labelDataUrl || (bw.label && bw.label.label_url) || ''
-    const labelPage = labelSrc
-      ? `<div class="page label-page"><img src="${labelSrc}" alt="shipping label"></div>`
-      : ''
-    const slipPage = `<div class="page slip-page">${slipBodyMarkup(bw.box, opts)}</div>`
-    return labelPage + slipPage
-  }).join('')
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-  @page { size: 4in 6in; margin: 0; }
-  :root { color-scheme: light; }   /* never let dark mode invert a label/slip to black */
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #fff; }
-  body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #000; }
-  .page { width: 4in; height: 6in; overflow: hidden; background: #fff; page-break-after: always; break-after: page; }
-  .page:last-child { page-break-after: auto; break-after: auto; }
-  .label-page { display: flex; align-items: center; justify-content: center; background: #fff; }
-  .label-page img { width: 4in; height: 6in; object-fit: contain; display: block; }
-  .slip-page { padding: 0.2in; }
-  ${SLIP_ELEMENT_STYLES}
-</style>
-</head>
-<body>${pages}</body>
-</html>`
-}
-
-// Fetch a label PNG through our same-origin proxy and return it as a self-contained data: URL.
-// WHY: the raw Shippo label_url is cross-origin; iOS Safari downloads it but will NOT paint a
-// cross-origin <img> into the print snapshot, so labels came out blank in "print all". A data:
-// URL is same-origin and fully inline, so it always prints. Cached per label_url.
-const _labelDataUrlCache = {}
-async function labelDataUrl(labelUrl) {
-  if (_labelDataUrlCache[labelUrl]) return _labelDataUrlCache[labelUrl]
-  const res = await fetch('/api/label-proxy?url=' + encodeURIComponent(labelUrl))
-  if (!res.ok) throw new Error('label fetch ' + res.status)
-  const blob = await res.blob()
-  const dataUrl = await new Promise((ok, no) => {
-    const fr = new FileReader()
-    fr.onload = () => ok(fr.result)
-    fr.onerror = () => no(new Error('label decode failed'))
-    fr.readAsDataURL(blob)
-  })
-  _labelDataUrlCache[labelUrl] = dataUrl
-  return dataUrl
-}
-
-// Single 4x6 label-only document — used by the per-box "Print label" button. Same page
-// geometry as the combined doc so a lone label prints as ONE clean 4x6 page. A raw PNG opened
-// directly in a tab has no page size, so the browser tiled it at native pixel resolution across
-// ~6 sheets (the "spread across 6 labels, resize to 44%" bug) — this wrapper constrains it.
-function composeSingleLabelHTML(dataUrl) {
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-  @page { size: 4in 6in; margin: 0; }
-  :root { color-scheme: light; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #fff; }
-  .page { width: 4in; height: 6in; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
-  .page img { width: 4in; height: 6in; object-fit: contain; display: block; }
-</style>
-</head>
-<body><div class="page"><img src="${dataUrl}" alt="shipping label"></div></body>
-</html>`
-}
+// ── B2B Cubic Shipping · label + slip printing ────────────────────────────────
+// Prints go through a single server-built native 4x6 PDF (api/ship-doc.js), opened in
+// a new Safari tab — see ADR 0009. This replaces the old HTML/iframe print path, which
+// iOS Safari could not render correctly (no support for sizing a printed page from CSS,
+// broken iframe printing, and AirPrint mis-scaling image labels).
 
 // ── B2B Cubic Shipping · Step 5 Slice B: the ship UI flow ────────────────────
 // open order → pack → confirm rate → buy labels → print label+slip → fulfill →
 // tracking back. Wires the Step 1–4b backend pieces (packBoxes, /api/shippo-label,
-// composeContentsSlipHTML, /api/shopify-fulfill); it does NOT re-derive their behavior.
+// /api/ship-doc, /api/shopify-fulfill); it does NOT re-derive their behavior.
 // The in-flight shipment lives in shipState (memory) only until fulfilled — the
 // bought labels + cost rows are the durable record (Shippo + shipping_labels).
 
@@ -1713,74 +1563,61 @@ async function fulfillOrder() {
   renderShip()
 }
 
-// Printing — see ADR 0007. The Rollo is a normal system printer (4x6 PNG label / HTML slip,
-// no raw ZPL). There are two paths:
-//   • Per-box buttons ("Open label" / "Print slip") — single-box reprints. "Open label"
-//     opens the Shippo PNG in a tab to print by hand; "Print slip" auto-prints our HTML.
-//   • "Open + print all" — the whole order as ONE combined print job (printAll below).
-//
-// Why not a loop of per-box tab-opens for "print all": Safari only lets a script open a new
-// tab synchronously inside the tap, so only box 1's label tab would open; boxes 2+ (after an
-// await) get popup-blocked or, with a reused named tab, just overwrite each other so only the
-// last label is printable. The combined-document approach sidesteps all of that.
+// Printing — see ADR 0009. Every print builds one native 4x6 PDF server-side
+// (/api/ship-doc) and opens it in a new Safari tab; the user taps Share > Print > Rollo.
+// The tab is opened SYNCHRONOUSLY inside the tap handler (before the await) so Safari's
+// popup blocker doesn't stop it — only its location is set once the PDF is ready.
+async function openShipPdf(boxes, { labels, slips }) {
+  const win = window.open('', '_blank')
+  try {
+    const s = shipState
+    const payload = {
+      order_name: s.order.order_name,
+      company_name: (s.order.shipping_address || {}).company || '',
+      include_labels: !!labels, include_slips: !!slips,
+      boxes: boxes.map(b => ({
+        label_url: b.label && b.label.label_url,
+        box_index: b.box.box_index, box_count: b.box.box_count,
+        weight_lb: b.box.weight_lb, contents: b.box.contents || []
+      }))
+    }
+    const res = await fetch('/api/ship-doc', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw new Error('ship-doc ' + res.status)
+    const url = URL.createObjectURL(await res.blob())
+    if (win) win.location.href = url; else window.location.href = url
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  } catch (e) {
+    if (win) win.close()
+    alert('Could not build the print document (' + (e && e.message ? e.message : 'network') + '). Nothing printed. Try again.')
+    throw e
+  }
+}
+
 async function printLabel(idx) {
   const s = shipState, b = s.boxes[idx]
   if (!b || !b.label || !b.label.label_url) return
   try {
-    const dataUrl = await labelDataUrl(b.label.label_url)
-    await printCombinedDoc(composeSingleLabelHTML(dataUrl))
+    await openShipPdf([b], { labels: true, slips: false })
     b.labelOpened = true
     renderShip()
-  } catch (e) {
-    alert('Could not load the label image to print (' + (e && e.message ? e.message : 'network') + '). Please try again.')
-  }
+  } catch (e) { /* alerted inside openShipPdf */ }
 }
 
-// Returns a Promise that resolves once the print job is done (or a fallback
-// timeout elapses), so callers can sequence multiple slips without racing.
-function printSlip(idx) {
+async function printSlip(idx) {
   const s = shipState, b = s.boxes[idx]
-  if (!b || !b.label) return Promise.resolve()
-  const html = composeContentsSlipHTML(b.box, { order_name: s.order.order_name, company_name: (s.order.shipping_address || {}).company })
-  const iframe = document.createElement('iframe')
-  // Safari prints a genuinely blank page from a 0x0 iframe — it sizes the print
-  // canvas from the frame's own rendered box, not just the srcdoc's @page size
-  // (Chromium doesn't have this bug, which is why preview testing missed it).
-  // Real off-screen dimensions instead of width/height:0 fixes it.
-  iframe.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:4in;height:6in;border:0'
-  iframe.setAttribute('aria-hidden', 'true')
-  b.printed = true
-  renderShip()
-  return new Promise(resolve => {
-    let settled = false
-    const finish = () => {
-      if (settled) return
-      settled = true
-      clearTimeout(fallback)
-      iframe.remove()
-      resolve()
-    }
-    // Removing the iframe on a flat timer (the old approach) races the actual
-    // print job — under "print all"'s back-to-back load that race is what
-    // produced blank slips. Wait for the real afterprint signal instead; the
-    // fallback only covers iOS Safari cases where afterprint doesn't fire
-    // inside an iframe.
-    const fallback = setTimeout(finish, 5000)
-    iframe.onload = () => {
-      const win = iframe.contentWindow
-      win.addEventListener('afterprint', finish, { once: true })
-      win.focus()
-      setTimeout(() => win.print(), 50)   // let layout settle before printing
-    }
-    document.body.appendChild(iframe)
-    iframe.srcdoc = html
-  })
+  if (!b || !b.label) return
+  try {
+    await openShipPdf([b], { labels: false, slips: true })
+    b.printed = true
+    renderShip()
+  } catch (e) { /* alerted inside openShipPdf */ }
 }
 
-// "Open + print all" — build ONE document with every box's label then slip, in order, and
-// print it as a single job (ADR 0007). One tap, one print dialog, output grouped per box:
-// label 1, slip 1, label 2, slip 2, … No tabs (so no popup blocker), no concurrent iframes
-// (so no blank-slip race) — the combined doc is a strict improvement over the old loop.
+// "Open + print all" — one combined 4x6 PDF with every box's label then slip, in packing
+// order: label 1, slip 1, label 2, slip 2, …
 async function printAll() {
   const s = shipState
   if (s.printingAll) return
@@ -1789,61 +1626,14 @@ async function printAll() {
   s.printingAll = true
   renderShip()
   try {
-    // Pre-resolve every label PNG to a same-origin data URL BEFORE composing the print doc.
-    // Cross-origin Shippo images do NOT paint into iOS Safari's print snapshot (blank labels);
-    // an inline data: URL always does. Fails loud instead of printing blanks.
-    await Promise.all(bought.map(async b => { b.labelDataUrl = await labelDataUrl(b.label.label_url) }))
-    const html = composeCombinedPrintHTML(bought, {
-      order_name: s.order.order_name, company_name: (s.order.shipping_address || {}).company
-    })
-    await printCombinedDoc(html)
+    await openShipPdf(bought, { labels: true, slips: true })
     bought.forEach(b => { b.labelOpened = true; b.printed = true })
   } catch (e) {
-    alert('Could not load one or more label images (' + (e && e.message ? e.message : 'network') + '). Nothing was printed. Please try again.')
+    // alerted inside openShipPdf
   } finally {
     s.printingAll = false
     renderShip()
   }
-}
-
-// Print a full combined HTML doc via one hidden iframe. Resolves after the print job
-// completes (afterprint) or a generous fallback. Waits for every image — the label PNGs
-// and the slip logos — to finish loading first, so nothing prints half-rendered.
-function printCombinedDoc(html) {
-  return new Promise(resolve => {
-    const iframe = document.createElement('iframe')
-    // Real off-screen size, not 0x0 — Safari sizes the print canvas from the frame's own
-    // box, so a 0x0 iframe prints blank (same fix as the single-slip path).
-    iframe.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:4in;height:6in;border:0'
-    iframe.setAttribute('aria-hidden', 'true')
-    let settled = false
-    const finish = () => {
-      if (settled) return
-      settled = true
-      clearTimeout(fallback)
-      iframe.remove()
-      resolve()
-    }
-    // Generous fallback: cross-origin label PNGs load from Shippo's CDN, which can be slow.
-    const fallback = setTimeout(finish, 20000)
-    iframe.onload = () => {
-      const win = iframe.contentWindow, doc = win.document
-      const imgs = Array.from(doc.images || [])
-      const waitImgs = Promise.all(imgs.map(img => {
-        const loaded = img.complete
-          ? Promise.resolve()
-          : new Promise(r => { img.addEventListener('load', r, { once: true }); img.addEventListener('error', r, { once: true }) })
-        return loaded.then(() => (img.decode ? img.decode().catch(() => {}) : null))
-      }))
-      waitImgs.then(() => {
-        win.addEventListener('afterprint', finish, { once: true })
-        win.focus()
-        setTimeout(() => win.print(), 100)   // let layout settle after images resolve
-      })
-    }
-    document.body.appendChild(iframe)
-    iframe.srcdoc = html
-  })
 }
 
 async function adjustBagged(id, delta) {
