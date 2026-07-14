@@ -5,7 +5,7 @@ Torque Roast Scheduler is a single static `index.html` PWA that talks directly t
 ## Run locally
 
 ```sh
-cd "/Users/andynewbom/Developer/Torque-Projects/production app/CoffeePlanner"
+cd "/Users/andynewbom/Developer/Torque-Projects/torque-production-portal"
 python3 -m http.server 3007
 # open http://localhost:3007/index.html
 ```

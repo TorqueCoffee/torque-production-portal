@@ -1,5 +1,23 @@
 # Journal
 
+## 2026-07-14 — Rename: CoffeePlanner → torque-production-portal (disambiguate from torque-green-planner)
+
+### Work done
+
+- **Why:** two separate Torque PWAs had confusingly similar GitHub names — this app (`TorqueCoffee/CoffeePlanner`, the Roast Scheduler at `production.torque.coffee`) and the unrelated green coffee buying/forecasting tool (`TorqueCoffee/torque-green-planner`, at `torque-green-planner.vercel.app`). "CoffeePlanner" gave no signal which app it was, raising the risk of working in the wrong repo.
+- **Renamed:**
+  - GitHub repo: `TorqueCoffee/CoffeePlanner` → `TorqueCoffee/torque-production-portal`
+  - Vercel project: `coffee-planner` → `torque-production-portal`
+  - Local repo path: `~/Developer/Torque-Projects/production app/CoffeePlanner` → `~/Developer/Torque-Projects/torque-production-portal` (also drops the space in the old path and moves up one directory level)
+- **OIDC check before renaming (Vercel warns project renames affect OIDC token claims):** confirmed via full journal history (ADRs 0001–0010, all fixes) that this app has no AWS/GCP credential federation anywhere — it only talks to Shopify (`api/shopify-token.js`, `api/shopify-fulfill.js`), Supabase (anon key), and Shippo (`api/shippo-label.js`, own API token). `VERCEL_OIDC_TOKEN` was present as a default Vercel env var but unused by any application code. Rename proceeded with no dual-trust-policy cutover needed.
+- **Confirmed unchanged:** live domain `production.torque.coffee` still points at the renamed project; git remote and Vercel Git integration re-resolved correctly post-rename.
+
+### Follow-up still open
+
+- `~/.claude/launch.json`: the `coffee-planner` preview config entry (key + `cwd`) needs updating to the new key name and new path. Not yet done as of this entry.
+- Confirm no stale `.vercel/project.json` left over from the old local path.
+- `torque-green-planner` is unaffected — separate repo, separate Vercel project, no rename needed there.
+
 ## 2026-07-14 — Fix: TCCDS-40 (Cocoa Drops xBloom Bulk 40lb Box) tripped the B2B packer's over-cap halt
 
 ### Work done
