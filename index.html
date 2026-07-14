@@ -1092,6 +1092,25 @@ async function loadB2B() {
 // physical fit before any label is bought. Tested: docs/b2b-cubic-shipping.md.
 const PACK_BOX = Object.freeze({ label: '14x10x10', maxWeightLb: 20 })
 
+// Hardcoded per-SKU physical unit overrides.
+// Some products are priced/sold as one unit but physically ship as multiple boxes
+// (e.g. TCCDS-40 prices as one 40lb line item but ships as 2x 20lb boxes). Key = SKU
+// exactly as it appears in Shopify. Extend this map if more such SKUs appear; do not
+// build a general config system for a single known case — see ADR on this decision.
+const SHIP_UNIT_OVERRIDES = {
+  'TCCDS-40': { units: 2, weight_lb: 20 } // Cocoa Drops xBloom Bulk 40lb Box -> 2x 20lb boxes
+}
+
+// Applies SHIP_UNIT_OVERRIDES to a line-item list before it reaches packBoxes(), so
+// packBoxes keeps working purely on already-correct per-unit weights like every other SKU.
+function expandShipItems(items) {
+  return (items || []).map(item => {
+    const override = SHIP_UNIT_OVERRIDES[item.sku]
+    if (!override) return item
+    return { ...item, qty: (item.qty || 0) * override.units, weight_lb: override.weight_lb }
+  })
+}
+
 function packBoxes(items, opts = {}) {
   const cap = opts.maxWeightLb ?? PACK_BOX.maxWeightLb
   const boxLabel = opts.boxLabel ?? PACK_BOX.label
@@ -1173,7 +1192,7 @@ async function loadShipOrders() {
     const res = await fetch('/api/shopify-token?type=b2b-ship')
     const data = await res.json()
     if (data.error) throw new Error(data.error)
-    b2bShipOrders = data.orders || []
+    b2bShipOrders = (data.orders || []).map(order => ({ ...order, items: expandShipItems(order.items) }))
   } catch (err) {
     b2bShipOrders = []
     body.innerHTML = `<div class="alert alert-red">Couldn't load B2B orders: ${err.message}</div>`

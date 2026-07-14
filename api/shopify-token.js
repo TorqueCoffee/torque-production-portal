@@ -154,6 +154,7 @@ module.exports = async function handler(req, res) {
         const items = (order.line_items || [])
           .filter(it => it.vendor === 'Torque Coffees' && it.fulfillment_status !== 'fulfilled')
           .map(it => ({
+            sku: it.sku || null,
             product_name: it.title,
             variant_title: it.variant_title || 'Default',
             qty: it.quantity,

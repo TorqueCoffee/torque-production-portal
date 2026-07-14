@@ -1,5 +1,26 @@
 # Journal
 
+## 2026-07-14 — Fix: TCCDS-40 (Cocoa Drops xBloom Bulk 40lb Box) tripped the B2B packer's over-cap halt
+
+### Work done
+
+- **Root cause:** Torque sells Cocoa Drops xBloom Bulk 40lb Box (SKU `TCCDS-40`) as a single 40lb line item — priced that way so bulk-tier math works — but it physically ships as 2x 20lb boxes. `packBoxes()`'s over-cap halt (`weight_lb > PACK_BOX.maxWeightLb`, cap 20lb) had no way to know this one SKU is actually two physical boxes, so a qty-1 order of it tripped "unit_exceeds_box_cap" instead of packing.
+- **Fix (ADR [`0010`](./decisions/0010-per-sku-ship-unit-override.md)):**
+  - `index.html`: added `SHIP_UNIT_OVERRIDES = { 'TCCDS-40': { units: 2, weight_lb: 20 } }` and `expandShipItems(items)`, which rewrites any matching line item's `qty`/`weight_lb` to the real physical units before it ever reaches `packBoxes()`. `packBoxes()` itself is untouched — it still only ever sees correct per-unit weights, same as every other SKU.
+  - Wired `expandShipItems()` into `loadShipOrders()` right after the `/api/shopify-token?type=b2b-ship` fetch, so the correction happens once and every downstream consumer (order list box-count, ship-detail view, packing-slip contents) sees already-correct items.
+  - `api/shopify-token.js`: added `sku` to the `b2b-ship` item shape (it was missing — items previously only carried `product_name`/`variant_title`/`qty`/`grams`/`weight_lb`) so the override can match on SKU rather than fragile title/variant text.
+
+### Verification
+
+- `node --check` on `api/shopify-token.js` and both inline `<script>` blocks extracted from `index.html` — all pass.
+- Node-evaluated the packer module in isolation and confirmed: a `{sku:'TCCDS-40', qty:1, weight_lb:40}` line item expands to 2 units of 20lb each and packs as 2 boxes (not a halt, not one 40lb box); a mixed order (`TCCDS-40` qty 1 + a normal 5lb-bag line qty 4) packs correctly across 3 boxes with no cross-contamination between the override and the normal SKU; a line item with any other SKU passes through `expandShipItems()` unchanged.
+- Confirmed `SHIP_UNIT_OVERRIDES` has exactly one key (`TCCDS-40`) — no accidental match against another SKU.
+- Confirmed expanded 20lb units never reach the `unit_exceeds_box_cap` halt path in `packBoxes()`.
+
+### Decisions captured
+
+- [`0010-per-sku-ship-unit-override.md`](./decisions/0010-per-sku-ship-unit-override.md)
+
 ## 2026-07-07 — Fix: 4x6 label/slip printing on iPad Safari — native combined PDF (replace HTML/iframe/@page)
 
 ### Work done
