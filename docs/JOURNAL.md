@@ -1,5 +1,46 @@
 # Journal
 
+## 2026-09-13 — Fix: coffee grouping by variant size
+
+### Work done
+
+- **Root cause.** `api/shopify-token.js` aggregated Shopify order line items into
+  production rows keyed on `${item.sku || item.title}||${item.variant_title || 'Default'}`.
+  Variant text had drifted across relaunches — the same 12oz bag existed under 11+
+  spellings (`12oz Coffee Bag`, `12oz Bag`, `12 oz bag / In Stock`, …), each producing a
+  separate row. Worse, several coffees (Gum Drop, Dark Drop, BomBón, Decaf Drop) exist as
+  two Shopify product records — old listing + relaunch — sharing a title but carrying
+  *different SKUs* for the same physical size, so keying on SKU first split them
+  regardless of variant text.
+- **Fix.** New `canonicalVariant()` buckets any variant string into one of the 4 real
+  sizes (`12oz`, `2lb`, `5lb`, `8 xPods`) by prefix match, tolerant of spacing/case/
+  trailing words; anything else (bulk-box `Default Title`, gift cards, shirts) passes
+  through unchanged. The orders aggregation and the B2B company view now key on
+  `title + canonicalVariant(...)`, not SKU — SKU is kept only as a display field,
+  upgraded to a real value the first time one shows up in the group.
+- **Shopify catalog cleanup.** Renamed the `Size` option value to the same 4 labels
+  across all 40 active/draft coffee products via `productOptionUpdate` (one call per
+  product, batching every value on that product's option together) — pure label rename,
+  verified to leave price/inventory/SKU/variant ID untouched. `Cocoa Drops xBloom Bulk
+  40lb Box` (and its 45lb Bombon equivalent) were deliberately left alone — no
+  size-option to rename, already excluded from bucketing by design (ADR 0016).
+- Confirmed against a live pull of every distinct variant string in the catalog (26
+  strings) that `canonicalVariant()` buckets all of them correctly with no misses.
+
+### Verification
+
+- `node --check api/shopify-token.js` passes.
+- Ran `canonicalVariant()` against all 26 real variant strings pulled from Shopify
+  (active + draft, vendor Torque Coffees) — every 12oz/2lb/5lb/8xPods spelling bucketed
+  correctly; `Default Title`, gift-card denominations, and shirt sizes passed through
+  unchanged.
+- All 40 `productOptionUpdate` calls returned empty `userErrors`; spot-checked returned
+  `product.options` on the first 8 calls, all showing the new labels.
+
+### Decisions captured
+
+- [`0017-variant-size-normalization.md`](./decisions/0017-variant-size-normalization.md)
+
 ## 2026-09-03 — Step: Bridge Blend gets a recipe, and bulk boxes reach the drum
 
 ### Work done

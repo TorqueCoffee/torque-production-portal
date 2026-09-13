@@ -30,6 +30,26 @@ function weightFromVariantTitle(variant) {
   return n
 }
 
+// Shopify variant text has drifted across relaunches - the same bag comes back as
+// "12oz Coffee Bag", "12oz Bag", "12 oz bag / In Stock", etc. Worse, some coffees
+// (Gum Drop, Dark Drop, BomBón, Decaf Drop) exist as two separate product records
+// (old listing + relaunch) with the SAME title but DIFFERENT SKUs for the same
+// physical size. Bucket every variant down to its size so orders for "the same
+// coffee, the same size" land on one production row regardless of which listing
+// or wording it came through. Only 4 sizes exist; anything that doesn't match is
+// left alone (the xBloom bulk boxes' "Default Title", gift cards, etc).
+const VARIANT_SIZES = [
+  { label: '12oz',     rx: /^\s*12\s*oz/i },
+  { label: '2lb',      rx: /^\s*2\s*lbs?\b/i },
+  { label: '5lb',      rx: /^\s*5\s*lbs?\b/i },
+  { label: '8 xPods',  rx: /^\s*8\s*x\s*pods?/i }
+]
+function canonicalVariant(variant) {
+  const v = String(variant || '').trim()
+  const hit = VARIANT_SIZES.find(s => s.rx.test(v))
+  return hit ? hit.label : (v || 'Default')
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
@@ -124,11 +144,12 @@ module.exports = async function handler(req, res) {
         companyMap[companyName].order_count++
         for (const item of order.line_items) {
           if (item.vendor !== 'Torque Coffees') continue
-          const key = `${item.title}||${item.variant_title || 'Default'}`
+          const canonVariant = canonicalVariant(item.variant_title)
+          const key = `${item.title}||${canonVariant}`
           if (!companyMap[companyName].items[key]) {
             companyMap[companyName].items[key] = {
               product_name: item.title,
-              variant_title: item.variant_title || 'Default',
+              variant_title: canonVariant,
               qty: 0
             }
           }
@@ -191,15 +212,22 @@ module.exports = async function handler(req, res) {
       for (const item of order.line_items) {
         if (item.vendor !== 'Torque Coffees') continue
         if (item.fulfillment_status === 'fulfilled') continue
-        const key = `${item.sku || item.title}||${item.variant_title || 'Default'}`
+        // Key on title + canonical size, not SKU - two product records for the
+        // same coffee/size (old listing vs relaunch) carry different SKUs and
+        // would otherwise split into two production rows for the same bag.
+        const canonVariant = canonicalVariant(item.variant_title)
+        const key = `${item.title}||${canonVariant}`
         if (!aggregated[key]) {
           aggregated[key] = {
             sku: item.sku || key,
             product_name: item.title,
-            variant_title: item.variant_title || 'Default',
+            variant_title: canonVariant,
             qty_needed: 0,
             oldest_order_date: orderDate
           }
+        } else if (aggregated[key].sku === key && item.sku) {
+          // Upgrade the placeholder sku the first time a real one shows up.
+          aggregated[key].sku = item.sku
         }
         aggregated[key].qty_needed += item.quantity
         if (orderDate && (!aggregated[key].oldest_order_date || orderDate < aggregated[key].oldest_order_date)) {
@@ -217,3 +245,4 @@ module.exports = async function handler(req, res) {
 // Exposed for unit tests (Vercel still invokes module.exports(req, res) as the function).
 module.exports.resolveWeightLb = resolveWeightLb
 module.exports.weightFromVariantTitle = weightFromVariantTitle
+module.exports.canonicalVariant = canonicalVariant
