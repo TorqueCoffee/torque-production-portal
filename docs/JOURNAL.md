@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-09-21 — Best Coffee ships UPS Ground
+
+### Work done
+
+- USPS was failing to deliver to Best Coffee, so that account now buys **UPS Ground** labels via Shippo; all other B2B accounts stay on USPS Ground Advantage cubic.
+- `index.html`: `carrierForOrder()` (exact company "Best Coffee") drives the rate call, label call and Shopify fulfillment carrier (`UPS` vs `USPS`). Ship list shows a "UPS Ground" badge; summary, step text and help card name the right service.
+- `api/shippo-label.js`: new `carrier` param (`usps` default | `ups`) mapped to an exact service token; `ups_ground` only, never `ups_ground_saver`. `is_cubic` is false for UPS. Cost-log row records the real service.
+- No UPS Ground rate → 422 → red "No rate" chip, error with the services Shippo did return, and a "UPS-only, do NOT ship USPS" warning. No fallback.
+- Checked with a mocked Shippo response: UPS picks `ups_ground` over Saver and USPS; default is unchanged; Saver-only response yields the 422. Not yet exercised against live Shippo.
+
+### Decisions captured
+
+- [`0018-per-customer-carrier-routing.md`](./decisions/0018-per-customer-carrier-routing.md)
+
 ## 2026-09-13 — Fix: coffee grouping by variant size
 
 ### Work done

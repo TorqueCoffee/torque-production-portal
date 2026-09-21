@@ -1,11 +1,13 @@
-// api/shippo-label.js — B2B Cubic Shipping · Step 2: USPS Ground Advantage cubic
-// rate + label via Shippo. Server-side so the Shippo token never reaches the browser.
+// api/shippo-label.js — B2B Cubic Shipping · Step 2: carrier rate + label via Shippo
+// (USPS Ground Advantage cubic by default; UPS Ground for accounts routed to UPS). Server-side so the Shippo token never reaches the browser.
 //
 //   POST /api/shippo-label?action=rate    { address_to, parcel } -> GA rate only (no purchase)
 //   POST /api/shippo-label?action=label   { address_to, parcel } -> buys label; returns
 //                                           tracking + 4x6 PDF label_url + cost (for capture)
 //
 //   parcel: { length, width, height, weight }   (inches, pounds)
+//   carrier: 'usps' (default) | 'ups'  — picks the service token below. Matched EXACTLY:
+//   'ups' buys ups_ground only, never ups_ground_saver, and never falls back to USPS.
 //
 // Origin is fixed here (Torque) — single source of truth for the ship-from.
 // Token is read from process.env.SHIPPO_TOKEN (test token until live cutover).
@@ -13,7 +15,10 @@
 const fetch = globalThis.fetch || require('node-fetch')
 
 const SHIPPO_BASE = 'https://api.goshippo.com'
-const GA_TOKEN = 'usps_ground_advantage'
+const SERVICE_TOKENS = {
+  usps: 'usps_ground_advantage',
+  ups: 'ups_ground'   // NOT ups_ground_saver
+}
 
 const ORIGIN = {
   name: 'Torque Coffee',
@@ -28,7 +33,8 @@ const ORIGIN = {
 
 // USPS GA cubic eligibility — Shippo exposes no flag, so we DERIVE is_cubic from dims.
 // (GA cubic: <= 1.0 cu ft, longest side <= 18", <= 20 lb.)
-function isCubicEligible(p) {
+function isCubicEligible(p, carrier) {
+  if (carrier !== 'usps') return false   // cubic is a USPS-only pricing tier
   const L = Number(p.length), W = Number(p.width), H = Number(p.height), wt = Number(p.weight)
   if (![L, W, H, wt].every(Number.isFinite)) return false
   const cuft = (L * W * H) / 1728
@@ -50,6 +56,9 @@ module.exports = async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body || '{}') } catch { body = {} } }
   body = body || {}
   const { address_to, parcel } = body
+  const carrier = String(body.carrier || 'usps').toLowerCase()
+  const SERVICE_TOKEN = SERVICE_TOKENS[carrier]
+  if (!SERVICE_TOKEN) return res.status(400).json({ error: `Unknown carrier '${carrier}'` })
   if (!address_to || !parcel) return res.status(400).json({ error: 'address_to and parcel required' })
 
   const auth = { 'Authorization': `ShippoToken ${token}`, 'Content-Type': 'application/json' }
@@ -70,11 +79,12 @@ module.exports = async function handler(req, res) {
     })
     const shipment = await shipmentRes.json()
     const rates = shipment.rates || []
-    const ga = rates.find(r => r.servicelevel && r.servicelevel.token === GA_TOKEN)
+    const ga = rates.find(r => r.servicelevel && r.servicelevel.token === SERVICE_TOKEN)
     if (!ga) {
-      // Edge case: box disqualified / no GA rate — surface the rates, never silently buy weight-based.
+      // Edge case: box disqualified / no rate for the required service — surface the rates,
+      // never silently buy a different service or carrier.
       return res.status(422).json({
-        error: 'No Ground Advantage rate returned',
+        error: carrier === 'ups' ? 'No UPS Ground rate returned' : 'No Ground Advantage rate returned',
         rates: rates.map(r => ({ service: r.servicelevel && r.servicelevel.token, amount: r.amount })),
         messages: shipment.messages || []
       })
@@ -87,7 +97,8 @@ module.exports = async function handler(req, res) {
       currency: ga.currency,
       zone: ga.zone,
       estimated_days: ga.estimated_days,
-      is_cubic: isCubicEligible(parcel),
+      carrier,
+      is_cubic: isCubicEligible(parcel, carrier),
       rate_id: ga.object_id
     }
 
@@ -123,7 +134,7 @@ module.exports = async function handler(req, res) {
           cost: ga.amount,
           currency: ga.currency,
           service: ga.servicelevel.token,
-          is_cubic: isCubicEligible(parcel),
+          is_cubic: isCubicEligible(parcel, carrier),
           zone: ga.zone || null,
           dest_zip: address_to.zip || null,
           weight_lb: Number(parcel.weight) || null,

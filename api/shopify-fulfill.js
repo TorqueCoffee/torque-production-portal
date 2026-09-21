@@ -5,7 +5,7 @@
 // from shopify-token.js.
 //
 //   POST /api/shopify-fulfill
-//   body: { order_id, tracking: [{ number, url }], company?: 'USPS', notifyCustomer?: true }
+//   body: { order_id, tracking: [{ number, url }], company?: 'USPS' | 'UPS', notifyCustomer?: true }
 //
 // Idempotent: if the order has no open fulfillment order (already fulfilled), it does NOT
 // create a fulfillment or notify again — guards against double-notify on retry.

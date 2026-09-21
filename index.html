@@ -687,11 +687,11 @@ html.tq-locked body>*:not(#tqGate){display:none!important}
       </ul>
     </div>
     <div class="help-card">
-      <div class="help-card-title"><span>🚚</span> Ship tab — buy USPS labels</div>
+      <div class="help-card-title"><span>🚚</span> Ship tab — buy USPS / UPS labels</div>
       <ul>
         <li>Lists each B2B order with its ship-to and how many 14×10×10 boxes it packs into</li>
         <li>Tap <strong>Ship →</strong> to open an order; the box split is auto-figured — eyeball it</li>
-        <li><strong>Get rates</strong> shows the cubic Ground Advantage cost per box — no money moves yet</li>
+        <li><strong>Get rates</strong> shows the cost per box — USPS cubic Ground Advantage, or UPS Ground for Best Coffee — no money moves yet</li>
         <li><strong>Buy labels</strong> charges Shippo only after you confirm the total</li>
         <li>If a box fails, only the failed ones retry — bought labels are never re-charged</li>
         <li><strong>Open + print all</strong> opens one combined 4×6 PDF for the whole order, grouped per box — label 1, slip 1, label 2, slip 2, etc. — in a new tab; tap Share &gt; Print &gt; Rollo, Scale 100%</li>
@@ -1890,6 +1890,7 @@ function renderShipList() {
       </div>
       <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         ${pendChip}
+        ${carrierForOrder(o) === 'ups' ? '<span class="badge badge-amber">UPS Ground</span>' : ''}
         ${boxChip}
         <span class="badge badge-gray">${bags} bag${bags !== 1 ? 's' : ''}</span>
         <button class="btn btn-primary btn-sm" onclick="openShipOrder(${i})">${pend ? 'Finish →' : 'Ship →'}</button>
@@ -1976,7 +1977,7 @@ function renderShipDetail() {
   summary.innerHTML = `
     <div class="summary-card"><div class="summary-label">Boxes</div><div class="summary-value">${s.boxes.length}</div><div class="summary-sub">${s.pack.total_weight_lb} lb total</div></div>
     <div class="summary-card"><div class="summary-label">Labels</div><div class="summary-value">${boughtCount}/${s.boxes.length}</div><div class="summary-sub">purchased</div></div>
-    <div class="summary-card"><div class="summary-label">Cost</div><div class="summary-value">${total > 0 ? '$' + total.toFixed(2) : '—'}</div><div class="summary-sub">${cur} GA cubic</div></div>
+    <div class="summary-card"><div class="summary-label">Cost</div><div class="summary-value">${total > 0 ? '$' + total.toFixed(2) : '—'}</div><div class="summary-sub">${cur} ${carrierForOrder(o) === 'ups' ? 'UPS Ground' : 'GA cubic'}</div></div>
   `
 
   const bar = `<div class="ship-bar">
@@ -2120,13 +2121,13 @@ function renderShipActions() {
   if (!allRated && !anyRateErr) {
     const busy = s.phase === 'rating'
     return `<div class="ship-actionbar">
-      <div class="ship-step" style="flex:1">Step 1 — get the cubic rate for ${pluralBox(n)}. No money moves yet.</div>
+      <div class="ship-step" style="flex:1">Step 1 — get the ${carrierForOrder(s.order) === 'ups' ? 'UPS Ground' : 'cubic'} rate for ${pluralBox(n)}. No money moves yet.</div>
       <button class="btn btn-primary" onclick="getRates()" ${busy ? 'disabled' : ''}>${busy ? 'Getting rates…' : 'Get rates'}</button>
     </div>`
   }
   if (anyRateErr) {
     return `<div class="ship-actionbar">
-      <div class="ship-step" style="flex:1">⚠ Some boxes have no Ground Advantage rate (see above). Fix the address/box, then re-rate — no labels can be bought until every box rates.</div>
+      <div class="ship-step" style="flex:1">⚠ Some boxes have no ${carrierForOrder(s.order) === 'ups' ? 'UPS Ground' : 'Ground Advantage'} rate (see above).${carrierForOrder(s.order) === 'ups' ? ' This account is UPS-only — do NOT ship it USPS.' : ''} Fix the address/box, then re-rate — no labels can be bought until every box rates.</div>
       <button class="btn btn-secondary" onclick="reRate()">Re-rate</button>
     </div>`
   }
@@ -2193,6 +2194,16 @@ document.addEventListener('visibilitychange', () => {
   }, 250)
 })
 
+// Per-customer carrier routing (ADR 0018). USPS is the default; accounts USPS has failed
+// to deliver are switched to UPS Ground. Exact company match (case/space-insensitive).
+// Single edit point if carrier becomes a per-order choice or everyone moves to UPS.
+const UPS_COMPANIES = ['best coffee']
+function carrierForOrder(order) {
+  const co = String(((order || {}).shipping_address || {}).company || '').trim().toLowerCase()
+  return UPS_COMPANIES.includes(co) ? 'ups' : 'usps'
+}
+const CARRIER_LABEL = { usps: 'USPS', ups: 'UPS' }
+
 // Map the Shopify ship-to (b2b-ship shape) onto Shippo's address shape. Deliberately
 // no email — passing the recipient email makes Shippo send a stray shipping notice
 // (the one customer email must come from Shopify only; see spec amendment #6).
@@ -2235,11 +2246,11 @@ async function getRates() {
     try {
       const res = await fetch('/api/shippo-label?action=rate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address_to: toShippoAddress(s.order.shipping_address), parcel: boxParcel(b.box) })
+        body: JSON.stringify({ address_to: toShippoAddress(s.order.shipping_address), parcel: boxParcel(b.box), carrier: carrierForOrder(s.order) })
       })
       const data = await res.json()
       if (!res.ok || !data.ok) {
-        b.rateError = data.error || `No Ground Advantage rate (${res.status})`
+        b.rateError = data.error || `No ${carrierForOrder(s.order) === 'ups' ? 'UPS Ground' : 'Ground Advantage'} rate (${res.status})`
         b.rateAlt = data.rates || null
         b.rate = null
       } else {
@@ -2276,6 +2287,7 @@ async function buyLabels() {
         body: JSON.stringify({
           address_to: toShippoAddress(s.order.shipping_address),
           parcel: boxParcel(b.box),
+          carrier: carrierForOrder(s.order),
           order_id: s.order.order_id,
           order_name: s.order.order_name,
           box_index: b.box.box_index,
@@ -2311,7 +2323,7 @@ async function fulfillOrder() {
     const tracking = s.boxes.map(b => ({ number: b.label.tracking_number, url: b.label.tracking_url }))
     const res = await fetch('/api/shopify-fulfill', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_id: s.order.order_id, tracking, company: 'USPS', notifyCustomer: true })
+      body: JSON.stringify({ order_id: s.order.order_id, tracking, company: CARRIER_LABEL[carrierForOrder(s.order)], notifyCustomer: true })
     })
     const data = await res.json()
     if (!res.ok || !data.ok) {
