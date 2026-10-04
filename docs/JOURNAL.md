@@ -1,5 +1,23 @@
 # Journal
 
+## 2026-10-04 — Fix: product list missing coffees / showing wrong ones
+
+### Work done
+
+- Symptom: the portal's coffee list didn't match Shopify - some coffees absent, some that shouldn't be there.
+- Root cause (from the live catalog, 2026-10-04): `?type=products` used REST `status=active` plus `status=draft`. REST has no `unlisted`, so unlisted coffees (Malacara Rojo, Bolivar Cauca, Perla Negra Plus) never came back. The only filters were vendor + a few exclude terms, so `Gum Drop xPods`, `Dark Drop xPods`, `Worka Chelbessa ... xBloom`, `Ntwari ... xBloom xPods` and `Cocoa Drops xBloom Bulk 40lb Box` all passed and became bogus coffees with their own `green_coffee_settings` rows.
+- Fix in `api/shopify-token.js`: products now come from GraphQL (2025-10) with a status filter of active/draft/unlisted, cursor-paginated, and a shared `isCoffeeProduct()` rule (xBloom/xPods and shipping-weight fillers out; drafts only if `roast-profile`). Query verified against the live store.
+- Safety: `syncGreenCoffeeSettings` hard-deletes any setting missing from the list, and the old endpoint swallowed Shopify errors into an empty list. The endpoint now returns 502 on any Shopify error, and `refreshOrders()` aborts before syncing if the list is empty or errored.
+- Not verified against the deployed endpoint (the Vercel connector can't see the project); needs a Pull Orders click after deploy.
+
+### Detours & fixes
+
+- Existing `green_coffee_settings` rows for xPods/xBloom titles created by the old bug are not auto-removed until the next sync; the first Pull Orders after deploy deletes them (they're no longer in the list).
+
+### Decisions captured
+
+- [`0019-products-via-graphql-with-guarded-sync.md`](./decisions/0019-products-via-graphql-with-guarded-sync.md)
+
 ## 2026-09-21 — Best Coffee ships UPS Ground
 
 ### Work done

@@ -7,6 +7,20 @@ function isExcluded(title) {
   return EXCLUDE_TERMS.some(term => t.includes(term))
 }
 
+// Which Shopify products count as a "coffee" in the portal's lists. Vendor is already
+// filtered in the query. Active + unlisted (still purchasable by link) always count;
+// drafts only when tagged roast-profile (coffees in development). xBloom/xPod listings
+// and shipping-weight fillers are planned separately and would otherwise show up as
+// bogus coffees (e.g. "Gum Drop xPods") with their own settings rows.
+const NOT_A_COFFEE_RX = /xbloom|xpods?|weight for shipping/i
+function isCoffeeProduct(p) {
+  const title = p.title || ''
+  if (!title || isExcluded(title) || NOT_A_COFFEE_RX.test(title)) return false
+  const status = String(p.status || '').toUpperCase()
+  if (status === 'ACTIVE' || status === 'UNLISTED') return true
+  return status === 'DRAFT' && (p.tags || []).some(t => String(t).toLowerCase().includes('roast-profile'))
+}
+
 // Weight resolution for B2B cubic shipping. Prefer Shopify's per-line `grams` (the REST
 // line item is always in grams), else parse the variant title. Returns POUNDS, or null
 // if unknown — the packer flags null-weight items as unpackable rather than guessing.
@@ -75,41 +89,36 @@ module.exports = async function handler(req, res) {
     const baseUrl = `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/2025-01`
     const headers = { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
 
-    // PRODUCTS endpoint — active products + roast-profile tagged drafts
+    // PRODUCTS endpoint - the coffee list that drives dropdowns, blends and the
+    // green_coffee_settings sync. Uses GraphQL (not REST) because REST's status filter
+    // only knows active/draft/archived and silently drops UNLISTED products.
     if (req.query.type === 'products') {
-      let products = []
+      const gqlUrl = `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/2025-10/graphql.json`
+      const query = `query($after: String) {
+        products(first: 250, after: $after, query: "vendor:'Torque Coffees' AND (status:active OR status:draft OR status:unlisted)") {
+          pageInfo { hasNextPage endCursor }
+          nodes { title status tags }
+        }
+      }`
+      const titles = []
+      let after = null
+      do {
+        const gRes = await fetch(gqlUrl, {
+          method: 'POST', headers,
+          body: JSON.stringify({ query, variables: { after } })
+        })
+        const gData = await gRes.json()
+        // Fail loudly: the client deletes settings for anything missing from this list,
+        // so a partial/empty answer must never look like success.
+        if (!gRes.ok || gData.errors || !gData.data) {
+          return res.status(502).json({ error: 'Shopify products query failed', detail: gData.errors || gData })
+        }
+        const conn = gData.data.products
+        for (const p of conn.nodes) if (isCoffeeProduct(p)) titles.push(p.title.trim())
+        after = conn.pageInfo.hasNextPage ? conn.pageInfo.endCursor : null
+      } while (after)
 
-      // Fetch active Torque Coffees products
-      let page = `${baseUrl}/products.json?limit=250&status=active`
-      while (page) {
-        const pRes = await fetch(page, { headers })
-        const pData = await pRes.json()
-        const filtered = (pData.products||[])
-          .filter(p => p.vendor === 'Torque Coffees' && !isExcluded(p.title))
-        products = products.concat(filtered.map(p => p.title))
-        const linkHeader = pRes.headers.get('link') || ''
-        const next = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
-        page = next ? next[1] : null
-      }
-
-      // Fetch draft products tagged roast-profile
-      let draftPage = `${baseUrl}/products.json?limit=250&status=draft`
-      while (draftPage) {
-        const pRes = await fetch(draftPage, { headers })
-        const pData = await pRes.json()
-        const filtered = (pData.products||[])
-          .filter(p =>
-            p.vendor === 'Torque Coffees' &&
-            !isExcluded(p.title) &&
-            p.tags && p.tags.toLowerCase().includes('roast-profile')
-          )
-        products = products.concat(filtered.map(p => p.title))
-        const linkHeader = pRes.headers.get('link') || ''
-        const next = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
-        draftPage = next ? next[1] : null
-      }
-
-      products = [...new Set(products)].sort()
+      const products = [...new Set(titles)].sort()
       return res.status(200).json({ products })
     }
 
@@ -246,3 +255,4 @@ module.exports = async function handler(req, res) {
 module.exports.resolveWeightLb = resolveWeightLb
 module.exports.weightFromVariantTitle = weightFromVariantTitle
 module.exports.canonicalVariant = canonicalVariant
+module.exports.isCoffeeProduct = isCoffeeProduct

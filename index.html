@@ -893,7 +893,10 @@ async function refreshOrders() {
     // Load active products
     const pRes = await fetch('/api/shopify-token?type=products')
     const pData = await pRes.json()
-    shopifyProducts = pData.products || []
+    if (!pRes.ok || pData.error || !Array.isArray(pData.products) || !pData.products.length) {
+      throw new Error('Shopify product list failed or came back empty - nothing was synced or deleted. ' + (pData.error || ''))
+    }
+    shopifyProducts = pData.products
 
     // Sync green coffee settings
     await syncGreenCoffeeSettings(shopifyProducts)
