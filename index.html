@@ -851,6 +851,24 @@ function sortPlan(data) {
   return d
 }
 
+// Load the live (non-archived) Shopify coffee list once. Never throws; an empty
+// list just means "unknown", and every filter below then falls back to showing all.
+async function ensureShopifyProducts() {
+  if (shopifyProducts.length) return
+  try {
+    const r = await fetch('/api/shopify-token?type=products')
+    const d = await r.json()
+    if (r.ok && Array.isArray(d.products)) shopifyProducts = d.products
+  } catch (e) { /* keep the fallback */ }
+}
+
+// True unless we know the live list and this name is not on it (archived/removed).
+function isLiveCoffee(name) {
+  if (!shopifyProducts.length) return true
+  const n = String(name || '').toLowerCase().trim()
+  return shopifyProducts.some(p => p.toLowerCase().trim() === n)
+}
+
 function matchesToShopify(componentName) {
   if (!shopifyProducts.length) return true
   return shopifyProducts.some(p => p.toLowerCase().trim() === componentName.toLowerCase().trim())
@@ -1043,13 +1061,17 @@ async function validateBlends() {
   }
 }
 
-function populateCoffeeDropdown() {
+async function populateCoffeeDropdown() {
   const sel = document.getElementById('addCoffee')
   if (!sel) return
+  await ensureShopifyProducts()
   const fromPlan = [...new Set(planData.map(r => r.product_name))]
   const fromOrigins = greenSettings.map(g => g.component_name)
   const fromBlends = [...new Set(blendMatrix.map(b => b.product_name))]
-  const all = [...new Set([...fromPlan, ...fromOrigins, ...fromBlends, ...shopifyProducts])].sort()
+  // Old plan rows, saved settings and blends can still carry archived coffees;
+  // only offer what Shopify currently sells.
+  const all = [...new Set([...fromPlan, ...fromOrigins, ...fromBlends, ...shopifyProducts])]
+    .filter(isLiveCoffee).sort()
   sel.innerHTML = all.length
     ? all.map(n => `<option value="${n}">${n}</option>`).join('')
     : '<option value="">Pull Orders first</option>'
@@ -2509,11 +2531,7 @@ function addCustomRoastRow() {
 
 async function renderBlendEditor() {
   await loadBlends()
-  if (!shopifyProducts.length) {
-    const pRes = await fetch('/api/shopify-token?type=products')
-    const pData = await pRes.json()
-    shopifyProducts = pData.products || []
-  }
+  await ensureShopifyProducts()
   await validateBlends()
 
   const container = document.getElementById('blendCards')
@@ -2565,9 +2583,10 @@ async function renderBlendEditor() {
 
   // Primo columns are the long-standing batch_size_lbs / shrinkage_pct.
   // Probat batch is nullable on purpose: blank means "not measured yet".
-  originsBody.innerHTML = !greenSettings.length
+  const liveSettings = greenSettings.filter(gs => isLiveCoffee(gs.component_name))
+  originsBody.innerHTML = !liveSettings.length
     ? '<div class="empty">No coffees configured</div>'
-    : greenSettings.map(gs=>`<div class="origin-grid-row">
+    : liveSettings.map(gs=>`<div class="origin-grid-row">
         <span class="origin-name">${gs.component_name}</span>
         <span><input type="number" value="${gs.batch_size_lbs}" min="1" max="40" step="0.5" onchange="updateOrigin('${gs.id}','batch_size_lbs',this.value)"></span>
         <span><input type="number" value="${gs.shrinkage_pct}" min="1" max="30" step="0.5" onchange="updateOrigin('${gs.id}','shrinkage_pct',this.value)"></span>
@@ -2743,7 +2762,8 @@ async function loadSchedule() {
   const { data: coffees } = await sb.from('green_coffee_settings')
     .select('component_name')
     .order('component_name', { ascending: true })
-  scheduleCoffeeOptions = (coffees || []).map(c => c.component_name).filter(Boolean)
+  await ensureShopifyProducts()
+  scheduleCoffeeOptions = (coffees || []).map(c => c.component_name).filter(Boolean).filter(isLiveCoffee)
 
   const { data } = await sb.from('subscription_schedule')
     .select('*')

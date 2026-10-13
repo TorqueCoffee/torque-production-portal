@@ -1,5 +1,15 @@
 # Journal
 
+## 2026-10-13 — Fix: archived coffees still in bagging / blends / settings lists
+
+### Work done
+
+- Symptom: after coffees were archived in Shopify, the Bagging "add coffee" dropdown, the Blends origins list and the subscription-schedule coffee options still showed them.
+- Root cause: `/api/shopify-token?type=products` already excludes archived products, but the client built those lists as a union of old `daily_plan` rows, `green_coffee_settings` and `blend_matrix` names plus the Shopify list. Settings rows are only pruned during Pull Orders, and plan/blend names are never pruned, so archived names persisted.
+- Fix in `index.html`: new `ensureShopifyProducts()` (loads the live list once, never throws) and `isLiveCoffee()`; `populateCoffeeDropdown`, the origins grid in `renderBlendEditor`, and `loadSchedule` now filter against the live list. If the list can't be loaded, they fall back to showing everything rather than hiding coffees.
+- Display-only: no rows are deleted. Stale `green_coffee_settings` rows are still pruned by the existing guarded sync on Pull Orders; stale `blend_matrix` components still raise the existing "not in Shopify" warning.
+- Not verified against the live deploy; needs a reload after deploy.
+
 ## 2026-10-04 — Fix: product list missing coffees / showing wrong ones
 
 ### Work done
