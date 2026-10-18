@@ -5,7 +5,9 @@
 // from shopify-token.js.
 //
 //   POST /api/shopify-fulfill
-//   body: { order_id, tracking: [{ number, url }], company?: 'USPS' | 'UPS', notifyCustomer?: true }
+//   body: { order_id, tracking: [{ number, url }], company?: 'UPS', notifyCustomer?: true }
+//   company is always 'UPS' (ADR 0020); any other value is refused so a USPS label can never
+//   be announced, and a UPS label never mislabeled.
 //
 // Idempotent: if the order has no open fulfillment order (already fulfilled), it does NOT
 // create a fulfillment or notify again — guards against double-notify on retry.
@@ -35,7 +37,8 @@ module.exports = async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body || '{}') } catch { body = {} } }
   body = body || {}
   const tracking = Array.isArray(body.tracking) ? body.tracking.filter(t => t && t.number) : []
-  const company = body.company || 'USPS'
+  const company = body.company || 'UPS'
+  if (company !== 'UPS') return res.status(400).json({ error: `Only UPS tracking is allowed (got '${company}'). Reload the page and fulfill again.` })
   const notifyCustomer = body.notifyCustomer !== false
   let orderId = body.order_id
   if (!orderId || !tracking.length) return res.status(400).json({ error: 'order_id and tracking[] required' })

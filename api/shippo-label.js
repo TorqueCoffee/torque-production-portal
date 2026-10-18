@@ -1,24 +1,26 @@
-// api/shippo-label.js — B2B Cubic Shipping · Step 2: carrier rate + label via Shippo
-// (USPS Ground Advantage cubic by default; UPS Ground for accounts routed to UPS). Server-side so the Shippo token never reaches the browser.
+// api/shippo-label.js — UPS Ground rate + label via Shippo (ADR 0020). Server-side so the
+// Shippo token never reaches the browser.
 //
-//   POST /api/shippo-label?action=rate    { address_to, parcel } -> GA rate only (no purchase)
+//   POST /api/shippo-label?action=rate    { address_to, parcel } -> UPS Ground rate only (no purchase)
 //   POST /api/shippo-label?action=label   { address_to, parcel } -> buys label; returns
 //                                           tracking + 4x6 PDF label_url + cost (for capture)
 //
-//   parcel: { length, width, height, weight }   (inches, pounds)
-//   carrier: 'usps' (default) | 'ups'  — picks the service token below. Matched EXACTLY:
-//   'ups' buys ups_ground only, never ups_ground_saver, and never falls back to USPS.
+//   parcel: { length, width, height, weight }   (inches; weight = declared whole pounds,
+//           tare included — the client computes it, see declaredWeightLb in index.html)
+//   carrier: optional; anything other than 'ups' is refused (400). Every shipment is UPS
+//   Ground (ups_ground) on Torque's US UPS account. Never Ground Saver, never USPS, no fallback.
 //
 // Origin is fixed here (Torque) — single source of truth for the ship-from.
-// Token is read from process.env.SHIPPO_TOKEN (test token until live cutover).
+// Token is read from process.env.SHIPPO_TOKEN — the live token (confirmed 2026-10-17:
+// every Shippo transaction since 2026-09-20 is test:false).
 
 const fetch = globalThis.fetch || require('node-fetch')
 
 const SHIPPO_BASE = 'https://api.goshippo.com'
-const SERVICE_TOKENS = {
-  usps: 'usps_ground_advantage',
-  ups: 'ups_ground'   // NOT ups_ground_saver
-}
+const SERVICE_TOKEN = 'ups_ground'   // NOT ups_ground_saver
+// The US UPS account on the Shippo login. A second UPS account (Canada, 588f0f77…) exists
+// on the same login; pinning keeps every rate on this one.
+const UPS_ACCOUNT = '21db4cf80df74a2cb27fc20948862003'
 
 const ORIGIN = {
   name: 'Torque Coffee',
@@ -27,18 +29,22 @@ const ORIGIN = {
   state: 'CA',
   zip: '92104',
   country: 'US',
-  phone: '6195551234',
+  phone: '6192305400',
   email: 'production@torque.coffee'
 }
 
-// USPS GA cubic eligibility — Shippo exposes no flag, so we DERIVE is_cubic from dims.
-// (GA cubic: <= 1.0 cu ft, longest side <= 18", <= 20 lb.)
-function isCubicEligible(p, carrier) {
-  if (carrier !== 'usps') return false   // cubic is a USPS-only pricing tier
-  const L = Number(p.length), W = Number(p.width), H = Number(p.height), wt = Number(p.weight)
-  if (![L, W, H, wt].every(Number.isFinite)) return false
-  const cuft = (L * W * H) / 1728
-  return cuft <= 1.0 && Math.max(L, W, H) <= 18 && wt <= 20
+// Recipient address as sent to Shippo. No email ever (the one customer email comes from
+// Shopify on fulfillment; a recipient email makes Shippo send its own notice). No phone on
+// the order -> Torque's phone (R5).
+function recipientAddress(a) {
+  const { email, ...rest } = a || {}
+  return { ...rest, phone: String(rest.phone || '').trim() || ORIGIN.phone }
+}
+
+function validParcel(p) {
+  if (!p) return false
+  const nums = [p.length, p.width, p.height, p.weight].map(Number)
+  return nums.every(n => Number.isFinite(n) && n > 0)
 }
 
 module.exports = async function handler(req, res) {
@@ -55,11 +61,13 @@ module.exports = async function handler(req, res) {
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body || '{}') } catch { body = {} } }
   body = body || {}
-  const { address_to, parcel } = body
-  const carrier = String(body.carrier || 'usps').toLowerCase()
-  const SERVICE_TOKEN = SERVICE_TOKENS[carrier]
-  if (!SERVICE_TOKEN) return res.status(400).json({ error: `Unknown carrier '${carrier}'` })
-  if (!address_to || !parcel) return res.status(400).json({ error: 'address_to and parcel required' })
+  const { parcel } = body
+  const carrier = String(body.carrier || 'ups').toLowerCase()
+  // A page loaded before the UPS-only deploy still sends 'usps' for most accounts.
+  if (carrier !== 'ups') return res.status(400).json({ error: `Only UPS Ground is allowed (got '${carrier}'). Reload the page and rate again.` })
+  if (!body.address_to || !parcel) return res.status(400).json({ error: 'address_to and parcel required' })
+  if (!validParcel(parcel)) return res.status(400).json({ error: 'parcel needs length, width, height and weight, all above zero' })
+  const address_to = recipientAddress(body.address_to)
 
   const auth = { 'Authorization': `ShippoToken ${token}`, 'Content-Type': 'application/json' }
 
@@ -74,17 +82,18 @@ module.exports = async function handler(req, res) {
           length: String(parcel.length), width: String(parcel.width), height: String(parcel.height),
           distance_unit: 'in', weight: String(parcel.weight), mass_unit: 'lb'
         }],
+        carrier_accounts: [UPS_ACCOUNT],
         async: false
       })
     })
     const shipment = await shipmentRes.json()
     const rates = shipment.rates || []
-    const ga = rates.find(r => r.servicelevel && r.servicelevel.token === SERVICE_TOKEN)
+    const ga = rates.find(r => r.servicelevel && r.servicelevel.token === SERVICE_TOKEN && r.carrier_account === UPS_ACCOUNT)
     if (!ga) {
       // Edge case: box disqualified / no rate for the required service — surface the rates,
       // never silently buy a different service or carrier.
       return res.status(422).json({
-        error: carrier === 'ups' ? 'No UPS Ground rate returned' : 'No Ground Advantage rate returned',
+        error: 'No UPS Ground rate returned',
         rates: rates.map(r => ({ service: r.servicelevel && r.servicelevel.token, amount: r.amount })),
         messages: shipment.messages || []
       })
@@ -98,7 +107,7 @@ module.exports = async function handler(req, res) {
       zone: ga.zone,
       estimated_days: ga.estimated_days,
       carrier,
-      is_cubic: isCubicEligible(parcel, carrier),
+      is_cubic: false,   // cubic was a USPS-only tier
       rate_id: ga.object_id
     }
 
@@ -134,10 +143,10 @@ module.exports = async function handler(req, res) {
           cost: ga.amount,
           currency: ga.currency,
           service: ga.servicelevel.token,
-          is_cubic: isCubicEligible(parcel, carrier),
+          is_cubic: false,
           zone: ga.zone || null,
           dest_zip: address_to.zip || null,
-          weight_lb: Number(parcel.weight) || null,
+          weight_lb: Number(parcel.weight) || null,   // declared (billed) weight
           tracking_number: txn.tracking_number,
           // Stored so the ship screen can be rebuilt from the DB alone if the app
           // page is reloaded/discarded mid-flow (tracking to fulfil, label to reprint).

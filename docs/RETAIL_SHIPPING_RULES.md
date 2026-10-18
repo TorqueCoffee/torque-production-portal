@@ -44,7 +44,7 @@ Change reason: the plan's "one 2 lb bag assumed to fit" is confirmed by A3, and 
 
 **R4 Service.** `ups_ground` only. No rate returned: stop and show the error. Shippo returns every UPS service on each shipment; select by token.
 
-**R5 Address.** Residential true (company orders are excluded). Validate through Shippo. UPS may reclassify an address to Commercial or add a Delivery Area surcharge (alert 112081; seen at Chicago 60601, Assumption IL, Edmond OK, Green Valley AZ); show the quoted price at buy time. Phone: customer phone, else Torque phone. Origin phone 6195551234 is a placeholder.
+**R5 Address.** Residential true (company orders are excluded). Validate through Shippo. UPS may reclassify an address to Commercial or add a Delivery Area surcharge (alert 112081; seen at Chicago 60601, Assumption IL, Edmond OK, Green Valley AZ); show the quoted price at buy time. Phone: customer phone, else Torque phone. Origin phone is 6192305400 (Andy, 2026-10-17; set in B0).
 
 **R6 Email.** Pass no recipient email to Shippo.
 

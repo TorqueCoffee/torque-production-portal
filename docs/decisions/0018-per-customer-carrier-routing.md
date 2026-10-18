@@ -1,6 +1,6 @@
 # 0018 — Per-customer carrier routing (Best Coffee → UPS Ground)
 
-- **Status**: Accepted
+- **Status**: Superseded by #0020 (every order ships UPS Ground, 2026-10-17)
 - **Date**: 2026-09-21
 
 ## Context

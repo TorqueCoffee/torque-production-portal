@@ -1,5 +1,38 @@
 # Journal
 
+## 2026-10-17 — Phase B, B0: every order ships UPS Ground
+
+### Work done
+
+- Phase A rules, specs and fixtures committed to `docs/` (fc0f43c) as the source for Phase B (`RETAIL_SHIPPING_RULES.md`, `Retail-USPS-UPS.md`, A1 to A10).
+- Live checks before coding, all read-only:
+  - Shippo: all 75 transactions since 2026-09-20 are `test:false`, and the 12 `ups_ground` rows in `shipping_labels` (#7417, #7480, #8263, Goleta) match them by object id. The Vercel token was already live. The "test token until cutover" comment and RUNBOOK line were out of date.
+  - The rate behind #8263 came from UPS account `21db4cf8…`. A second (Canada) UPS account exists on the login.
+  - All 12 UPS boxes were declared at 20 lb net. A packed box weighs 21.27 lb.
+  - No labels are bought and waiting to be fulfilled, so nothing is in flight across the switch.
+- `index.html`:
+  - `UPS_COMPANIES` and `carrierForOrder()` are gone, replaced by `SHIP_CARRIER = 'ups'` and `SHIP_CARRIER_LABEL = 'UPS'`.
+  - New pure `declaredWeightLb(box)` = ceil(measured net + 0.83 tare + 0.05), 1 lb minimum. `boxParcel()` sends that weight.
+  - Box headers read "20 lb coffee · bills 22 lb".
+  - UI text says UPS Ground throughout. The per-row UPS badge, cubic wording and "zone ?" chip are gone.
+- `api/shippo-label.js`:
+  - UPS Ground only, pinned to account `21db4cf8…`. Any other carrier gets a 400 asking for a reload. A parcel without a usable weight gets a 400.
+  - Origin phone 6192305400 (Andy). A recipient with no phone gets Torque's phone.
+  - Recipient email is stripped on the server too.
+  - The USPS cubic path is removed.
+- `api/shopify-fulfill.js`: the tracking company defaults to UPS, and anything else gets a 400.
+- New `tests/` folder with `node --test`. `tests/helpers/index-html.js` loads named functions out of `index.html`, which B2 (`packRetail()`) will reuse. G1–G3: 18/18 pass.
+- ADR 0018 marked superseded. ADR 0020 written. RUNBOOK, TESTS, `b2b-cubic-shipping.md` and the R5 phone line updated.
+
+### Detours & fixes
+
+- **Test arrays failed `deepStrictEqual` while printing identical.** Functions loaded into a `vm` sandbox build arrays with that realm's prototype. The tests compare JSON copies.
+- **ZIP 92105 in the "wholesale-shipping notes":** not found anywhere in this repo. Andy: the ship-from ZIP is 92104; ignore anything else.
+
+### Decisions captured
+
+- [`0020-all-orders-ups-ground.md`](./decisions/0020-all-orders-ups-ground.md)
+
 ## 2026-10-13 — Fix: archived coffees still in bagging / blends / settings lists
 
 ### Work done

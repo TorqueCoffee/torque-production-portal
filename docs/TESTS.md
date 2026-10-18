@@ -3,7 +3,23 @@
 What must pass before committing each step. No CI here (single-file PWA, static deploy) — gates are checked by eye or a node snippet; the automatable ones are actually run.
 
 ## Global (any commit touching index.html)
-- [ ] Full-script syntax: extract `<script>` blocks and `node --check` → no errors. A paste error breaks the entire app's JS, so this is non-negotiable.
+- [ ] Full-script syntax: extract `<script>` blocks and `node --check` → no errors. A paste error breaks the entire app's JS, so this is non-negotiable. Automated in `tests/b0-ups.test.js` (G1).
+- [ ] `node --test "tests/*.test.js"` → all pass.
+
+## UPS Ground (Phase B, plan: [`Retail-USPS-UPS.md`](./Retail-USPS-UPS.md))
+
+### B0 — B2B cutover and safety
+Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020-all-orders-ups-ground.md)). `tests/b0-ups.test.js`, fetch stubbed, no network:
+- [x] **G1 syntax:** both inline `<script>` blocks parse; `node --check` on all four `api/*.js`.
+- [x] **G2 client:** `SHIP_CARRIER` is `ups`, `SHIP_CARRIER_LABEL` is `UPS`; no `carrierForOrder`, `UPS_COMPANIES` or `'usps'` left in the page. `declaredWeightLb`: 4x5 lb → 22, 3x5 lb → 17, 1x5 lb → 6, 10x2 lb → 22, 26x12 oz → 21, mixed 2x5+4x2+2x12oz → 21, TCCDS-40 half (20 lb nominal) → 21, exact 2.00 → 2 (no float push). Unknown carton, empty box, bad weight, zero qty → null. Real shape #6486 (21x5 lb, 2270 g) → boxes [20,20,20,20,20,5] → declared [22,22,22,22,22,6]. Client address carries no email.
+- [x] **G3 server:** rate request pins `carrier_accounts [21db4cf8…]`, origin phone 6192305400 and ZIP 92104, recipient phone falls back to Torque's, email stripped, parcel weight as declared. From Saver + USPS + CA-account UPS + US-account UPS, picks the US-account `ups_ground` (16.43). `carrier` usps/USPS/fedex → 400, and a parcel weight of null/0/text → 400, both with zero Shippo calls. No US-account `ups_ground` → 422, nothing bought. The label buys the chosen rate (PDF_4x6) and logs `service ups_ground`, `is_cubic false`, `weight_lb 22`. A failed purchase → 502 with no cost row. Fulfill with no company → `UPS`; company USPS/ups/FedEx → 400 with zero Shopify calls.
+- [ ] **G4 rate match (no purchase):** after deploy, rate one open B2B order in the portal; quote the same parcel in Shippo directly; amounts equal.
+- [ ] **G5 live buy (Andy):** next real B2B order through the portal. Check by read: Shippo `test:false`, account `21db4cf8…`, `ups_ground`, declared weight, cost row = rate amount, Shopify fulfillment company UPS with a 1Z number, one customer email.
+- [ ] **G6 cutover step 1:** first 5 B2B UPS shipments: tracking, Shopify email, cost row each. Run log below.
+- [ ] **G7:** adversarial review of the diff, then Andy approves the merge.
+
+**Run log:**
+- 2026-10-17: G1–G3 PASS, 18/18 (`node --test "tests/*.test.js"`, Node 25.8.1).
 
 ## B2B Cubic Shipping
 

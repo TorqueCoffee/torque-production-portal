@@ -12,6 +12,15 @@ python3 -m http.server 3007
 
 Any static file server works; the page fetches live data from Supabase on load, so no local backend is needed.
 
+## Tests
+
+```sh
+cd "/Users/andynewbom/Developer/Torque-Projects/torque-production-portal"
+node --test "tests/*.test.js"
+```
+
+Node 18 or newer, no install. The tests stub `fetch`, so they touch no live service. `tests/helpers/index-html.js` loads named functions out of `index.html` so its pure code can be tested without a browser.
+
 ## Data sources (Supabase)
 
 Project **`torque-roast-scheduler`**, ref `gblkovtjylrfdotoktkb` (us-west-1) — named for the app's original identity, not renamed alongside the repo. The URL and anon key are inline in `index.html`; the service-role key lives only in the Vercel env vars.
@@ -35,7 +44,7 @@ Project **`torque-roast-scheduler`**, ref `gblkovtjylrfdotoktkb` (us-west-1) —
 The `api/` functions run on Vercel and hold all secrets server-side (never in `index.html`). Required environment variables:
 
 - `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_STORE_HANDLE` — `api/shopify-token.js` (order/product pull) and `api/shopify-fulfill.js` (fulfillment write). The custom app must include `write_merchant_managed_fulfillment_orders` + `read_merchant_managed_fulfillment_orders` scopes for the fulfillment write to succeed.
-- `SHIPPO_TOKEN` — `api/shippo-label.js` (B2B Cubic Shipping label purchase). Use the Shippo **test** token until the live cutover; swap to the live token only after Steps 1–5 pass and funding is confirmed. The Shippo account must have **both** USPS and a **UPS** carrier account enabled: accounts listed in `UPS_COMPANIES` (`index.html`, currently Best Coffee) buy `ups_ground` — see ADR [`0018`](./decisions/0018-per-customer-carrier-routing.md).
+- `SHIPPO_TOKEN` — `api/shippo-label.js` (label purchase). The **live** Shippo token. Every order buys UPS Ground (`ups_ground`) on the Shippo UPS account `21db4cf80df74a2cb27fc20948862003`, which is pinned in the code; that account must stay active on the Shippo login. See ADR [`0020`](./decisions/0020-all-orders-ups-ground.md).
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY` — `api/shippo-label.js` (cost-row capture) and `api/shopify-fulfill.js` (status flip). Same public values as in `index.html`. **`SUPABASE_URL` must be the bare project URL with no `/rest/v1` suffix** (e.g. `https://gblkovtjylrfdotoktkb.supabase.co`) — both functions append `/rest/v1/shipping_labels` themselves, so a value that already includes `/rest/v1` doubles the path and 404s. If unset, cost-capture no-ops with a warning and the label still ships; if set wrong (doubled path), it fails the same way but less obviously — check Supabase API logs for a `/rest/v1/rest/v1/...` 404 if cost rows aren't landing.
 - No env vars — `api/ship-doc.js` (builds the combined 4x6 label+slip PDF that iOS Safari opens to print; see ADR [`0009`](./decisions/0009-native-pdf-print-path.md)). Depends on the `pdf-lib` npm package (declared in `package.json`; Vercel installs it at build time — no manual step). `label_url` inputs are host-allowlisted to `*.goshippo.com` / Shippo's `*.amazonaws.com` buckets; rejects any other host with 400.
 
