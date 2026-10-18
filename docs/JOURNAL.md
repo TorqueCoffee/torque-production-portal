@@ -49,7 +49,7 @@
   - 47 tests in total.
   - They drive the real `getRates`/`buyLabels`/`renderShipActions`/`fulfillOrder` in a sandbox.
   - A sweep over all 470 shippable variants in `retail_catalog.csv` explains every difference from A1 by a named exception.
-- **`shipping_labels.weight_lb` changes meaning at the deploy.** Rows before it hold net weight (the 12 earlier UPS rows say 20); rows after it hold the declared weight. The deploy time is recorded here at G7.4: _not yet deployed_.
+- **`shipping_labels.weight_lb` changes meaning at the deploy.** Rows before it hold net weight (the 12 earlier UPS rows say 20); rows after it hold the declared weight. Deployed to production 2026-10-18 at 17:42 UTC (10:42 PDT), commit 64fc9aa. Rows from then on hold the declared weight.
 - ADR 0018 marked superseded. ADRs 0020, 0021, 0022 written. RUNBOOK, TESTS, the plan, the handoff prompt, `b2b-cubic-shipping.md`, ADR 0016 and the R5 phone line updated.
 
 ### Detours & fixes
