@@ -77,3 +77,9 @@ Anyone adding a weight-in-the-name product has to know the convention.
 `bulk` in it, stop pattern-matching on names and carry Shopify's per-line
 `grams` into `daily_plan` — the option deferred above. `api/shopify-token.js`
 already resolves grams for B2B cubic shipping, so the value is in hand.
+
+**Note (2026-10-17):** B2B shipping now resolves weight from the title first and
+grams last (R10, [ADR 0020](./0020-all-orders-ups-ground.md)), because grams are wrong
+for 98 of 576 variants. Don't carry raw grams into `daily_plan` on the strength of the
+line above; use the same resolver. The shipping-weight fillers this ADR warns about are
+now left out of the B2B ship list.

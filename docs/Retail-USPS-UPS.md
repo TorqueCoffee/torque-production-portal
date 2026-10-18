@@ -25,7 +25,7 @@ Both phases use these as given.
 
 | Item | Value |
 | --- | --- |
-| Ship-from | 3459 El Cajon Blvd, San Diego, CA **92104** (confirmed by Andy). The portal code is right; the wholesale-shipping notes say 92105 and are wrong. The portal's origin phone is 6192305400 (set in B0, 2026-10-17; was the placeholder 6195551234). |
+| Ship-from | 3459 El Cajon Blvd, San Diego, CA **92104** (confirmed by Andy). The portal code is right. Any note that says 92105 is wrong (Andy, 2026-10-17: 92104, ignore anything else). The portal's origin phone is 6192305400 (set in B0, 2026-10-17; was the placeholder 6195551234). |
 | Service | UPS Ground only (Shippo token `ups_ground`). No Ground Saver (UPS says it "may be delivered by UPS or the USPS"). No fallback to USPS. |
 | Label source | Shippo API, UPS carrier account `21db4cf80df74a2cb27fc20948862003`. Shippo rates are reference rates; UPS invoices can differ. |
 | UPS billing | Actual weight rounded up to the next whole pound, 1 lb minimum. Dimensional weight applies only at 1,728 in³ or more; every carton below is smaller. |
@@ -79,9 +79,10 @@ Run in a Claude Code session in the `torque-production-portal` repo after Phase 
 
 | # | Slice | What changes | Done when |
 | --- | --- | --- | --- |
-| B0 | B2B cutover and safety | Confirm the live Shippo token (the code comment says test token until cutover). Replace the placeholder origin phone. Replace the `UPS_COMPANIES` list in `index.html` with UPS as the default for every B2B order. Update ADR 0018 and the wholesale-shipping notes (ZIP 92104). | A real B2B order rates and buys UPS Ground; rate matches Shippo quote. |
+| B0 | B2B cutover and safety | Built 2026-10-17 (ADR 0020): live token confirmed; real origin phone; every order UPS Ground on the pinned US account, enforced on the server; B2B declared weight = ceil(net + 0.83 + 0.05); weight from title before grams (R10); price guard on purchase; fulfillment only with 1Z numbers; `.vercelignore` allowlist (ADR 0022); `node --test` harness (ADR 0021). ADR 0018 superseded. | A real B2B order rates and buys UPS Ground; rate matches Shippo quote. |
 | B1 | Retail order list | New `type=retail-ship` in `api/shopify-token.js`, applying R1 and R1a. Return delivery method, shipping charged and the hold reason. | Fixture orders from A10 list or hold exactly as expected, including pickup. |
-| B2 | Retail packer | New pure function `packRetail()` for R2, R3 and the oversize rule. `packBoxes()` stays for B2B. Parcel weight sent to Shippo includes tare. | Unit tests pass for all 30 fixture orders: carton, billed pounds. |
+| B2a | Shared ship rules | Move the weight resolver (`resolveWeightLb`), bag nets, carton tares and the billed-lb rule out of `index.html` and `api/shopify-token.js` into `lib/ship-rules.js`. The page loads it with `<script src>`, the API with `require('../lib/ship-rules.js')`. Add `!lib` to `.vercelignore`, and have `tests/syntax.test.js` cover `lib/`. The label endpoint re-packs the order by `order_id`/`box_index` and refuses a weight that doesn't match. | One copy of each rule; the server refuses a page-sent weight that differs from its own. |
+| B2 | Retail packer | New pure function `packRetail()` for R2, R3 and the oversize rule, in `lib/ship-rules.js` (B2a). `packBoxes()` stays for B2B. B2B tare is already done (B0); the retail cartons (8x6x3 0.156, 12x8x6 0.42) remain. | Unit tests pass for all 30 fixture orders: carton, billed pounds. |
 | B3 | Batch ship screen | Retail tab: list with carton, billed pounds, estimated cost; multi-select; rate all; buy all; one combined PDF in packing order; fulfill all. Reuse the in-flight recovery from ADR 0011 per order. | 25 orders move through rate, buy, print and fulfill with one forced failure that does not stop the rest. |
 | B4 | Retail packing slip | New slip layout in `api/ship-doc.js` per A7, label and slip interleaved per order. | Andy approves a printed sample on the Rollo or AirPrint printer. |
 | B5 | Cost report | Server-side read of `shipping_labels` (ADR 0004 blocks public reads). Add carton, billed pounds and channel columns. Join Shopify shipping charged. Monthly summary of label cost, shipping charged and difference per order. | Report totals match the sum of Shippo transactions for a test week. |

@@ -9,40 +9,70 @@
   - Shippo: all 75 transactions since 2026-09-20 are `test:false`, and the 12 `ups_ground` rows in `shipping_labels` (#7417, #7480, #8263, Goleta) match them by object id. The Vercel token was already live. The "test token until cutover" comment and RUNBOOK line were out of date.
   - The rate behind #8263 came from UPS account `21db4cf8…`. A second (Canada) UPS account exists on the login.
   - All 12 UPS boxes were declared at 20 lb net. A packed box weighs 21.27 lb.
-  - No labels are bought and waiting to be fulfilled, so nothing is in flight across the switch.
+  - No labels were bought and waiting to be fulfilled at that point. That gets rechecked at the push (TESTS G7.2).
 - `index.html`:
-  - `UPS_COMPANIES` and `carrierForOrder()` are gone, replaced by `SHIP_CARRIER = 'ups'` and `SHIP_CARRIER_LABEL = 'UPS'`.
-  - New pure `declaredWeightLb(box)` = ceil(measured net + 0.83 tare + 0.05), 1 lb minimum. `boxParcel()` sends that weight.
-  - Box headers read "20 lb coffee · bills 22 lb".
-  - UI text says UPS Ground throughout. The per-row UPS badge, cubic wording and "zone ?" chip are gone.
-- `api/shippo-label.js`:
-  - UPS Ground only, pinned to account `21db4cf8…`. Any other carrier gets a 400 asking for a reload. A parcel without a usable weight gets a 400.
-  - Origin phone 6192305400 (Andy). A recipient with no phone gets Torque's phone.
-  - Recipient email is stripped on the server too.
+  - `UPS_COMPANIES` and `carrierForOrder()` are gone. The page sends `carrier: 'ups'` and `weight_basis: 'packed'` with every rate and label call.
+  - New pure `declaredWeightLb(box)` = ceil(measured net + 0.83 tare + 0.05), 1 lb minimum. `boxParcel()` sends that weight. Box headers read "20 lb coffee · bills 22 lb".
+  - The label call carries the confirmed price. If UPS now charges more, the box shows "Price changed" with both prices, the buy stops, and Re-rate is offered.
+  - While labels are being bought the action bar has no buttons, and `getRates`/`reRate`/`buyLabels` refuse to start a second loop.
+  - Re-rating skips boxes that already have a label. The buy button counts only boxes still to buy.
+  - The Cost card says "N labels already paid (cost not shown)" for recovered labels.
+  - Shippo's reason shows on a no-rate error. Every error string from outside the page goes through the one `escHtml`.
+  - Fulfill still sends `company: 'UPS'`. The new server ignores it; it keeps a rollback to the old server (which defaulted to USPS) from labelling 1Z numbers USPS.
+- `api/shippo-label.js`, UPS Ground only:
+  - Pinned to account `21db4cf8…`; the chosen rate must carry that account.
+  - Refused with a 400:
+    - any other carrier
+    - a missing `weight_basis`
+    - a weight that isn't a whole-pound number
+    - a P.O. box
+    - any `action` but exactly `rate` or `label`
+    - a label call without a confirmed price (`"16.43"` form)
+  - Price guard: a fresh price that is higher, unreadable or not USD returns 409 and buys nothing.
+  - The recipient address is rebuilt from 9 known string fields, cleaned and cut to 35 characters. With no phone it gets Torque's 6192305400, the same number as the ship-from phone. No email.
   - The USPS cubic path is removed.
-- `api/shopify-fulfill.js`: the tracking company defaults to UPS, and anything else gets a 400.
-- New `tests/` folder with `node --test` (ADR 0021). `tests/helpers/index-html.js` loads named functions out of `index.html`. G1–G3: 25/25 pass after review.
-- ADR 0018 marked superseded. ADR 0020 written. RUNBOOK, TESTS, `b2b-cubic-shipping.md` and the R5 phone line updated.
+- `api/shopify-fulfill.js`:
+  - Always writes tracking company UPS; a `company` in the body is ignored.
+  - Every box needs a string tracking number.
+  - An order that is already fulfilled (a retry, or by hand in Shopify) flips its label rows to fulfilled.
+  - An open order with a non-`1Z` number gets a 400: fulfill by hand, then reopen and tap Fulfill to clear it.
+- `api/shopify-token.js`:
+  - `resolveWeightLb` follows R10: the size in the variant title, then the product title, then Shopify grams. Units: lb, oz, g, kg. xPods and 250 g count as 12 oz (R3) only when no other size is given.
+  - A multipack ("2 x 12oz", "6 pack") or a fraction ("1/2 lb") is held, not guessed.
+  - "weight for shipping" filler lines are left out of the B2B ship list.
+  - `weightFromVariantTitle` is renamed `weightFromTitle`.
+- `.vercelignore` allowlist: only `index.html`, `api/`, `package.json` (plus a lockfile or `vercel.json` if one appears) are deployed (ADR 0022).
+- `tests/`, run with `node --test` (`npm test`, ADR 0021):
+  - 38 tests in total.
+  - They drive the real `getRates`/`buyLabels`/`renderShipActions`/`fulfillOrder` in a sandbox.
+  - A sweep over all 470 shippable variants in `retail_catalog.csv` explains every difference from A1 by a named exception.
+- **`shipping_labels.weight_lb` changes meaning at the deploy.** Rows before it hold net weight (the 12 earlier UPS rows say 20); rows after it hold the declared weight. The deploy time is recorded here at G7.3: _not yet deployed_.
+- ADR 0018 marked superseded. ADRs 0020, 0021, 0022 written. RUNBOOK, TESTS, the plan, the handoff prompt, `b2b-cubic-shipping.md`, ADR 0016 and the R5 phone line updated.
 
 ### Detours & fixes
 
-- **Test arrays failed `deepStrictEqual` while printing identical.** Functions loaded into a `vm` sandbox build arrays with that realm's prototype. The tests compare JSON copies.
+- **Test arrays failed `deepStrictEqual` while printing identical.** Values from the `vm` sandbox carry that realm's prototypes. Tests compare `structuredClone` copies.
 - **ZIP 92105 in the "wholesale-shipping notes":** not found anywhere in this repo. Andy: the ship-from ZIP is 92104; ignore anything else.
-- **Adversarial review, round 1 (Saboteur, Security Auditor, Architect).** The first version only refused the wrong carrier string. Three reviewers independently showed that a USPS label bought before the deploy would be fulfilled as "UPS": restored labels carry no service, and our own 400 told the operator to reload, after which the new page sent "UPS". Fixed:
-  - `shopify-fulfill.js` always writes UPS and refuses any number that isn't `1Z` + 16. Those orders are fulfilled by hand. G7 now checks for pending USPS rows right before the push.
-  - **The server trusted any positive weight**, so a Best Coffee page loaded before the deploy (it already sent `ups`) would still buy at 20 lb net. The page now sends `weight_basis: 'packed'`. The server refuses it missing, and refuses any weight that isn't a whole-pound number.
-  - **Grams-first weights would have under-declared real SKUs to UPS.** La Mora 5lb stores 340 g, so 4 bags read as 3 lb. `resolveWeightLb` now follows R10 (variant title, product title, then grams) and R3 (xPods and 250 g count as 12 oz). Under USPS cubic this only mis-split boxes; under UPS it sets the price.
-  - **The label step re-rates and bought whatever came back.** The page now sends the confirmed price. A higher fresh price returns 409 and buys nothing, and the box goes back to the rate step.
-  - `action` other than exactly `rate` or `label` used to fall through to a purchase. It now gets a 400.
-  - The recipient address is rebuilt from known fields only. P.O. boxes are refused. Errors no longer echo caller input.
-  - The page shows Shippo's reason on a no-rate error and skips boxes that already have a label when re-rating. The buy button counts only boxes still to buy, and the Cost card shows what was charged once labels exist.
-  - **`production.torque.coffee/docs/*` and `/db/*` were publicly served** (HTTP 200). Pushing would have published the Phase A margin and cost docs. Added a `.vercelignore` allowlist (ADR 0022).
-  - Test helper: `structuredClone` replaces the JSON copy, so NaN and undefined survive. Syntax checks moved to `tests/syntax.test.js` and read `api/` instead of a fixed list. Payload tests now drive the real `getRates`/`buyLabels`/`fulfillOrder`.
-- **Rejected or deferred from the review:**
-  - The 0.83 tare stays, because R3 is locked; A3's packed box implies 0.99, and that question goes to Andy.
+- **Adversarial review round 1 (Saboteur, Security Auditor, Architect).** The first version only refused the wrong carrier string. Fixed:
+  - **A USPS label bought before the deploy would have been fulfilled as "UPS"** (three reviewers independently). Restored labels carry no service, and our own 400 told the operator to reload, after which the new page sent "UPS". Fixed by the 1Z check.
+  - **The server trusted any positive weight**, so a Best Coffee page loaded before the deploy would still buy at 20 lb net. Fixed by `weight_basis` plus whole pounds.
+  - **Grams-first would have under-declared real SKUs.** La Mora 5lb stores 340 g, so 4 bags read as 3 lb. Fixed by the R10 resolver. Under USPS cubic this only mis-split boxes; under UPS it sets the price.
+  - **The label step re-rates and bought whatever came back.** Fixed by the price guard.
+  - **`action` fell through to a purchase** for anything but `rate`. Fixed by the strict `action` check.
+  - **`/docs/*` and `/db/*` were publicly served** (HTTP 200 on production.torque.coffee). Fixed by `.vercelignore`.
+- **Adversarial review round 2.** Fixed:
+  - **The new 409 path could buy a box twice.** It set a rate error mid-loop, the action bar showed Re-rate (and then Buy) while the first loop was still running, and a second loop re-bought boxes the first hadn't reached. The Saboteur reproduced box_index purchases `[1, 2, 2, 3, 3]`.
+  - **The price guard failed open.** A rate with no readable amount compared `NaN > x` as false and bought, and `expected_amount: "1e308"` disabled the guard. It now fails closed.
+  - **`escHtml` existed twice.** The test loaded the copy the browser never runs. One copy remains.
+  - **"Fulfill by hand" never cleared the pending flag**, so the red "paid, not fulfilled" banner would have stayed forever and G7.2 could never pass. The already-fulfilled path now flips the rows.
+  - **The resolver's xPods rule beat an explicit "45lb"**, "12oz x 2" read as one bag, and "900g" fell back to wrong grams. All fixed, with the catalog sweep as the guard.
+  - Also: the filler lines; a box with an empty tracking number was silently dropped from the email; the 422 carried account ids; control characters and arrays in address fields; P.O. box variants (POB, P0, zero-width).
+- **Rejected or deferred from the reviews:**
+  - The 0.83 tare stays, because R3 is locked. A3's packed box implies 0.99; that question goes to Andy.
   - Unknown bag sizes still count at nominal weight rather than blocking the rate.
-  - Moving the weight rules into a file shared with the server is deferred to before B2 (ADR 0020).
-  - The no-auth endpoints, shipment redirect via a client-supplied address, open fulfillment, the `ship-doc` host check, and unescaped HTML in older templates all predate B0 and are not made worse. They go to their own task.
+  - The server does not recompute the weight. That needs the rules in a file shared with the page: plan row B2a.
+  - `net_weight_lb` waits for B5 (a migration).
+  - No auth on `/api/*`, the client-supplied ship-to address, open fulfillment, the `ship-doc` host check, and older unescaped templates all predate B0. They are being handled in the separate login/security analysis Andy asked for on 2026-10-17.
 
 ### Decisions captured
 

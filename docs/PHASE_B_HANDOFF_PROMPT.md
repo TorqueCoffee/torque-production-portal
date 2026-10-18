@@ -16,7 +16,7 @@ Andy copies the Phase A files from the source folder into the repo's `docs/` fol
 4. `docs/retail_slip_spec.md` (A7, approved) and `docs/b2b_slip_spec.md`, with `retail_slip_sample.pdf` and `retail_slip_sample_b2b.pdf` as the visual targets
 5. `docs/cost_report_spec.md` (A9), `docs/retail_runbook.md` (A8), `docs/shipping_margin.md` (A6)
 6. `docs/acceptance_fixtures.json` (A10, 30 orders) and `docs/ups_ground_fixtures.csv` (A5, 72 rows) as the test oracle
-7. The repo's own project doc, ADRs (especially 0004, 0011, 0018), test gates and adversarial-review process. Follow them.
+7. The repo's own project doc, ADRs (especially 0004, 0011, 0020, 0021, 0022; 0018 is superseded by 0020), test gates (`docs/TESTS.md`, `npm test`) and adversarial-review process. Follow them.
 
 ## Locked rules (do not reopen)
 - UPS Ground only. Billed lb = ceil(net + tare + 0.05), 1 lb minimum. Tares: 8x6x3 0.156, 12x8x6 0.42, 14x10x10 0.83. Net: 12 oz 0.75, 2 lb 2.03, 5 lb 5.07.
@@ -37,7 +37,7 @@ Order of work: B0 alone first (ships before any retail work). Then B1, B2, B3. B
 ## Rules for this session
 - Before each slice: state the plan and the test gates; wait for Andy's go.
 - After each slice: tests pass, then an adversarial review pass, then Andy approves before merge.
-- Money and labels: never buy a label outside an explicit test Andy has approved. First live buys follow the cutover steps (3 labels, one per carton, void, confirm refund). Use test mode until B0 confirms the live token.
+- Money and labels: never buy a label outside an explicit test Andy has approved. First live buys follow the cutover steps (3 labels, one per carton, void, confirm refund). The Vercel token is live (B0 confirmed: every transaction since 2026-09-20 is `test:false`); there is no test mode in production.
 - Shopify and Supabase: read-only unless a slice says otherwise and Andy approves. Supabase table grants flagged in `cost_report_spec.md` section 4 need an explicit decision from Andy before any change.
 - Pure functions (`packRetail()`, R1/R1a filtering, billed-lb math) get unit tests built from `acceptance_fixtures.json`. All 30 fixtures must pass.
 - Dry-run quotes must land within $0.05 of A5 fixtures (B7).

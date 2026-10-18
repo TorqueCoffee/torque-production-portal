@@ -1152,8 +1152,9 @@ function renderBagging() {
 // to supply today, with every Drop split into its components. You read it down
 // against the bins, make a call, and leave. Nothing here writes, edits or locks.
 
+// Escape text for innerHTML (also used by the Ship tab for Shippo/Shopify messages).
 function escHtml(v) {
-  return String(v == null ? '' : v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 }
 
 // xBloom is out of this roll-up entirely - the pod SKUs and the rare xBloom bulk
@@ -1716,12 +1717,12 @@ async function loadB2B() {
 
 // ── B2B Cubic Shipping · Step 1: box packer (pure, no side effects) ──────────
 // Packs order line items into the fewest 14x10x10 boxes, each <= weight cap.
-// weight_lb = per-UNIT net weight (BAG_WEIGHTS / Shopify variant grams).
+// weight_lb = per-UNIT nominal net weight (resolveWeightLb in api/shopify-token.js: title, then grams).
 // The 20 lb cap began as the USPS cubic ceiling and stays as the 14x10x10 box limit
 // under UPS (ADR 0020). It is applied to NET weight; the weight declared to Shippo
 // adds measured bag weight + box tare (declaredWeightLb).
 // Fit/volume is NOT modeled by design — the human eyeball-confirm step verifies
-// physical fit before any label is bought. Tested: docs/b2b-cubic-shipping.md.
+// physical fit before any label is bought. Tested: tests/b0-ups.test.js.
 const PACK_BOX = Object.freeze({ label: '14x10x10', maxWeightLb: 20 })
 
 // Hardcoded per-SKU physical unit overrides.
@@ -1999,10 +2000,13 @@ function renderShipDetail() {
 
   const boughtCount = s.boxes.filter(b => b.label).length
   const { total, cur } = shipTotal()
+  // Recovered labels come back without cost (ADR 0004 keeps cost unreadable).
+  const paidNoCost = s.boxes.filter(b => b.label && b.label.cost == null).length
+  const costSub = paidNoCost ? `${paidNoCost} label${paidNoCost !== 1 ? 's' : ''} already paid (cost not shown)` : `${cur} UPS Ground`
   summary.innerHTML = `
     <div class="summary-card"><div class="summary-label">Boxes</div><div class="summary-value">${s.boxes.length}</div><div class="summary-sub">${s.pack.total_weight_lb} lb total</div></div>
     <div class="summary-card"><div class="summary-label">Labels</div><div class="summary-value">${boughtCount}/${s.boxes.length}</div><div class="summary-sub">purchased</div></div>
-    <div class="summary-card"><div class="summary-label">Cost</div><div class="summary-value">${total > 0 ? '$' + total.toFixed(2) : '—'}</div><div class="summary-sub">${cur} UPS Ground</div></div>
+    <div class="summary-card"><div class="summary-label">Cost</div><div class="summary-value">${total > 0 ? '$' + total.toFixed(2) : '—'}</div><div class="summary-sub">${costSub}</div></div>
   `
 
   const bar = `<div class="ship-bar">
@@ -2048,12 +2052,18 @@ function renderShipBox(b, idx) {
   else if (b.status === 'buying') chip = `<span class="badge badge-amber">Buying…</span>`
   else if (b.status === 'failed') chip = `<span class="badge badge-red">✕ Failed</span>`
   else if (b.rate) chip = `<span class="badge badge-blue">$${Number(b.rate.amount).toFixed(2)} · UPS Ground${b.rate.zone ? ' · zone ' + b.rate.zone : ''}</span>`
+  else if (b.priceChange) chip = `<span class="badge badge-amber">Price changed</span>`
   else if (b.rateError) chip = `<span class="badge badge-red">No rate</span>`
   else chip = `<span class="badge badge-gray">Packed</span>`
 
   let detail = ''
+  if (b.priceChange) {
+    detail += `<div class="form-msg err" style="margin-top:.4rem">⚠ UPS price changed: you confirmed $${escHtml(b.priceChange.quoted)}, UPS now charges $${escHtml(b.priceChange.amount)}. Nothing was bought for this box. Re-rate, then confirm the new price.</div>`
+  }
   if (b.rateError) {
-    const alts = b.rateAlt && b.rateAlt.length ? ' · returned: ' + b.rateAlt.map(r => `${r.service || '?'} $${r.amount}`).join(', ') : ''
+    // Rates from another carrier account on the Shippo login are never used; say so.
+    const alts = b.rateAlt && b.rateAlt.length ? ' · returned: ' + b.rateAlt.map(r =>
+      `${escHtml(r.service || '?')} $${escHtml(r.amount)}${r.account === 'other' ? ' (other account, not used)' : ''}`).join(', ') : ''
     detail += `<div class="form-msg err" style="margin-top:.4rem">⚠ ${b.rateError}${alts}</div>`
   }
   if (b.labelError) {
@@ -2108,9 +2118,16 @@ function renderShipActions() {
   // A box that already has a label needs no rate — it's paid for. This matters for
   // recovered shipments, which come back with labels but no rates and must land on
   // Step 3 (print + fulfill), not back at "Get rates" as if nothing had been bought.
+  // While labels are being bought, show nothing to click: a Re-rate or Buy button here
+  // would start a second buy loop over boxes the first one hasn't reached (double charge).
+  if (s.phase === 'buying') {
+    return `<div class="ship-actionbar"><div class="ship-step">Buying labels… don't close this tab.</div></div>`
+  }
+
   const needRate = s.boxes.filter(b => !b.label)
   const allRated = n > 0 && needRate.every(b => b.rate)
   const anyRateErr = s.boxes.some(b => b.rateError)
+  const anyPriceChange = s.boxes.some(b => !b.label && b.priceChange)
   const allBought = n > 0 && s.boxes.every(b => b.label)
   const anyFailed = s.boxes.some(b => !b.label && b.status === 'failed')
 
@@ -2141,17 +2158,26 @@ function renderShipActions() {
     </div>`
   }
 
+  // A box whose price moved between quote and purchase: nothing was bought for it.
+  if (anyPriceChange && !anyRateErr) {
+    const k = s.boxes.filter(b => !b.label && b.priceChange).length
+    return `<div class="ship-actionbar">
+      <div class="ship-step" style="flex:1">⚠ UPS changed the price for ${pluralBox(k)} after you confirmed (see above). Nothing was bought for ${k === 1 ? 'it' : 'them'}. Re-rate, then confirm the new total.</div>
+      <button class="btn btn-secondary" onclick="reRate()">Re-rate</button>
+    </div>`
+  }
+
   // Step 1 — get rates (no money).
   if (!allRated && !anyRateErr) {
     const busy = s.phase === 'rating'
     return `<div class="ship-actionbar">
-      <div class="ship-step" style="flex:1">Step 1 — get the UPS Ground rate for ${pluralBox(n)}. No money moves yet.</div>
+      <div class="ship-step" style="flex:1">Step 1 — get the UPS Ground rate for ${pluralBox(needRate.filter(b => !b.rate).length)}. No money moves yet.</div>
       <button class="btn btn-primary" onclick="getRates()" ${busy ? 'disabled' : ''}>${busy ? 'Getting rates…' : 'Get rates'}</button>
     </div>`
   }
   if (anyRateErr) {
     return `<div class="ship-actionbar">
-      <div class="ship-step" style="flex:1">⚠ Some boxes have no UPS Ground rate (see above). Everything ships UPS Ground — do NOT ship USPS. Fix the address/box, then re-rate — no labels can be bought until every box rates.</div>
+      <div class="ship-step" style="flex:1">⚠ UPS returned no Ground rate for some boxes (reason above). Fix the address in Shopify, then re-rate. Nothing can be bought until every box has a rate. Everything ships UPS Ground — do NOT ship USPS.</div>
       <button class="btn btn-secondary" onclick="reRate()">Re-rate</button>
     </div>`
   }
@@ -2167,10 +2193,6 @@ function renderShipActions() {
       <button class="btn btn-primary" onclick="buyLabels()">Buy ${k} label${k !== 1 ? 's' : ''} — $${due.toFixed(2)}</button>
     </div>`
   }
-  if (s.phase === 'buying') {
-    return `<div class="ship-actionbar"><div class="ship-step">Buying labels… don't close this tab.</div></div>`
-  }
-
   // Partial failure — retry only the failed boxes (bought labels are kept).
   if (anyFailed) {
     const ok = s.boxes.filter(b => b.label).length, bad = n - ok
@@ -2228,10 +2250,6 @@ const SHIP_CARRIER = 'ups'
 // one loaded before ADR 0020 (net coffee weight), which it refuses.
 const SHIP_WEIGHT_BASIS = 'packed'
 
-// Escape text from outside the app (Shippo messages) before it goes into innerHTML.
-function escHtml(v) {
-  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
 
 // Declared parcel weight (ADR 0020). UPS bills actual weight rounded up to the next whole
 // pound (1 lb minimum), so Shippo gets the packed weight, not the coffee weight:
@@ -2293,6 +2311,7 @@ function shipTotal() {
 
 async function getRates() {
   const s = shipState
+  if (s.phase === 'buying' || s.phase === 'rating') return   // one loop at a time
   s.phase = 'rating'
   renderShip()
   for (const b of s.boxes) {
@@ -2310,10 +2329,10 @@ async function getRates() {
         b.rateAlt = data.rates || null
         b.rate = null
       } else {
-        b.rate = data; b.rateError = null; b.rateAlt = null
+        b.rate = data; b.rateError = null; b.rateAlt = null; b.priceChange = null
       }
     } catch (e) {
-      b.rateError = e.message
+      b.rateError = escHtml(e.message)
     }
     renderShip()
   }
@@ -2322,13 +2341,16 @@ async function getRates() {
 }
 
 function reRate() {
+  if (shipState.phase === 'buying') return
   for (const b of shipState.boxes) { if (!b.rate) { b.rateError = null; b.rateAlt = null } }
   getRates()
 }
 
 async function buyLabels() {
   const s = shipState
-  const todo = s.boxes.filter(b => !b.label)   // never re-buy a box that already has a label
+  if (s.phase === 'buying') return   // a second loop would re-buy boxes the first hasn't reached
+  // Never re-buy a box that already has a label; never buy one without a confirmed rate.
+  const todo = s.boxes.filter(b => !b.label && b.rate)
   if (!todo.length) return
   const due = todo.reduce((sum, b) => sum + (b.rate ? Number(b.rate.amount) || 0 : 0), 0)
   if (!confirm(`Buy ${todo.length} label${todo.length !== 1 ? 's' : ''} for ${s.order.order_name} — $${due.toFixed(2)}? This charges the Shippo account.`)) return
@@ -2345,7 +2367,7 @@ async function buyLabels() {
           parcel: boxParcel(b.box),
           carrier: SHIP_CARRIER,
           weight_basis: SHIP_WEIGHT_BASIS,
-          expected_amount: b.rate && b.rate.amount,   // server buys nothing if UPS now charges more
+          expected_amount: Number(b.rate.amount).toFixed(2),   // server buys nothing if UPS now charges more
           order_id: s.order.order_id,
           order_name: s.order.order_name,
           box_index: b.box.box_index,
@@ -2354,9 +2376,11 @@ async function buyLabels() {
       })
       const data = await res.json()
       if (res.status === 409) {
-        // Nothing bought: UPS's price moved above what was confirmed. Back to the rate step.
+        // Nothing bought: UPS's price moved above what was confirmed. Back to the rate step,
+        // and stop: the rest of the order waits for a fresh confirmation.
         b.rate = null; b.status = 'packed'; b.label = null
-        b.rateError = `Price changed: confirmed $${escHtml(data.quoted)}, UPS now charges $${escHtml(data.amount)}. Nothing was bought for this box. Re-rate and confirm the new price.`
+        b.priceChange = { quoted: data.quoted, amount: data.amount }
+        break
       } else if (!res.ok || !data.ok || !data.tracking_number) {
         b.labelError = escHtml(data.error || `Label purchase failed (${res.status})`)
         b.status = 'failed'; b.label = null
@@ -2364,7 +2388,7 @@ async function buyLabels() {
         b.label = data; b.labelError = null; b.status = 'bought'
       }
     } catch (e) {
-      b.labelError = e.message; b.status = 'failed'; b.label = null
+      b.labelError = escHtml(e.message); b.status = 'failed'; b.label = null
     }
     renderShip()
   }
@@ -2385,14 +2409,16 @@ async function fulfillOrder() {
     const tracking = s.boxes.map(b => ({ number: b.label.tracking_number, url: b.label.tracking_url }))
     const res = await fetch('/api/shopify-fulfill', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_id: s.order.order_id, tracking, notifyCustomer: true })
+      // The server always writes UPS. company stays in the body so that a rollback to the
+      // pre-ADR-0020 server (which defaulted to USPS) still labels these 1Z numbers UPS.
+      body: JSON.stringify({ order_id: s.order.order_id, tracking, company: 'UPS', notifyCustomer: true })
     })
     const data = await res.json()
     if (!res.ok || !data.ok) {
       // Surface the real detail (e.g. a Shopify scope/access GraphQL error) instead of
       // just the top-line message — a bare "Order not found" hid an app-scope problem.
       const detail = data.detail ? ' — ' + (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : ''
-      s.fulfillError = (data.error || `Fulfillment failed (${res.status})`) + detail
+      s.fulfillError = escHtml((data.error || `Fulfillment failed (${res.status})`) + detail)
       s.phase = 'bought'   // labels stay bought; allow a fulfill retry without re-buying
     } else {
       s.fulfill = data
@@ -2400,7 +2426,7 @@ async function fulfillOrder() {
       delete shipPending[s.order.order_id]   // done — drop the "not fulfilled" flag
     }
   } catch (e) {
-    s.fulfillError = e.message
+    s.fulfillError = escHtml(e.message)
     s.phase = 'bought'
   }
   renderShip()

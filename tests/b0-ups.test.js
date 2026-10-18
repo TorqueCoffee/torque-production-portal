@@ -28,7 +28,9 @@ Object.assign(process.env, {
 })
 const shippoLabel = require('../api/shippo-label.js')
 const shopifyFulfill = require('../api/shopify-fulfill.js')
-const { resolveWeightLb } = require('../api/shopify-token.js')
+const { resolveWeightLb, isShippableB2BLine } = require('../api/shopify-token.js')
+const fs = require('fs')
+const path = require('path')
 
 async function call(handler, { method = 'POST', query = {}, body } = {}) {
   const res = { code: null, payload: null, setHeader() {}, status(c) { this.code = c; return this }, json(p) { this.payload = p; return this }, end() { return this } }
@@ -68,6 +70,58 @@ test('G2: weight comes from the title first, then grams', () => {
   assert.equal(resolveWeightLb({ title: 'Gift Card', variant_title: '$25', grams: 0 }), null)
 })
 
+test('G2: a size that can\'t be read as one bag is held, never guessed', () => {
+  const w = (variant_title, title = 'X', grams = 340) => resolveWeightLb({ title, variant_title, grams })
+  assert.equal(w('Default Title', 'Bombon Colombia xBloom xPods Bulk 45lb Box', 0), 45)   // an explicit lb beats the xPods rule
+  assert.equal(w('Whole Bean / 900g'), 1.984)                                             // grams in the title (R10), not Shopify's 340
+  assert.equal(w('1kg'), 2.205)
+  assert.equal(w('.5lb'), 0.5)
+  for (const t of ['2 x 12oz', '12oz x 2', '12oz × 2', 'Case of 6 x 12oz', '12oz (2 pack)', '2-pack', '1/2 lb', '2lb Bag (2x 1lb bags)']) {
+    assert.equal(w(t), null, t)
+  }
+  assert.equal(w('Default Title', 'The Roasters Tour - Coffee Club - 1x 2lb bags', 908), null)
+  assert.equal(w('Black / 2XL', 'Torque Skeleton Shirt', 141.7), 0.25)                  // no size: grams
+})
+
+test('G2: every shippable catalog variant resolves as A1 says, or by a named exception', () => {
+  const csv = fs.readFileSync(path.join(__dirname, '..', 'docs', 'retail_catalog.csv'), 'utf8').trim().split('\n')
+  const parse = line => { const out = []; let cur = '', q = false; for (const c of line) { if (c === '"') q = !q; else if (c === ',' && !q) { out.push(cur); cur = '' } else cur += c } out.push(cur); return out }
+  const head = parse(csv[0])
+  const rows = csv.slice(1).map(parse).map(r => Object.fromEntries(head.map((k, i) => [k, r[i]]))).filter(r => r.ship_status === 'SHIP')
+  const SIZE = /(\d+(?:\.\d+)?|\.\d+)\s*(lbs?|pounds?|oz|ounces?|kg|g|grams?)\b/i
+  const MULTI = /\d+\s*[x×]\s*\d|(?:^|[^a-z])[x×]\s*\d|\bpack\b|\bcase\s+of\b|\d+\s*\/\s*\d+/i
+  const snap = g => Math.round(g / 453.59237 * 4) / 4
+  // Where the resolver deliberately differs from A1's eff_g_proposed, and why.
+  const EXCEPTIONS = [
+    { why: 'multipack or fraction in a title: held', match: r => MULTI.test(r.variant_title) || MULTI.test(r.product_title), expect: () => null },
+    { why: 'R3: xPods and the 250 g box count as 12 oz', match: r => /x\s*pods?|250\s*g/i.test(r.variant_title), expect: () => 0.75 },
+    { why: 'R10: the 8oz in the title beats Shopify grams (340)', match: r => r.product_title.startsWith('Cascara Perla Tea') && r.variant_title === '8oz Bag', expect: () => 0.5 },
+    { why: 'no size in either title: grams, snapped to the quarter pound', match: r => !SIZE.test(r.variant_title) && !SIZE.test(r.product_title), expect: r => snap(Number(r.grams)) }
+  ]
+  const unexplained = []
+  let excepted = 0
+  for (const r of rows) {
+    const got = resolveWeightLb({ title: r.product_title, variant_title: r.variant_title, grams: Number(r.grams) })
+    const a1 = Number(r.eff_g_proposed) / 453.59237
+    if (got != null && Math.abs(got - a1) <= 0.06) continue
+    const ex = EXCEPTIONS.find(e => e.match(r))
+    if (ex && got === ex.expect(r)) { excepted++; continue }
+    unexplained.push(`${r.product_title} | ${r.variant_title} | grams ${r.grams} | A1 ${a1.toFixed(3)} | got ${got}`)
+  }
+  assert.ok(rows.length >= 470, `catalog rows: ${rows.length}`)
+  assert.deepEqual(unexplained, [])
+  assert.ok(excepted > 0 && excepted < 60, `excepted ${excepted}`)
+})
+
+test('G2: shipping-weight filler lines are not packed', () => {
+  const line = (title, extra = {}) => ({ vendor: 'Torque Coffees', fulfillment_status: null, title, ...extra })
+  assert.equal(isShippableB2BLine(line('5 lb weight for shipping')), false)
+  assert.equal(isShippableB2BLine(line('2lb weight for shipping')), false)
+  assert.equal(isShippableB2BLine(line('Cocoa Drop - Compositions')), true)
+  assert.equal(isShippableB2BLine(line('Cocoa Drop - Compositions', { fulfillment_status: 'fulfilled' })), false)
+  assert.equal(isShippableB2BLine(line('Grinder', { vendor: 'Baratza' })), false)
+})
+
 // ── G2 client: UPS only, declared weight ────────────────────────────────────────────────
 const C = loadFromIndex(['PACK_BOX', 'SHIP_UNIT_OVERRIDES', 'expandShipItems', 'packBoxes', 'packAggregate',
   'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'MEASURED_NET_LB', 'CARTON_TARE_LB', 'PACK_ALLOWANCE_LB',
@@ -80,6 +134,13 @@ test('G2: the client sends UPS for every order and has no per-account routing le
   const src = inlineScripts().join('\n')
   assert.doesNotMatch(src, /carrierForOrder|UPS_COMPANIES|CARRIER_LABEL/)
   assert.doesNotMatch(src, /['"]usps['"]/)
+})
+
+test('G2: exactly one escHtml, and it escapes all five characters', () => {
+  const src = inlineScripts().join('\n')
+  assert.equal((src.match(/^function escHtml\(/gm) || []).length, 1)
+  const { escHtml } = loadFromIndex(['escHtml'])
+  assert.equal(escHtml(`<a href="x" onclick='y'>&</a>`), '&lt;a href=&quot;x&quot; onclick=&#39;y&#39;&gt;&amp;&lt;/a&gt;')
 })
 
 test('G2: declared weight = ceil(measured net + 0.83 tare + 0.05)', () => {
@@ -126,15 +187,16 @@ test('G2: client address carries no email', () => {
 })
 
 // ── G2 client flow: the payloads getRates / buyLabels / fulfillOrder actually send ─────
-function shipFlow() {
-  const pack = C.packBoxes(C.expandShipItems([{ product_name: 'Cocoa Drop', variant_title: '5lb', qty: 5, sku: 'X', weight_lb: 5 }]))
+function shipFlow(qty = 5) {
+  const pack = C.packBoxes(C.expandShipItems([{ product_name: 'Cocoa Drop', variant_title: '5lb', qty, sku: 'X', weight_lb: 5 }]))
   const shipState = {
     order: { order_id: 'gid://shopify/Order/1', order_name: '#9001', shipping_address: { name: 'Pete', company: 'Best Coffee', address1: '1 Main St', city: 'Goleta', province_code: 'CA', zip: '93117', country_code: 'US', phone: '' } },
     pack, phase: 'packed',
     boxes: pack.boxes.map(box => ({ box, rate: null, rateError: null, rateAlt: null, label: null, labelError: null, status: 'packed' }))
   }
   const F = loadFromIndex(['PACK_BOX', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'MEASURED_NET_LB', 'CARTON_TARE_LB', 'PACK_ALLOWANCE_LB',
-    'escHtml', 'declaredWeightLb', 'toShippoAddress', 'boxParcel', 'getRates', 'buyLabels', 'fulfillOrder'],
+    'escHtml', 'declaredWeightLb', 'toShippoAddress', 'boxParcel', 'getRates', 'reRate', 'buyLabels', 'fulfillOrder',
+    'renderShipActions', 'pluralBox', 'shipAllPrinted'],
   { shipState, shipPending: {}, renderShip() {}, confirm: () => true, alert() {}, fetch: stubFetch })
   return { F, shipState }
 }
@@ -156,17 +218,57 @@ test('G2: rate and label requests carry UPS, packed basis, the same declared wei
   assert.equal(shipState.phase, 'bought')
 })
 
-test('G2: a price change buys nothing and sends the box back to the rate step', async () => {
-  const { F, shipState } = shipFlow()
+test('G2: a price change buys nothing, stops the order, and asks for a re-rate', async () => {
+  const { F, shipState } = shipFlow(11)                                       // boxes [20, 20, 15]
   reset((url) => url.startsWith('/api/shippo-label?action=rate')
     ? { json: { ok: true, amount: '16.43', currency: 'USD' } }
     : { status: 409, json: { error: 'Price changed', quoted: '16.43', amount: '18.10' } })
   await F.getRates()
   await F.buyLabels()
-  const b = shipState.boxes[0]
-  assert.equal(b.label, null)
-  assert.equal(b.rate, null)
-  assert.match(b.rateError, /Price changed: confirmed \$16\.43, UPS now charges \$18\.10/)
+  assert.equal(apiCalls('/api/shippo-label?action=label').length, 1)          // stopped after box 1
+  const [b1, b2, b3] = shipState.boxes
+  assert.equal(b1.label, null); assert.equal(b1.rate, null)
+  assert.deepEqual(host(b1.priceChange), { quoted: '16.43', amount: '18.10' })
+  assert.equal(b1.rateError, null)                                            // not shown as "No rate"
+  for (const b of [b2, b3]) { assert.equal(b.label, null); assert.equal(b.status, 'packed'); assert.ok(b.rate) }
+  const bar = F.renderShipActions()
+  assert.match(bar, /UPS changed the price for 1 box/)
+  assert.match(bar, /reRate\(\)/)
+  assert.doesNotMatch(bar, /buyLabels\(\)/)
+})
+
+test('G2: while labels are being bought nothing can start a second buy (no double charge)', async () => {
+  const { F, shipState } = shipFlow(11)
+  let duringBuy = null
+  reset((url) => {
+    if (url.startsWith('/api/shippo-label?action=rate')) return { json: { ok: true, amount: '16.43', currency: 'USD' } }
+    const n = apiCalls('/api/shippo-label?action=label').length
+    if (n === 1) {
+      duringBuy = F.renderShipActions()
+      F.buyLabels(); F.reRate(); F.getRates()                                 // operator taps around mid-buy
+      return { status: 409, json: { error: 'Price changed', quoted: '16.43', amount: '18.10' } }
+    }
+    return { json: { ok: true, tracking_number: '1Z29G18303009980' + n + '6', cost: '16.43', currency: 'USD' } }
+  })
+  await F.getRates()
+  await F.buyLabels()
+  assert.match(duringBuy, /Buying labels/)
+  assert.doesNotMatch(duringBuy, /onclick/)
+  assert.deepEqual(apiCalls('/api/shippo-label?action=label').map(c => c.body.box_index), [1])
+  assert.equal(apiCalls('/api/shippo-label?action=rate').length, 3)           // the first Get rates only
+  shipState.phase = 'buying'
+  assert.match(F.renderShipActions(), /Buying labels/)
+  shipState.boxes[1].rateError = 'x'                                           // even with a rate error showing
+  assert.doesNotMatch(F.renderShipActions(), /onclick/)
+})
+
+test('G2: the buy button counts only boxes still to buy', async () => {
+  const { F, shipState } = shipFlow(11)
+  shipState.boxes[0].label = { tracking_number: '1Z29G1830300998096', recovered: true }
+  reset(() => ({ json: { ok: true, amount: '16.43', currency: 'USD' } }))
+  await F.getRates()
+  const bar = F.renderShipActions()
+  assert.match(bar, /Buy 2 labels — \$32\.86/)
 })
 
 test('G2: re-rating skips boxes that already have a label', async () => {
@@ -184,14 +286,23 @@ test('G2: no-rate error shows Shippo\'s reason, escaped', async () => {
   assert.equal(shipState.boxes[0].rateError, 'No UPS Ground rate returned — Invalid ZIP &lt;b&gt;93117&lt;/b&gt;')
 })
 
-test('G2: fulfill sends tracking only; the server decides the company', async () => {
+test('G2: fulfill sends company UPS (ignored by this server; protects a rollback to the old one)', async () => {
   const { F, shipState } = shipFlow()
   shipState.boxes.forEach(b => { b.label = { tracking_number: '1Z29G1830300998096', tracking_url: 'https://ups/t' } })
   reset(() => ({ json: { ok: true, notified: true } }))
   await F.fulfillOrder()
   const body = apiCalls('/api/shopify-fulfill')[0].body
-  assert.equal('company' in body, false)
+  assert.equal(body.company, 'UPS')
   assert.equal(body.tracking.length, 2)
+})
+
+test('G2: fulfill errors are escaped before they reach the page', async () => {
+  const { F, shipState } = shipFlow()
+  shipState.boxes.forEach(b => { b.label = { tracking_number: '1Z29G1830300998096' } })
+  reset(() => ({ status: 502, json: { error: 'fulfillmentCreate failed', detail: '<img src=x>' } }))
+  await F.fulfillOrder()
+  assert.doesNotMatch(shipState.fulfillError, /<img/)
+  assert.match(shipState.fulfillError, /&lt;img/)
 })
 
 // ── G3 server: shippo-label ─────────────────────────────────────────────────────────────
@@ -209,6 +320,25 @@ test('G3: rate pins the US UPS account, real origin phone, phone fallback, no em
   assert.equal(sent.parcels[0].weight, '22')
   assert.equal(r.payload.service, 'ups_ground')
   assert.equal(r.payload.amount, '16.43')        // the US-account ups_ground, not Saver/USPS/CA
+})
+
+test('G3: address fields are strings, cleaned and cut to the UPS line length', async () => {
+  reset(shippoOk())
+  const long = 'A'.repeat(50)
+  const r = await call(shippoLabel, { query: { action: 'rate' }, body: { ...OK_BODY, address_to: { ...ADDR, name: 'Pete\r\nSmith\u0000', street1: ['PO', 'Box 9'], street2: long, city: { x: 1 }, company: '😀'.repeat(40) } } })
+  assert.equal(r.code, 200)
+  const a = calls[0].body.address_to
+  assert.equal(a.name, 'Pete Smith')
+  assert.equal(a.street1, '')                      // not a string: dropped, not joined into "PO,Box 9"
+  assert.equal(a.city, '')
+  assert.equal(a.street2.length, 35)
+  assert.equal(Array.from(a.company).length, 35)    // cut by code point, no half emoji
+})
+
+test('G3: a street named Pobox still ships', async () => {
+  reset(shippoOk())
+  const r = await call(shippoLabel, { query: { action: 'rate' }, body: { ...OK_BODY, address_to: { ...ADDR, street1: '1 Pobox Way' } } })
+  assert.equal(r.code, 200)
 })
 
 test('G3: recipient phone on the order is kept; missing carrier defaults to UPS', async () => {
@@ -234,6 +364,18 @@ test('G3: refused before any Shippo call: wrong carrier, stale page, bad action,
     [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'P.O. Box 123' } }],
     [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street2: 'PO BOX 9' } }],
     [{ action: 'label' }, { ...LABEL_BODY, expected_amount: undefined }],
+    [{ action: 'label' }, { ...LABEL_BODY, expected_amount: '1e308' }],             // would switch the price guard off
+    [{ action: 'label' }, { ...LABEL_BODY, expected_amount: [16.43] }],
+    [{ action: 'label' }, { ...LABEL_BODY, expected_amount: true }],
+    [{ action: 'label' }, { ...LABEL_BODY, expected_amount: '16.431' }],
+    [{ action: 'label' }, { ...LABEL_BODY, expected_amount: '0' }],
+    [{ action: 'label' }, { ...LABEL_BODY, expected_amount: '-1' }],
+    [{ action: 'rate' }, { ...OK_BODY, weight_basis: undefined }],                  // stale page, rate step too
+    [{ action: 'rate' }, { ...OK_BODY, carrier: 'usps' }],
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'PO\u200BBox 12' } }],   // zero-width inside
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'POB 12' } }],
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'P.O.B. 12' } }],
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'P0 Box 1' } }],
     [{ action: 'Rates' }, OK_BODY],
     [{ action: ['rate', 'rate'] }, OK_BODY],
     [{ action: 'void' }, OK_BODY]
@@ -251,15 +393,34 @@ test('G3: no US-account ups_ground rate -> 422, nothing bought', async () => {
   const r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
   assert.equal(r.code, 422)
   assert.equal(r.payload.error, 'No UPS Ground rate returned')
+  assert.deepEqual(r.payload.rates.map(x => x.account), ['torque-us', 'other', 'other'])   // no account ids leak
+  assert.equal(JSON.stringify(r.payload).includes(CA_UPS_ACCOUNT), false)
   assert.equal(calls.filter(c => c.url.endsWith('/transactions/')).length, 0)
 })
 
-test('G3: price above the confirmed one -> 409 with the new price, nothing bought', async () => {
-  reset(shippoOk([rate('ups_ground', '18.10')]))
-  const r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
-  assert.equal(r.code, 409)
-  assert.deepEqual(r.payload, { error: 'Price changed', quoted: '16.43', amount: '18.10', currency: 'USD' })
-  assert.equal(calls.filter(c => c.url.endsWith('/transactions/')).length, 0)
+test('G3: price above the confirmed one, even by a cent -> 409 with the new price, nothing bought', async () => {
+  for (const amount of ['18.10', '16.44']) {
+    reset(shippoOk([rate('ups_ground', amount)]))
+    const r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
+    assert.equal(r.code, 409)
+    assert.deepEqual(r.payload, { error: 'Price changed', quoted: '16.43', amount, currency: 'USD' })
+    assert.equal(calls.filter(c => c.url.endsWith('/transactions/')).length, 0)
+  }
+})
+
+test('G3: a price that can\'t be read, or not in USD, buys nothing (fails closed)', async () => {
+  for (const r0 of [{ amount: '' }, { amount: 'N/A' }, { amount: null }, { amount: '0' }, { currency: 'CAD' }]) {
+    reset(shippoOk([{ ...rate('ups_ground', '16.43'), ...r0 }]))
+    const r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
+    assert.equal(r.code, 409, JSON.stringify(r0))
+    assert.equal(calls.filter(c => c.url.endsWith('/transactions/')).length, 0)
+  }
+})
+
+test('G3: the confirmed price as a number also works', async () => {
+  reset(shippoOk([rate('ups_ground', '16.43')]))
+  const r = await call(shippoLabel, { query: { action: 'label' }, body: { ...LABEL_BODY, expected_amount: 16.43 } })
+  assert.equal(r.code, 200)
 })
 
 test('G3: same or lower price buys', async () => {
@@ -314,12 +475,35 @@ test('G3: fulfill writes company UPS whatever the page sends', async () => {
   }
 })
 
-test('G3: fulfill refuses a non-UPS tracking number (a USPS label bought before the switch)', async () => {
-  reset(shopifyOk())
+test('G3: fulfill refuses a non-UPS tracking number on an open order; nothing is created', async () => {
   for (const number of ['9400111899223197428490', '1Z29G18303', '1Z29G1830300998096X']) {
+    reset(shopifyOk())
     const r = await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking: [...TRACKING, { number, url: null }] } })
     assert.equal(r.code, 400)
     assert.match(r.payload.error, /by hand in Shopify/)
+    assert.equal(calls.filter(c => c.body && c.body.variables && c.body.variables.fulfillment).length, 0)
+  }
+})
+
+test('G3: an order already fulfilled (e.g. by hand in Shopify) clears its pending labels, even with USPS numbers', async () => {
+  reset((url, body) => {
+    if (url.includes('/graphql.json') && /fulfillmentOrders/.test(body.query)) return { json: { data: { order: { id: 'gid://shopify/Order/1', name: '#8100', fulfillmentOrders: { edges: [{ node: { id: 'fo', status: 'CLOSED' } }] } } } } }
+    return shopifyOk()(url, body)
+  })
+  const r = await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking: [{ number: '9400111899223197428490' }] } })
+  assert.equal(r.code, 200)
+  assert.equal(r.payload.alreadyFulfilled, true)
+  assert.equal(r.payload.notified, false)
+  assert.equal(r.payload.cost_rows_updated, 4)
+  assert.equal(calls.filter(c => c.url.includes('/rpc/mark_ship_labels_fulfilled')).length, 1)
+  assert.equal(calls.filter(c => c.body && c.body.variables && c.body.variables.fulfillment).length, 0)
+})
+
+test('G3: fulfill refuses a box with no tracking number instead of dropping it, before any Shopify call', async () => {
+  reset(shopifyOk())
+  for (const tracking of [[...TRACKING, { number: '' }], [...TRACKING, {}], [...TRACKING, null], [{ number: ['1Z29G1830300998096'] }], []]) {
+    const r = await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking } })
+    assert.equal(r.code, 400, JSON.stringify(tracking))
   }
   assert.equal(calls.length, 0)
 })

@@ -21,10 +21,14 @@ The Phase A docs committed for Phase B are more sensitive than what was public b
 
 ## Decision
 
-`.vercelignore` contains `/*`, `!api`, `!index.html` and `!package.json`. Nothing else is uploaded to Vercel.
+`.vercelignore` contains `/*`, `!api`, `!index.html`, `!package.json`, `!package-lock.json` and `!vercel.json` (the last two so a lockfile or project config added later is not silently dropped). Nothing else is uploaded to Vercel.
 
 ## Consequences
 
 **Positive:** docs, migrations, tests and stray working files are never served. A new top-level file is private by default.
-**Negative:** a new static asset the page needs (an icon, a manifest, a second page) must be added to the allowlist, or it 404s in production. Docs links that may have been shared publicly stop working.
+**Negative:**
+- A new static asset the page needs (an icon, a manifest, a second page, a shared `lib/` script) must be added to the allowlist, or it 404s in production.
+- Docs links that may have been shared publicly stop working.
+- Only new deployments are affected. Every earlier deployment keeps serving `docs/` and `db/` at its own `*.vercel.app` URL, unless Vercel Deployment Protection covers those URLs (Andy to check; the Vercel connector can't see this project).
+- `package.json` itself is public (dependency versions only).
 **When to revisit:** the app gains static assets or a build step.

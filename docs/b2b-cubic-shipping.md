@@ -1,8 +1,8 @@
 # B2B Cubic Shipping — Project Basis
 
-_Created: 2026-06-29 · Last updated: 2026-06-30 · Status: building (Steps 0–5 done — both Step 5 slices complete; remaining: live e2e + on-hardware print + Step 6 cutover, all deploy-gated to Andy)_
+_Created: 2026-06-29 · Last updated: 2026-10-17 · Status: live since September 2026 (live token in use since at least 2026-09-20); carrier and weight rules superseded by [ADR 0020](./decisions/0020-all-orders-ups-ground.md). Still open: the on-hardware print re-run (TESTS.md)._
 
-> **Carrier superseded 2026-10-17:** every order now ships UPS Ground at the packed weight; the USPS cubic path is removed ([ADR 0020](./decisions/0020-all-orders-ups-ground.md)). The live token has been in use since at least 2026-09-20, so Step 6 is done. Packing, labels, slips and fulfillment below still describe the flow.
+> **Carrier superseded 2026-10-17:** every order now ships UPS Ground at the packed weight; the USPS cubic path is removed ([ADR 0020](./decisions/0020-all-orders-ups-ground.md)). The live token has been in use since at least 2026-09-20 (Step 6 was overtaken, not run as written). Box splitting, labels, slips and fulfillment below still describe the flow; the weight decisions marked superseded do not.
 >
 > Provenance: authored in the prebuild intake. This file is the canonical spec for the feature.
 > See the **Amendments** section at the end for corrections from the Step 0 gate + pre-build pressure-test.
@@ -149,8 +149,8 @@ These supersede or sharpen the body above; the body is left intact for provenanc
 
 ### Open decisions for Andy
 - **Live cubic dollar: NOT a gate** (decided 2026-06-29, ADR 0003). Build proceeds on the test token; live $ is a tripwire checked at activation.
-- **Net-vs-gross weight: RESOLVED** (Andy, 2026-06-29). A box of 4×5lb bags is **20 lb flat, no overage** — net = gross in practice. The packer's 20 lb cap on net weight stands; no tare margin. (`PACK_BOX.maxWeightLb` remains configurable if this ever changes.)
-- **Weight source: RESOLVED** (Andy, 2026-06-29). Use Shopify's weight if present, else derive from the variant name. Resolver: prefer Shopify variant grams from the payload; fall back to `variantSortWeight(variant_title)` (handles "5lb"/"2lb"/"12oz").
+- **Net-vs-gross weight: RESOLVED, then superseded 2026-10-17 by [ADR 0020](./decisions/0020-all-orders-ups-ground.md)** (UPS bills packed weight; declared = ceil(net + tare + 0.05)). Original (Andy, 2026-06-29): A box of 4×5lb bags is **20 lb flat, no overage** — net = gross in practice. The packer's 20 lb cap on net weight stands; no tare margin. (`PACK_BOX.maxWeightLb` remains configurable if this ever changes.)
+- **Weight source: RESOLVED, then superseded 2026-10-17 by [ADR 0020](./decisions/0020-all-orders-ups-ground.md)** (title first, then grams, per R10). Original (Andy, 2026-06-29): Use Shopify's weight if present, else derive from the variant name. Resolver: prefer Shopify variant grams from the payload; fall back to `variantSortWeight(variant_title)` (handles "5lb"/"2lb"/"12oz").
 
 ### Known prerequisite (Steps 4–5) — ✅ RESOLVED 2026-06-30
 - **Extend the Shopify b2b payload.** ✅ DONE — added `api/shopify-token.js?type=b2b-ship`: per-ORDER (not company-merged) with `order_id`/`order_name`, `shipping_address`, and `items[]` carrying `grams` + resolved `weight_lb` (grams→lb snapped to 0.25, variant-title fallback). Feeds packer + label + fulfill.

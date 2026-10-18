@@ -25,28 +25,54 @@ function isCoffeeProduct(p) {
 // the variant title, then in the product title, then Shopify's per-line `grams`. Grams
 // first was wrong for 98 of 576 variants (La Mora 5lb stores 340 g, so 4 bags read as
 // 3 lb). xPods and the 250 g box count as a 12 oz bag (R3). Returns POUNDS, or null if
-// unknown — the packer flags null-weight items as unpackable rather than guessing.
+// unknown or ambiguous — the packer flags null-weight items as unpackable rather than
+// guessing.
 const GRAMS_PER_LB = 453.59237
+const KG_PER_LB = 0.45359237
 // Coffee bags come in clean 0.25-lb increments (12oz, 1/2/5 lb). Shopify stores grams
 // rounded (a "5 lb" bag = 2270 g = 5.004 lb), which would push 4×5lb to 20.016 > the 20 lb
 // cap and waste a box. Snap to the nearest quarter-pound to recover the nominal weight and
 // honor the "4×5lb = 20 flat" decision.
 function snapQuarterLb(lb) { return Math.round(lb * 4) / 4 }
 function resolveWeightLb(item) {
-  const fromTitle = weightFromVariantTitle(item && item.variant_title) ?? weightFromVariantTitle(item && item.title)
-  if (fromTitle != null) return fromTitle
+  for (const title of [item && item.variant_title, item && item.title]) {
+    const w = weightFromTitle(title)
+    if (w === HOLD) return null      // the title names a size we must not guess at
+    if (w != null) return w
+  }
   const g = Number(item && item.grams)
   if (Number.isFinite(g) && g > 0) return snapQuarterLb(g / GRAMS_PER_LB)
   return null
 }
-function weightFromVariantTitle(variant) {
-  if (!variant) return null
-  if (/\bx\s*pods?\b|\b250\s*g\b/i.test(String(variant))) return 0.75   // R3: counts as 12 oz
-  const m = String(variant).match(/(\d+\.?\d*)\s*(lb|pound|oz|ounce)/i)
-  if (!m) return null
-  const n = parseFloat(m[1]), u = m[2].toLowerCase()
-  if (u[0] === 'o') return Math.round((n / 16) * 1000) / 1000   // ounces → lb
-  return n
+// The bag size printed in a title, in pounds. null when the title names no size. HOLD when
+// it names one that can't be read as a single bag: a multipack ("2 x 12oz", "6 pack",
+// "case of 6") or a fraction ("1/2 lb"). The first number+unit wins, so "xPods Bulk 45lb
+// Box" is 45 lb; xPods and 250 g count as 12 oz (R3) only when no other size is given.
+const HOLD = Symbol('hold')
+const MULTI_OR_FRACTION_RX = /\d+\s*[x×]\s*\d|(?:^|[^a-z])[x×]\s*\d|\bpack\b|\bcase\s+of\b|\d+\s*\/\s*\d+/i
+const SIZE_RX = /(\d+(?:\.\d+)?|\.\d+)\s*(lbs?|pounds?|oz|ounces?|kg|kilograms?|g|grams?)\b/i
+function weightFromTitle(title) {
+  if (!title) return null
+  const t = String(title)
+  if (MULTI_OR_FRACTION_RX.test(t)) return HOLD
+  const m = t.match(SIZE_RX)
+  if (m) {
+    const n = parseFloat(m[1]), u = m[2].toLowerCase()
+    if (u[0] === 'o') return Math.round((n / 16) * 1000) / 1000           // ounces
+    if (u[0] === 'k') return Math.round((n / KG_PER_LB) * 1000) / 1000    // kilograms
+    if (u[0] === 'g') return n === 250 ? 0.75 : Math.round((n / GRAMS_PER_LB) * 1000) / 1000   // grams; R3: 250 g box = 12 oz
+    return n                                                               // pounds
+  }
+  if (/\bx\s*pods?\b/i.test(t)) return 0.75   // R3: an xPods box counts as 12 oz
+  return null
+}
+
+// Shipping-weight filler products ("5 lb weight for shipping") pad the weight Shopify
+// Shipping used to quote. They are not packed; under UPS a filler line would add a real
+// box and label (ADR 0016 warns about the same name).
+const SHIPPING_FILLER_RX = /weight for shipping/i
+function isShippableB2BLine(it) {
+  return it.vendor === 'Torque Coffees' && it.fulfillment_status !== 'fulfilled' && !SHIPPING_FILLER_RX.test(it.title || '')
 }
 
 // Shopify variant text has drifted across relaunches - the same bag comes back as
@@ -187,7 +213,7 @@ module.exports = async function handler(req, res) {
         if (!company) continue   // B2B only — wholesale accounts carry a company
         if (!sa) continue        // can't ship without an address
         const items = (order.line_items || [])
-          .filter(it => it.vendor === 'Torque Coffees' && it.fulfillment_status !== 'fulfilled')
+          .filter(isShippableB2BLine)
           .map(it => ({
             sku: it.sku || null,
             product_name: it.title,
@@ -258,6 +284,7 @@ module.exports = async function handler(req, res) {
 
 // Exposed for unit tests (Vercel still invokes module.exports(req, res) as the function).
 module.exports.resolveWeightLb = resolveWeightLb
-module.exports.weightFromVariantTitle = weightFromVariantTitle
+module.exports.weightFromTitle = weightFromTitle
+module.exports.isShippableB2BLine = isShippableB2BLine
 module.exports.canonicalVariant = canonicalVariant
 module.exports.isCoffeeProduct = isCoffeeProduct

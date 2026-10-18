@@ -6,9 +6,11 @@
 //
 //   POST /api/shopify-fulfill
 //   body: { order_id, tracking: [{ number, url }], notifyCustomer?: true }
-//   The tracking company is always UPS (ADR 0020), and every number must be a UPS number
-//   (1Z + 16). A USPS label bought before the switch is refused here, so it can never be
-//   announced to the customer as UPS; fulfill that order by hand in Shopify.
+//   The tracking company is always UPS (ADR 0020); a `company` in the body is ignored.
+//   Every box needs a tracking number, and every number must be a UPS number (1Z + 16): a
+//   USPS label bought before the switch is refused, so it is never announced as UPS. That
+//   order is fulfilled by hand in Shopify; reopening it here and tapping Fulfill then takes
+//   the already-fulfilled path below, which clears its pending flag.
 //
 // Idempotent: if the order has no open fulfillment order (already fulfilled), it does NOT
 // create a fulfillment or notify again — guards against double-notify on retry.
@@ -16,6 +18,33 @@
 const fetch = globalThis.fetch || require('node-fetch')
 const API_VERSION = '2025-01'
 const UPS_TRACKING = /^1Z[0-9A-Z]{16}$/i
+
+// Flip an order's shipping_labels rows to 'fulfilled'. NON-BLOCKING: never throws.
+//
+// Via an RPC, not a PATCH. A PostgREST PATCH silently no-ops here: `UPDATE ... WHERE`
+// has to READ the rows it matches, and with RLS on and no SELECT policy (deliberate —
+// ADR 0004 keeps cost unreadable) the WHERE matches nothing. PostgREST then returns
+// 204 + Content-Range */0, so `res.ok` was true and this reported success while every
+// row stayed 'purchased'. mark_ship_labels_fulfilled() is SECURITY DEFINER and returns
+// the row count, so cost_updated means what it says.
+async function markLabelsFulfilled(orderId) {
+  let cost_updated = false, cost_rows_updated = 0
+  try {
+    const SB_URL = process.env.SUPABASE_URL, SB_KEY = process.env.SUPABASE_ANON_KEY
+    if (SB_URL && SB_KEY) {
+      const u = await fetch(`${SB_URL}/rest/v1/rpc/mark_ship_labels_fulfilled`, {
+        method: 'POST',
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_order_id: orderId })
+      })
+      if (u.ok) {
+        cost_rows_updated = Number(await u.text()) || 0
+        cost_updated = cost_rows_updated > 0
+      }
+    }
+  } catch (e) { /* non-blocking: analytics is the passenger, not the shipment */ }
+  return { cost_updated, cost_rows_updated }
+}
 
 async function getToken() {
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
@@ -38,14 +67,16 @@ module.exports = async function handler(req, res) {
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body || '{}') } catch { body = {} } }
   body = body || {}
-  const tracking = Array.isArray(body.tracking) ? body.tracking.filter(t => t && t.number) : []
+  const tracking = Array.isArray(body.tracking) ? body.tracking : []
   const company = 'UPS'
-  if (tracking.some(t => !UPS_TRACKING.test(String(t.number)))) {
-    return res.status(400).json({ error: 'Not a UPS tracking number. These labels were not bought as UPS Ground: fulfill this order by hand in Shopify.' })
-  }
   const notifyCustomer = body.notifyCustomer !== false
   let orderId = body.order_id
   if (!orderId || !tracking.length) return res.status(400).json({ error: 'order_id and tracking[] required' })
+  // A box with no number is refused, never dropped: dropping it would fulfill and email the
+  // customer with fewer tracking numbers than boxes.
+  if (!tracking.every(t => t && typeof t.number === 'string' && t.number.trim())) {
+    return res.status(400).json({ error: 'Every box needs a tracking number.' })
+  }
   if (!String(orderId).startsWith('gid://')) orderId = `gid://shopify/Order/${String(orderId).replace(/[^0-9]/g, '')}`
 
   const { SHOPIFY_STORE_HANDLE } = process.env
@@ -81,12 +112,20 @@ module.exports = async function handler(req, res) {
     const openFOs = (order.fulfillmentOrders.edges || []).map(e => e.node)
       .filter(n => n.status === 'OPEN' || n.status === 'IN_PROGRESS')
     if (!openFOs.length) {
-      // Already fulfilled — do not create or notify again.
-      return res.status(200).json({ ok: true, order: order.name, alreadyFulfilled: true, notified: false })
+      // Already fulfilled (by a retry, or by hand in Shopify) — do not create or notify again,
+      // but do flip the label rows so the order stops showing as "paid, not fulfilled".
+      const flip = await markLabelsFulfilled(orderId)
+      return res.status(200).json({ ok: true, order: order.name, alreadyFulfilled: true, notified: false, ...flip })
+    }
+
+    // Checked after the already-fulfilled guard, so a hand-fulfilled USPS order can still
+    // clear its pending flag here.
+    if (tracking.some(t => !UPS_TRACKING.test(t.number.trim()))) {
+      return res.status(400).json({ error: 'Not a UPS tracking number. These labels were not bought as UPS Ground: fulfill this order by hand in Shopify, then reopen it here and tap Fulfill to clear it.' })
     }
 
     // 2) Create ONE fulfillment with all tracking numbers; notify once.
-    const numbers = tracking.map(t => t.number)
+    const numbers = tracking.map(t => t.number.trim())
     const urlsAll = tracking.map(t => t.url)
     const trackingInfo = { company, numbers }
     if (urlsAll.every(Boolean)) trackingInfo.urls = urlsAll  // positional match only if complete
@@ -113,28 +152,7 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ error: 'fulfillmentCreate failed', userErrors, detail: mRes.errors || null })
     }
     // Cost capture (Step 4b): flip this order's label rows to 'fulfilled'. NON-BLOCKING.
-    //
-    // Via an RPC, not a PATCH. A PostgREST PATCH silently no-ops here: `UPDATE ... WHERE`
-    // has to READ the rows it matches, and with RLS on and no SELECT policy (deliberate —
-    // ADR 0004 keeps cost unreadable) the WHERE matches nothing. PostgREST then returns
-    // 204 + Content-Range */0, so `res.ok` was true and this reported success while every
-    // row stayed 'purchased'. mark_ship_labels_fulfilled() is SECURITY DEFINER and returns
-    // the row count, so cost_updated now means what it says.
-    let cost_updated = false, cost_rows_updated = 0
-    try {
-      const SB_URL = process.env.SUPABASE_URL, SB_KEY = process.env.SUPABASE_ANON_KEY
-      if (SB_URL && SB_KEY) {
-        const u = await fetch(`${SB_URL}/rest/v1/rpc/mark_ship_labels_fulfilled`, {
-          method: 'POST',
-          headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ p_order_id: orderId })
-        })
-        if (u.ok) {
-          cost_rows_updated = Number(await u.text()) || 0
-          cost_updated = cost_rows_updated > 0
-        }
-      }
-    } catch (e) { /* non-blocking: analytics is the passenger, not the shipment */ }
+    const { cost_updated, cost_rows_updated } = await markLabelsFulfilled(orderId)
 
     return res.status(200).json({
       ok: true, order: order.name, notified: notifyCustomer,
