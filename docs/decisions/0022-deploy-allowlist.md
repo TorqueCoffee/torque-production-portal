@@ -29,7 +29,7 @@ The Phase A docs committed for Phase B are more sensitive than what was public b
 **Negative:**
 - A new static asset the page needs (an icon, a manifest, a second page, a shared `lib/` script) must be added to the allowlist, or it 404s in production.
 - Docs links that may have been shared publicly stop working.
-- Only new deployments are affected. Every earlier deployment keeps serving `docs/` and `db/` at its own `*.vercel.app` URL, unless Vercel Deployment Protection covers those URLs (Andy to check; the Vercel connector can't see this project).
+- Only new deployments are affected. Earlier deployments still contain `docs/` and `db/` at their own `*.vercel.app` URLs. Checked 2026-10-18: those URLs redirect to Vercel's SSO login (Standard Deployment Protection), so they are not public. That holds only while Deployment Protection stays on.
 - `package.json` itself is public (dependency versions only).
 - The allowlist must reach production before the Phase A docs do, and must never be rolled back: reverting it, or a Vercel Instant Rollback to an earlier deployment, publishes `docs/` and `db/` again. The push order is in TESTS.md G7.
 **When to revisit:** the app gains static assets or a build step.
