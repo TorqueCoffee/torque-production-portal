@@ -1,5 +1,118 @@
 # Journal
 
+## 2026-10-18 — Login slice, step 1: Supabase Auth sign-in, token-checked /api, migrations ready
+
+### Work done
+
+- Read-only checks before coding (Supabase project `gblkovtjylrfdotoktkb`):
+  - 10 public tables (not 9: `archived_plan` and `b2b_progress` too), 36 policies, all `to public` or `to anon`.
+  - `activity_log` and `plan_state` are `to anon` only.
+  - anon holds full table GRANTs, and PUBLIC and anon can run all three recovery functions.
+  - `green_planner_app` is not a member of `authenticated`.
+  - **The `supabase_realtime` publication held no tables**, so cross-device sync had never fired, and nothing polls.
+- `index.html`:
+  - The TT gate is replaced by an email + password sign-in screen (Supabase Auth). `<html>` starts locked, and the inputs are tagged for iCloud Keychain.
+  - Sign out is per device (`scope: 'local'`).
+  - Data loads and the 4 realtime channels start only once there is a session (`onAuthChange` → `startApp`). Signing out reloads the page.
+  - `apiFetch()` adds the access token to all 10 `/api` calls; a 401 brings back the sign-in screen.
+  - supabase-js is pinned to 2.117.2 with an SRI hash. It was floating on `@2` from jsdelivr, which resolved to 2.118.0 (released 2026-10-15).
+  - Escaping:
+    - Shopify text, DB rows, Shippo values and error messages in innerHTML go through `escHtml`. That covers the B2B list (company, contact, email), bagging, archive, late orders, the activity drawer, blends, schedule, mix guide, ship list and ship box.
+    - Names passed to inline handlers go through the new `jsArg()`; roasting used `replace(/'/g, "\\'")`, which a `"` broke.
+    - Tracking links go through `safeUrl()`/`trackingLink()`. `shipping_labels.tracking_url` was writable by anyone with the key.
+- `api/_auth.js` (new): `requireUser()` checks the bearer token with `GET /auth/v1/user` (3 s timeout).
+  - With `PORTAL_AUTH_ENFORCE=1`: 401 or 503.
+  - Without it: the request passes and the problem is logged.
+- The 4 functions call it first and send no CORS headers. `shopify-token` is now GET-only.
+- Server-side Supabase calls forward the verified user token:
+  - the cost row and the one-label-per-box lookup (`shippo-label.js`);
+  - `mark_ship_labels_fulfilled` (`shopify-fulfill.js`).
+  - The lookup was a third call the brief didn't list: with the anon key it would have failed after the revoke, and R8 would have bought without the double-charge check.
+- Four migrations in `db/`, each with a rollback, none applied:
+  - `login-prep` (step 0): the two log tables' policies become `to anon, authenticated`.
+  - `label-claims` (step 0): one buyer per box.
+  - `realtime-publication` (step 2b): publishes the 4 tables.
+  - `login-rls` (step 3b):
+    - `ALTER POLICY … TO authenticated` plus a rename for all 36;
+    - SELECT policies for `green_planner_app`;
+    - EXECUTE revoked from PUBLIC/anon;
+    - anon removed from default grants;
+    - pre- and postcondition checks.
+- Tests (after review round 2): 92 in `npm test` (`tests/auth.test.js` holds 43), and 16 migration tests in `npm run test:db`.
+  - `tests/auth.test.js` (22 new tests).
+  - `tests/b0-ups.test.js` now runs every API test with enforcement on, and `call()` sends headers (the B0 round 3 follow-up).
+  - `npm run test:db` runs on PGlite 0.5.8, a new dev dependency (ADR 0024).
+- ADR 0023, RUNBOOK (sign-in and accounts, `PORTAL_AUTH_ENFORCE`, the access model, rollback order, supabase-js upgrade) and TESTS (L1–L7) written.
+
+### Detours & fixes
+
+- **L4 found a migration hazard.** The first fixture had no primary keys, and every UPDATE on a published table failed: "cannot update table … because it does not have a replica identity and publishes updates". All 10 live tables have primary keys, so production was safe. The fixture now carries the live keys, and the migration refuses to publish a table without a replica identity.
+- **The green planner's "read-only" role could run `mark_ship_labels_fulfilled`** through the PUBLIC grant. The revoke closes this; L4 asserts it.
+- `tests/syntax.test.js` expected at least 2 inline scripts; the TT gate's script is gone, so 1.
+- **Adversarial review round 1** (Saboteur, Security Auditor, Architect; the first attempt hit the usage limit and was resumed). Fixed:
+  - **After the migration, a request let through in observe mode would buy a label unchecked and unrecorded** (all three reviewers independently).
+    - With enforcement off (an undo, a typo like `true`, an Instant Rollback, or 3b before 3a), the server swapped an unverified token for the anon key.
+    - Anon can't run the one-label lookup after the migration, and R8 bought anyway. The cost-row insert was refused too, so the label existed nowhere and the next tap bought it again.
+    - Now the caller's own token is forwarded (PostgREST checks it), and a failed or refused lookup buys nothing (503). That reverses ADR 0020's R8 reading for this check.
+  - **The observation day would have broken Finalize and the activity log.** `activity_log` and `plan_state` were `to anon` only, so signed-in devices (`authenticated`) were silently refused. And the documented undo landed in the same state.
+    - New step-0 migration `login-prep` (`to anon, authenticated`).
+    - The access rollback returns to that state.
+  - **Deploying before accounts existed would lock every device out** at its next reload. Accounts are now created in step 0.
+  - **Realtime was going live with handlers that had never fired.** The echo of a device's own "+" tap could reset the next tap (3 taps → 2), a Pull Orders meant about 1,400 reloads across six devices, and rows moved under fingers.
+    - Reloads are now debounced, serialized, held during local writes and touches, and dropped if they raced a write.
+    - Channel drops show on the sync pill.
+    - The publication moved to its own migration and rollback.
+  - **A wrong server key looked like every session ending** (a sign-in loop). It is now a 503, and `apiFetch` refreshes once before asking for a sign-in.
+  - **Writes could vanish silently.** supabase-js falls back to the publishable key when a refresh fails, and after the migration such writes "succeed" with 0 rows. `sbFetch` refuses REST calls without a session token, and `loadPlan` keeps the list on a failed read.
+  - Smaller fixes:
+    - the lock-out guard now requires every account to have signed in and no anonymous users, and the token check refuses anonymous users;
+    - anon is removed from Supabase's default grants for new objects in `public`;
+    - `ship-doc` accepts labels only from `goshippo.com` (any S3 bucket named "shippo" passed before);
+    - log lines carry the user agent;
+    - the form can't post credentials natively if supabase-js fails to load;
+    - a 429 gets its own message, and sign-out is refused mid-fulfill;
+    - a 5 s timeout on the lookup, and `drop policy if exists` in the rollback;
+    - `.npmrc` with `package-lock=false`, ADR 0024 for PGlite, and a test that the fulfill status flip runs as the user.
+  - **L4 caught a wrong fix.** A schema-level `ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE … FROM public` can't remove PUBLIC's EXECUTE on new functions, which comes from Postgres's built-in default. The migration removes only anon's explicit grant. The rule "every new function: revoke from public, anon" stays in ADR 0023 and the RUNBOOK.
+- **Adversarial review round 2** (fresh reviewers; Andy asked for every Should-fix to be fixed, then stopped the loop). Fixed:
+  - **Any Supabase Auth user counted as staff** (Security). Accounts now carry `app_metadata.portal_staff`, set in SQL at step 0. `requireUser` answers 403 without it. The access migration adds a restrictive "portal staff only" policy per table, gives the recovery functions a staff condition, and refuses to run while an unmarked account exists.
+  - **Label buying, fulfillment and B2B addresses were open during the observation day** (Security). Those calls, and `ship-doc`, are enforced from step 1.
+  - **A planted `shipping_labels` row could stop the real purchase and misdirect the box** (Security). "Already bought" is confirmed with Shippo, and only Shippo's label and tracking are returned.
+  - **Two devices could buy the same box at the same moment** (Saboteur; pre-existing). New `label_claims` table and claim/release functions (step 0 migration). The endpoint claims before buying and releases on a failed purchase.
+  - **A label could be bought with a token that expired before the cost row was written** (Saboteur). A purchase now needs 2 minutes of token life, or the page refreshes and retries.
+  - **Clear on the red banner could fulfill a partly fulfilled order** (Security; from B0). `only_if_fulfilled` → 409.
+  - **The new unconfirmed-row 409 showed as "Price changed"** (Saboteur). Only `error: 'Price changed'` takes that branch now.
+  - **Failed reads changed state.** A failed `plan_state` read showed a finalized plan as open, which offered Finalize again. A failed roasting read zeroed the batch counts. Both keep what is on screen now.
+  - **Signing in again reloaded nothing**, and **live reloads reset fields being edited** (the Add Order picker, batch size, shrink). Re-sign-in now reloads, and reloads wait while a field is focused (at most 60 s).
+  - **Rollout and rollback** (Architect, Saboteur):
+    - the realtime publication moved to step 2b, after old tabs are gone;
+    - step 1 has an undo;
+    - the code-rollback recipe includes the realtime rollback;
+    - the access rollback checks policies by name, not "exactly 36";
+    - stale RUNBOOK lines about `SUPABASE_*` were corrected.
+- **Round 2 Worth-noting, not done:**
+  - the observation-day gate counts accounts, not devices;
+  - GraphQL lists table names to anon;
+  - Realtime sends deleted-row ids;
+  - no CSP;
+  - no per-user audit;
+  - `pdf-lib` floats without a lockfile;
+  - `ship-doc` follows redirects and has no size cap;
+  - Undo can write any table and column an `activity_log` row names;
+  - the sync pill mixes Shopify-pull and realtime status;
+  - offline taps show "session ended";
+  - the PGlite fixture runs as superuser and doesn't model object ownership.
+- **Rejected or deferred from round 1:**
+  - **Pre-existing, left for later:** no unique key on `(order_id, box_index)`; the Undo button writes to whatever table and column an `activity_log` row names; no CSP or `frame-ancestors` header; the RUNBOOK's mention of a service-role key in Vercel.
+  - **Accepted limitations** (ADR 0023): no per-user audit of who bought or fulfilled; sessions in localStorage never expire; a deleted user's last token keeps working against the database for up to an hour; the green planner's JWT secret can mint staff tokens (its own repo); counters are absolute values, so two devices tapping the same line at the same moment can still overwrite each other.
+  - Already covered: preview deployments without `PORTAL_AUTH_ENFORCE` are behind Vercel Deployment Protection. A `_auth` endpoint served by mistake would be a 500, not an exposure.
+
+### Decisions captured
+
+- [`0023-supabase-auth-logins.md`](./decisions/0023-supabase-auth-logins.md)
+- [`0024-pglite-for-migration-tests.md`](./decisions/0024-pglite-for-migration-tests.md)
+- ADR 0020: note added. A failed one-label lookup no longer buys.
+
 ## 2026-10-17 to 18 — Phase B, B0: every order ships UPS Ground
 
 ### Work done

@@ -16,6 +16,7 @@
 // create a fulfillment or notify again — guards against double-notify on retry.
 
 const fetch = globalThis.fetch || require('node-fetch')
+const { requireUser, supabaseHeaders } = require('./_auth')
 const API_VERSION = '2025-01'
 const UPS_TRACKING = /^1Z[0-9A-Z]{16}$/i
 
@@ -27,14 +28,15 @@ const UPS_TRACKING = /^1Z[0-9A-Z]{16}$/i
 // 204 + Content-Range */0, so `res.ok` was true and this reported success while every
 // row stayed 'purchased'. mark_ship_labels_fulfilled() is SECURITY DEFINER and returns
 // the row count, so cost_updated means what it says.
-async function markLabelsFulfilled(orderId) {
+// Runs as the signed-in user (ADR 0023): anon has no EXECUTE on the RPC once the doors close.
+async function markLabelsFulfilled(orderId, userToken) {
   let cost_updated = false, cost_rows_updated = 0
   try {
     const SB_URL = process.env.SUPABASE_URL, SB_KEY = process.env.SUPABASE_ANON_KEY
     if (SB_URL && SB_KEY) {
       const u = await fetch(`${SB_URL}/rest/v1/rpc/mark_ship_labels_fulfilled`, {
         method: 'POST',
-        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+        headers: supabaseHeaders(userToken),
         body: JSON.stringify({ p_order_id: orderId })
       })
       if (u.ok) {
@@ -58,11 +60,10 @@ async function getToken() {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  if (req.method === 'OPTIONS') return res.status(204).end()
+  // Same-origin only: no CORS headers (the page is the only caller).
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
+  const session = await requireUser(req, res, { always: true })   // emails customers (ADR 0023)
+  if (!session) return
 
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body || '{}') } catch { body = {} } }
@@ -126,8 +127,15 @@ module.exports = async function handler(req, res) {
       }
       // Already fulfilled (by a retry, or by hand in Shopify) — do not create or notify again,
       // but do flip the label rows so the order stops showing as "paid, not fulfilled".
-      const flip = await markLabelsFulfilled(orderId)
+      const flip = await markLabelsFulfilled(orderId, session.token)
       return res.status(200).json({ ok: true, order: order.name, alreadyFulfilled: true, notified: false, ...flip })
+    }
+
+    // Clear on the red banner only closes out an order Shopify already shows fulfilled. A
+    // partly fulfilled order also drops out of the ship list; it must not be fulfilled here
+    // (silently, with no customer email) by a button that means "done by hand".
+    if (body.only_if_fulfilled === true) {
+      return res.status(409).json({ error: 'Shopify still has unfulfilled items on this order, so nothing was changed. Fulfill the rest in Shopify, or open the order here and tap Finish →.' })
     }
 
     // Checked after the already-fulfilled guard, so a hand-fulfilled USPS order can still
@@ -165,7 +173,7 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ error: 'fulfillmentCreate failed', userErrors, detail: mRes.errors || null })
     }
     // Cost capture (Step 4b): flip this order's label rows to 'fulfilled'. NON-BLOCKING.
-    const { cost_updated, cost_rows_updated } = await markLabelsFulfilled(orderId)
+    const { cost_updated, cost_rows_updated } = await markLabelsFulfilled(orderId, session.token)
 
     return res.status(200).json({
       ok: true, order: order.name, notified: notifyCustomer,

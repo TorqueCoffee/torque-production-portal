@@ -18,6 +18,7 @@
 // Token is read from process.env.SHIPPO_TOKEN (the live token).
 
 const fetch = globalThis.fetch || require('node-fetch')
+const { requireUser, supabaseHeaders } = require('./_auth')
 
 const SHIPPO_BASE = 'https://api.goshippo.com'
 const SERVICE_TOKEN = 'ups_ground'   // NOT ups_ground_saver
@@ -86,29 +87,96 @@ function cleanParcel(p) {
   return { length: p.length, width: p.width, height: p.height, weight: p.weight }
 }
 
-// Existing label for this order + box, via the SECURITY DEFINER RPC from ADR 0011 (no anon
-// SELECT on shipping_labels). null when there is none, or when the lookup can't be made.
-async function existingLabel(orderId, boxIndex) {
+// Existing label for this order + box, via the SECURITY DEFINER RPC from ADR 0011 (no SELECT
+// on shipping_labels). Runs as the caller (ADR 0023): anon has no EXECUTE once the RLS
+// migration is in.
+//   { ok: true, label }  label = the box's non-voided label, or null when it has none
+//   { ok: false, why }   the lookup could not be made or was refused
+// A failed lookup stops the buy (ADR 0023, reversing ADR 0020's R8 reading for this check):
+// whatever breaks the lookup (Supabase down, a refused token) usually breaks the cost-row
+// insert too, so a label bought then exists nowhere in the DB and the next tap buys it again.
+const LOOKUP_TIMEOUT_MS = 5000
+async function existingLabel(orderId, boxIndex, userToken) {
   const SB_URL = process.env.SUPABASE_URL, SB_KEY = process.env.SUPABASE_ANON_KEY
-  if (!SB_URL || !SB_KEY) return null
+  if (!SB_URL || !SB_KEY) return { ok: false, why: 'SUPABASE_URL/SUPABASE_ANON_KEY not configured' }
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS)
   try {
     const r = await fetch(`${SB_URL}/rest/v1/rpc/ship_labels_for_order`, {
       method: 'POST',
-      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_order_id: String(orderId) })
+      headers: supabaseHeaders(userToken),
+      body: JSON.stringify({ p_order_id: String(orderId) }),
+      signal: ctrl.signal
     })
-    if (!r.ok) return null
+    if (r.status !== 200) return { ok: false, why: `status ${r.status}` }
     const rows = await r.json()
-    return (Array.isArray(rows) ? rows : []).find(x => Number(x.box_index) === boxIndex && x.status !== 'voided') || null
-  } catch { return null }
+    if (!Array.isArray(rows)) return { ok: false, why: 'unexpected response' }
+    return { ok: true, label: rows.find(x => Number(x.box_index) === boxIndex && x.status !== 'voided') || null }
+  } catch (e) {
+    return { ok: false, why: e.name === 'AbortError' ? 'timeout' : e.message }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// claim_label_box / release_label_box (db/2026-10-18-label-claims.sql), as the caller.
+// Returns the function's boolean, or a string saying why it couldn't be called.
+async function labelClaim(fn, orderId, boxIndex, userToken) {
+  const SB_URL = process.env.SUPABASE_URL
+  if (!SB_URL || !process.env.SUPABASE_ANON_KEY) return 'not configured'
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS)
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+      method: 'POST', headers: supabaseHeaders(userToken),
+      body: JSON.stringify({ p_order_id: String(orderId), p_box_index: boxIndex }), signal: ctrl.signal
+    })
+    if (r.status !== 200) return `status ${r.status}`
+    const v = await r.json()
+    return typeof v === 'boolean' ? v : 'unexpected response'
+  } catch (e) {
+    return e.name === 'AbortError' ? 'timeout' : e.message
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// Seconds until the (already verified) access token expires; 0 if it can't be read.
+const MIN_TOKEN_LIFE_S = 120
+function tokenSecondsLeft(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(String(token).split('.')[1], 'base64url').toString('utf8'))
+    return Number(payload.exp) - Date.now() / 1000
+  } catch (e) { return 0 }
+}
+
+// A shipping_labels row checked against Shippo: the transaction must exist, have succeeded and
+// carry the same tracking number. Returns Shippo's own values, or null.
+async function confirmWithShippo(prior, auth) {
+  const id = String(prior.shippo_object_id || '')
+  if (!/^[0-9a-f]{32}$/i.test(id)) return null
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS)
+  try {
+    const r = await fetch(`${SHIPPO_BASE}/transactions/${id}`, { headers: auth, signal: ctrl.signal })
+    if (r.status !== 200) return null
+    const t = await r.json()
+    if (!t || t.status !== 'SUCCESS' || !t.tracking_number || t.tracking_number !== prior.tracking_number) return null
+    return { tracking_number: t.tracking_number, tracking_url: t.tracking_url_provider || null, label_url: t.label_url || null, shippo_object_id: t.object_id || id }
+  } catch (e) {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  if (req.method === 'OPTIONS') return res.status(204).end()
+  // Same-origin only: no CORS headers (the page is the only caller).
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
+  // A purchase needs a signed-in staff user from the first deploy on (ADR 0023); rating is
+  // only enforced once PORTAL_AUTH_ENFORCE=1.
+  const session = await requireUser(req, res, { always: req.query.action === 'label' })
+  if (!session) return
 
   const token = process.env.SHIPPO_TOKEN
   if (!token) return res.status(500).json({ error: 'SHIPPO_TOKEN not configured' })
@@ -153,11 +221,31 @@ module.exports = async function handler(req, res) {
   try {
     // 0) One label per box. If this box already has a label (a lost response, a second tab, a
     // reopened order), hand that label back instead of buying another. R9: a reload never
-    // re-buys. If the lookup itself fails, buying goes ahead (R8: logging never blocks).
+    // re-buys. If the lookup can't be made, nothing is bought (ADR 0023): a delayed box beats
+    // a second charge with no record of the first.
     if (action === 'label') {
-      const prior = await existingLabel(body.order_id, boxIndex)
+      // The cost row is written with this same token after the purchase. If it expired during
+      // the Shippo call, the label would be bought and recorded nowhere. Ask for a fresh one
+      // first: the page refreshes its session on a 401 and retries, and nothing is bought yet.
+      if (tokenSecondsLeft(session.token) < MIN_TOKEN_LIFE_S) {
+        return res.status(401).json({ error: 'Your session is about to expire. Try again.' })
+      }
+      const lookup = await existingLabel(body.order_id, boxIndex, session.token)
+      if (!lookup.ok) {
+        console.warn(`existingLabel: lookup failed (${lookup.why}); nothing bought`)
+        return res.status(503).json({ error: "Couldn't check whether this box already has a label, so nothing was bought. Try again in a minute; if it repeats, tell Andy." })
+      }
+      const prior = lookup.label
       if (prior) {
-        return res.status(409).json({ error: 'Already bought', tracking_number: prior.tracking_number, tracking_url: prior.tracking_url, label_url: prior.label_url, shippo_object_id: prior.shippo_object_id })
+        // The row is only a claim: anyone who can insert into shipping_labels could plant one and
+        // stop the real purchase, then have the page print their label and email their tracking
+        // number. Hand back only what Shippo itself confirms for that transaction.
+        const confirmed = await confirmWithShippo(prior, auth)
+        if (!confirmed) {
+          console.warn(`existingLabel: row for ${body.order_id} box ${boxIndex} not confirmed by Shippo; nothing bought`)
+          return res.status(409).json({ error: "This box has a label record that Shippo doesn't confirm. Nothing was bought. Tell Andy." })
+        }
+        return res.status(409).json({ error: 'Already bought', ...confirmed })
       }
     }
 
@@ -214,7 +302,16 @@ module.exports = async function handler(req, res) {
       return res.status(409).json({ error: 'Price changed', quoted: expected.toFixed(2), amount: String(upsRate.amount), currency: upsRate.currency })
     }
 
-    // 2) Buy the label as a native 4x6 PDF (PDF_4x6) — the physical MediaBox is the 4x6
+    // 2) Claim the box. The lookup above can't stop two devices that both passed it a moment
+    // ago; the claim is one row per (order, box), so only one of them buys (ADR 0023).
+    const claim = await labelClaim('claim_label_box', body.order_id, boxIndex, session.token)
+    if (claim !== true) {
+      if (claim === false) return res.status(409).json({ error: 'This box is being bought on another device right now. Wait a minute, then reopen the order.' })
+      console.warn(`claim_label_box failed (${claim}); nothing bought`)
+      return res.status(503).json({ error: "Couldn't reserve this box for buying, so nothing was bought. Try again in a minute; if it repeats, tell Andy." })
+    }
+
+    // 3) Buy the label as a native 4x6 PDF (PDF_4x6) — the physical MediaBox is the 4x6
     // page itself, which is what AirPrint/Rollo needs. Server-side /api/ship-doc merges
     // this PDF page with the drawn packing-slip page into one combined 4x6 PDF opened in
     // a Safari tab. See ADR 0009.
@@ -224,7 +321,10 @@ module.exports = async function handler(req, res) {
     })
     const txn = await txnRes.json()
     if (txn.status !== 'SUCCESS' || !txn.tracking_number) {
-      // Label purchase failed — caller must NOT mark the order fulfilled or notify.
+      // Label purchase failed — caller must NOT mark the order fulfilled or notify. Nothing
+      // was bought, so the box can be tried again at once. (A thrown error above keeps the
+      // claim: Shippo may have bought it, and the claim blocks a re-buy until it goes stale.)
+      await labelClaim('release_label_box', body.order_id, boxIndex, session.token)
       return res.status(502).json({ error: 'Label purchase failed', status: txn.status, messages: txn.messages || [] })
     }
 
@@ -261,7 +361,8 @@ module.exports = async function handler(req, res) {
           // Plain insert (not upsert): upsert's conflict-read needs a SELECT policy we
           // intentionally don't grant. The unique(shippo_object_id) constraint dedupes;
           // a rare retry 409s and is swallowed by this non-blocking guard.
-          headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          // As the signed-in user (ADR 0023): the insert policy is `to authenticated`.
+          headers: supabaseHeaders(session.token, { Prefer: 'return=minimal' }),
           body: JSON.stringify(row)
         })
         if (sbRes.ok) cost_logged = true

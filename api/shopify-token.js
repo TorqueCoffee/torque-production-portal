@@ -1,4 +1,5 @@
 const fetch = globalThis.fetch || require('node-fetch');
+const { requireUser } = require('./_auth')
 
 const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle']
 
@@ -96,7 +97,12 @@ function canonicalVariant(variant) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  // Same-origin only: no CORS headers (the page is the only caller). Returns B2B customer
+  // names and addresses, so it is behind the sign-in like the rest (ADR 0023).
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' })
+  // Customer names and addresses (b2b, b2b-ship) need a signed-in staff user from the first
+  // deploy on; the product and order lists only once PORTAL_AUTH_ENFORCE=1.
+  if (!(await requireUser(req, res, { always: req.query.type === 'b2b' || req.query.type === 'b2b-ship' }))) return
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
 
   try {

@@ -12,7 +12,7 @@ const API = path.join(__dirname, '..', 'api')
 
 test('every inline <script> in index.html parses', () => {
   const scripts = inlineScripts()
-  assert.ok(scripts.length >= 2)
+  assert.ok(scripts.length >= 1)
   scripts.forEach((code, i) => assert.doesNotThrow(() => new vm.Script(code, { filename: `index.html#script${i}` })))
 })
 

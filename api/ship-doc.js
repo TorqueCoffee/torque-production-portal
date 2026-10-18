@@ -16,6 +16,7 @@
 
 const fetch = globalThis.fetch || require('node-fetch')
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib')
+const { requireUser } = require('./_auth')
 
 const PT = 72
 const PAGE_W = 4 * PT   // 288
@@ -24,9 +25,12 @@ const MARGIN = 14
 
 const TORQUE_LOGO_URL = 'https://cdn.shopify.com/s/files/1/0622/2866/0444/files/Torque-logo.png?v=1647031588'
 
+// Shippo's own domain only. Every stored label_url is on deliver.goshippo.com (checked
+// 2026-10-18, 117 labels). The old "*shippo*.amazonaws.com" rule matched any S3 bucket with
+// "shippo" in its name, which anyone can create, and a label row is writable by any signed-in
+// account (ADR 0023).
 function isShippoHost(hostname) {
-  return hostname.endsWith('.goshippo.com') ||
-    (hostname.endsWith('.amazonaws.com') && hostname.includes('shippo'))
+  return hostname === 'goshippo.com' || hostname.endsWith('.goshippo.com')
 }
 
 async function readJsonBody(req) {
@@ -120,11 +124,9 @@ async function drawSlipPage(out, box, opts, fonts, logoImage) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  if (req.method === 'OPTIONS') return res.status(204).end()
+  // Same-origin only: no CORS headers (the page is the only caller).
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
+  if (!(await requireUser(req, res, { always: true }))) return   // label PDFs carry addresses
 
   try {
     const body = await readJsonBody(req)

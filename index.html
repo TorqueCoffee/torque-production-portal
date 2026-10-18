@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="tq-locked">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Torque Roast Scheduler</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Pinned (ADR 0023). The integrity hash makes the browser refuse any other file at this URL.
+     To upgrade: pick a version at least two weeks old, recompute the sha384 (RUNBOOK). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Hepta+Slab:wght@400;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -371,50 +373,39 @@ td select{padding:6px 8px;border:2px solid var(--black);border-radius:6px;font-s
 .mix-total{font-size:12px;color:var(--muted);margin-top:12px;padding-top:10px;border-top:1px solid var(--hairline)}
 .mix-empty{font-size:14px;color:var(--muted);padding:32px;text-align:center}
 
-/* --- Casual access gate --- */
+/* --- Sign-in screen (Supabase Auth, ADR 0023) ---
+   <html> starts locked, so nothing behind the screen shows before the session is known. */
 #tqGate{display:none}
 html.tq-locked #tqGate{display:flex;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:var(--cream-dark)}
 html.tq-locked body>*:not(#tqGate){display:none!important}
-.tq-gate-card{background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);padding:32px;width:300px;max-width:90vw;display:flex;flex-direction:column;gap:12px}
+.tq-gate-card{background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);padding:32px;width:320px;max-width:90vw;display:flex;flex-direction:column;gap:12px}
 .tq-gate-title{font-family:var(--font-display);font-size:18px;font-weight:800;color:var(--black);text-align:center}
-.tq-gate-card input{font-family:var(--font-sans);font-size:15px;padding:12px;border:2px solid var(--black);border-radius:10px;width:100%;outline:none;background:var(--cream);color:var(--black)}
+.tq-gate-card label{font-size:13px;font-weight:700;color:var(--black);margin-bottom:-6px}
+.tq-gate-card input{font-family:var(--font-sans);font-size:16px;padding:12px;border:2px solid var(--black);border-radius:10px;width:100%;outline:none;background:var(--cream);color:var(--black)}
 .tq-gate-card input:focus{outline:2px solid var(--orange);outline-offset:1px}
 .tq-gate-err{display:none;font-size:13px;color:var(--red);text-align:center}
 .tq-gate-card button{font-family:var(--font-sans);font-size:14px;font-weight:700;padding:12px;border:2px solid var(--black);border-radius:var(--r-pill);background:var(--black);color:var(--cream);cursor:pointer}
+.tq-gate-card button:disabled{opacity:.6;cursor:default}
+.tq-gate-note{font-size:12px;color:var(--muted);text-align:center}
+.signed-in-as{font-size:12px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
 
-<!-- Casual access gate: client-side only, intentional (not security) -->
+<!-- Sign-in (Supabase Auth, ADR 0023). Wired up in the main script; the database and /api
+     refuse anyone not signed in, so this screen is the way in, not the lock. -->
 <div id="tqGate">
-  <form class="tq-gate-card" onsubmit="return tqUnlock(event)">
-    <div class="tq-gate-title">Enter password</div>
-    <input id="tqPass" type="password" autocomplete="off" autofocus placeholder="Password">
-    <div id="tqErr" class="tq-gate-err">Incorrect — try again</div>
-    <button type="submit">Enter</button>
+  <form class="tq-gate-card" id="signInForm" onsubmit="return false" novalidate>
+    <div class="tq-gate-title">Sign in</div>
+    <label for="signInEmail">Email</label>
+    <input id="signInEmail" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="signInPassword">Password</label>
+    <input id="signInPassword" name="password" type="password" autocomplete="current-password" required>
+    <div id="signInErr" class="tq-gate-err" role="alert"></div>
+    <button type="submit" id="signInBtn">Sign in</button>
+    <div class="tq-gate-note">Forgot your password? Ask Andy to reset it.</div>
   </form>
 </div>
-<script>
-(function(){
-  var m = document.cookie.match(/(?:^|; )tq_access=([^;]*)/);
-  if (m && m[1] === 'granted') return;            // unlocked — app renders normally
-  document.documentElement.classList.add('tq-locked');
-  window.tqUnlock = function(e){
-    if (e && e.preventDefault) e.preventDefault();
-    var inp = document.getElementById('tqPass'), err = document.getElementById('tqErr');
-    if (inp.value === 'TT'){
-      var d = new Date(); d.setTime(d.getTime() + 2592000000);  // 30 days
-      document.cookie = 'tq_access=granted; expires=' + d.toUTCString() + '; path=/';
-      location.reload();
-    } else {
-      err.style.display = 'block';
-      inp.value = '';
-      inp.focus();
-    }
-    return false;
-  };
-})();
-</script>
 
 <div class="header">
   <div class="header-left">
@@ -424,6 +415,8 @@ html.tq-locked body>*:not(#tqGate){display:none!important}
     <div class="sync-pill" id="syncPill"><span class="sync-dot"></span><span id="syncText">Live</span></div>
     <button class="activity-btn" onclick="toggleActivity()">Activity<span id="activityBadge"></span></button>
     <button class="activity-btn" id="helpBtn" onclick="switchTab('help')">Help</button>
+    <span class="signed-in-as" id="signedInAs"></span>
+    <button class="activity-btn" id="signOutBtn" onclick="signOut()">Sign out</button>
   </div>
   <div class="tabs">
     <button class="tab active" data-tab="bagging" onclick="switchTab('bagging',this)">Bagging</button>
@@ -750,7 +743,74 @@ html.tq-locked body>*:not(#tqGate){display:none!important}
 const TEAM_ID = 'torque2026'
 const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_UCzUCyiWEtzqRxQcnhpSyw_BrYBKCz-'
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+// The publishable key only identifies the project. What a caller may read or write is decided
+// by the signed-in user's session (RLS `to authenticated`, ADR 0023). The session is kept in
+// localStorage and refreshed by supabase-js, so a device stays signed in until Sign out.
+if (typeof supabase === 'undefined') {
+  // The CDN script failed (offline, blocked, or the integrity hash didn't match): say so
+  // instead of showing a sign-in form that does nothing.
+  const err = document.getElementById('signInErr')
+  err.textContent = "Can't load the sign-in page. Check the connection, then reload."
+  err.style.display = 'block'
+  document.getElementById('signInBtn').disabled = true
+  throw new Error('supabase-js did not load')
+}
+// Every REST call the page makes goes through here. Two jobs:
+//  1. Never talk to the database on the publishable key alone. supabase-js silently falls back
+//     to it when a session can't be refreshed; once the tables are `to authenticated`, writes
+//     then "succeed" with 0 rows. Refuse instead, and ask for a sign-in (ADR 0023).
+//  2. Count in-flight writes, so realtime reloads wait for this device's own taps to land.
+let restWritesInFlight = 0
+let localWriteGen = 0
+let lastLocalWriteAt = 0
+async function sbFetch(input, init = {}) {
+  const url = String(typeof input === 'string' ? input : input.url)
+  if (url.startsWith(`${SUPABASE_URL}/rest/v1/`)) {
+    const auth = new Headers(init.headers || (typeof input === 'string' ? undefined : input.headers)).get('Authorization')
+    if (!auth || auth === `Bearer ${SUPABASE_ANON_KEY}`) {
+      showSignIn('Your session ended. Sign in again.')
+      throw new Error('Not signed in')
+    }
+    const method = String(init.method || (typeof input === 'string' ? 'GET' : input.method) || 'GET').toUpperCase()
+    if (method !== 'GET' && method !== 'HEAD') {
+      restWritesInFlight++
+      localWriteGen++
+      try { return await fetch(input, init) } finally { restWritesInFlight--; lastLocalWriteAt = Date.now() }
+    }
+  }
+  return fetch(input, init)
+}
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+  global: { fetch: sbFetch }
+})
+
+// Every /api call goes through here so it carries the signed-in user's access token
+// (ADR 0023). getSession() refreshes an expired token first. On a 401 the token is refreshed
+// once and the call retried; only if that fails is the sign-in screen shown (the page state
+// underneath is kept). A server-side key problem is a 503, never a 401, so it can't loop here.
+async function apiFetch(url, opts = {}) {
+  const send = token => {
+    const headers = { ...(opts.headers || {}) }
+    if (token) headers.Authorization = `Bearer ${token}`
+    return fetch(url, { ...opts, headers })
+  }
+  let token = null
+  try {
+    const { data } = await sb.auth.getSession()
+    token = (data && data.session && data.session.access_token) || null
+  } catch (e) { /* no session: the server decides (401 once enforcing) */ }
+  let res = await send(token)
+  if (res.status !== 401) return res
+  let fresh = null
+  try {
+    const { data } = await sb.auth.refreshSession()
+    fresh = (data && data.session && data.session.access_token) || null
+  } catch (e) { /* refresh failed */ }
+  if (fresh && fresh !== token) res = await send(fresh)
+  if (res.status === 401) showSignIn('Your session ended. Sign in again.')
+  return res
+}
 
 let planData = []
 let blendMatrix = []
@@ -859,7 +919,7 @@ function sortPlan(data) {
 async function ensureShopifyProducts() {
   if (shopifyProducts.length) return
   try {
-    const r = await fetch('/api/shopify-token?type=products')
+    const r = await apiFetch('/api/shopify-token?type=products')
     const d = await r.json()
     if (r.ok && Array.isArray(d.products)) shopifyProducts = d.products
   } catch (e) { /* keep the fallback */ }
@@ -912,7 +972,7 @@ async function refreshOrders() {
   status.textContent = 'Pulling from Shopify...'
   try {
     // Load active products
-    const pRes = await fetch('/api/shopify-token?type=products')
+    const pRes = await apiFetch('/api/shopify-token?type=products')
     const pData = await pRes.json()
     if (!pRes.ok || pData.error || !Array.isArray(pData.products) || !pData.products.length) {
       throw new Error('Shopify product list failed or came back empty - nothing was synced or deleted. ' + (pData.error || ''))
@@ -923,7 +983,7 @@ async function refreshOrders() {
     await syncGreenCoffeeSettings(shopifyProducts)
 
     // Load orders
-    const res = await fetch('/api/shopify-token')
+    const res = await apiFetch('/api/shopify-token')
     const data = await res.json()
     if (data.error) throw new Error(data.error)
 
@@ -982,17 +1042,23 @@ async function refreshOrders() {
   btn.disabled = false
 }
 
-async function loadPlan() {
-  const { data } = await sb.from('daily_plan').select('*').eq('team_id',TEAM_ID).order('product_name')
-  planData = data || []
-  const { data: rp } = await sb.from('roasting_progress').select('*').eq('team_id',TEAM_ID).eq('plan_date',todayStr)
-  roastingProgress = {}
-  roastLocks = {}
-  for (const r of (rp||[])) {
-    roastingProgress[r.green_name] = r
-    // The freeze lives in the DB, so it survives a refresh and is shared
-    // across every device looking at today's plan.
-    if (r.locked_roasted_lbs != null) roastLocks[r.green_name] = Number(r.locked_roasted_lbs)
+// `stillFresh` (realtime reloads only): checked after the reads, before anything is applied.
+// false = a local write went out meanwhile, so these rows may predate it; drop them.
+async function loadPlan(stillFresh) {
+  const { data, error } = await sb.from('daily_plan').select('*').eq('team_id',TEAM_ID).order('product_name')
+  const { data: rp, error: rpError } = await sb.from('roasting_progress').select('*').eq('team_id',TEAM_ID).eq('plan_date',todayStr)
+  if (stillFresh && !stillFresh()) return false
+  // A failed read keeps what is on screen rather than blanking the list or zeroing batch counts.
+  if (!error) planData = data || []
+  if (!rpError) {
+    roastingProgress = {}
+    roastLocks = {}
+    for (const r of (rp||[])) {
+      roastingProgress[r.green_name] = r
+      // The freeze lives in the DB, so it survives a refresh and is shared
+      // across every device looking at today's plan.
+      if (r.locked_roasted_lbs != null) roastLocks[r.green_name] = Number(r.locked_roasted_lbs)
+    }
   }
   await loadPlanState()
   await loadActivity()
@@ -1000,11 +1066,15 @@ async function loadPlan() {
   renderRoasting()
   renderLbsNeeded()
   populateCoffeeDropdown()
+  return true
 }
 
 async function loadPlanState() {
-  const { data } = await sb.from('plan_state').select('*')
+  const { data, error } = await sb.from('plan_state').select('*')
     .eq('team_id',TEAM_ID).eq('plan_date',todayStr).maybeSingle()
+  // A failed read keeps the last known state: showing a finalized plan as open would offer
+  // Finalize again, which moves finalized_at and pulls late orders into today.
+  if (error) return
   planState = data || null
 }
 
@@ -1043,7 +1113,7 @@ async function validateBlends() {
   document.getElementById('staleWarn').style.display = hasStale ? 'flex' : 'none'
 
   // Specific warnings
-  const detail = staleBlends.map(s => `${s.blend}: "${s.component}" not in Shopify`).join(' · ')
+  const detail = staleBlends.map(s => `${escHtml(s.blend)}: "${escHtml(s.component)}" not in Shopify`).join(' · ')
 
   const roastWarn = document.getElementById('staleWarnRoast')
   if (hasStale) {
@@ -1076,7 +1146,7 @@ async function populateCoffeeDropdown() {
   const all = [...new Set([...fromPlan, ...fromOrigins, ...fromBlends, ...shopifyProducts])]
     .filter(isLiveCoffee).sort()
   sel.innerHTML = all.length
-    ? all.map(n => `<option value="${n}">${n}</option>`).join('')
+    ? all.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('')
     : '<option value="">Pull Orders first</option>'
 }
 
@@ -1116,14 +1186,14 @@ function renderBagging() {
       const bagged = row.qty_bagged||0
       const remaining = qtyRemaining(row)
       const isOld = row.oldest_order_date && row.oldest_order_date < todayStr
-      const stale = isOld ? `<span class="bag-stale">⚠ ${row.oldest_order_date}</span>` : ''
+      const stale = isOld ? `<span class="bag-stale">⚠ ${escHtml(row.oldest_order_date)}</span>` : ''
       return `<div class="bag-row ${row.done?'is-done':''}" id="row-${row.id}">
         <input type="checkbox" class="bag-check" ${row.done?'checked':''} onchange="toggleDone('${row.id}',this.checked)">
         <div class="bag-name-cell">
-          <div class="bag-name">${row.product_name}</div>
-          ${row.note?`<div class="bag-note">${row.note}</div>`:''}
+          <div class="bag-name">${escHtml(row.product_name)}</div>
+          ${row.note?`<div class="bag-note">${escHtml(row.note)}</div>`:''}
         </div>
-        <div class="bag-cell c"><span class="bag-size">${row.variant_title}</span></div>
+        <div class="bag-cell c"><span class="bag-size">${escHtml(row.variant_title)}</span></div>
         <div class="bag-cell c bag-src-cell">
           <span class="source-tag ${row.source==='manual'?'manual':''}">${row.source==='manual'?'Internal':'Shopify'}</span>
           ${stale}
@@ -1158,6 +1228,25 @@ function renderBagging() {
 // Escape text for innerHTML (also used by the Ship tab for Shippo/Shopify messages).
 function escHtml(v) {
   return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+}
+// A string argument for an inline handler: onclick="f(${jsArg(name)})". escHtml alone is not
+// enough there: the browser decodes &#39; back to ' before the handler's JS is parsed.
+function jsArg(v) {
+  return escHtml(JSON.stringify(String(v == null ? '' : v)))
+}
+// An href that can only be a web link. javascript:, data: and anything unparseable become ''.
+function safeUrl(v) {
+  try {
+    const u = new URL(String(v))
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : ''
+  } catch (e) { return '' }
+}
+// A label's tracking number, linked when its URL is a web link. Both come from Shippo or from a
+// shipping_labels row, so neither is trusted as HTML.
+function trackingLink(label) {
+  const href = safeUrl(label && label.tracking_url)
+  const num = escHtml(label && label.tracking_number)
+  return href ? `<a href="${escHtml(href)}" target="_blank" rel="noopener">${num}</a>` : num
 }
 
 // xBloom is out of this roll-up entirely - the pod SKUs and the rare xBloom bulk
@@ -1307,7 +1396,7 @@ function renderRoasting() {
       return Math.abs(total-1)>0.01
     })
     warnEl.style.display = 'flex'
-    warnEl.innerHTML = `⚠ Blend ratios don't add to 100% — fix in Blends tab: ${broken.join(', ')}`
+    warnEl.innerHTML = `⚠ Blend ratios don't add to 100% — fix in Blends tab: ${escHtml(broken.join(', '))}`
   } else {
     warnEl.style.display = 'none'
   }
@@ -1387,27 +1476,27 @@ function renderRoasting() {
     totalGreen+=greenLbs
     totalBatchesDone+=Math.min(batchesDone,batchesNeeded)
     if (m.machine==='probat') probatNeeded+=batchesNeeded; else primoNeeded+=batchesNeeded
-    const esc = coffeeName.replace(/'/g,"\\'")
+    const esc = jsArg(coffeeName)   // a quoted JS string, safe inside onclick="…"
     const expanded = !!roastMathOpen[coffeeName]
 
     const editor = m.needsProbatSetup
       ? `<span class="machine-editor needs-setup">Set Probat batch size:
-           <input type="number" min="1" step="0.5" placeholder="lbs" onchange="setMachineVal('${esc}','probat_batch_lbs',this.value)">
+           <input type="number" min="1" step="0.5" placeholder="lbs" onchange="setMachineVal(${esc},'probat_batch_lbs',this.value)">
          </span>`
       : `<span class="machine-editor">
-           <input type="number" min="1" step="0.5" value="${m.batchSize}" onchange="setMachineVal('${esc}','${m.machine==='probat'?'probat_batch_lbs':'batch_size_lbs'}',this.value)"> lbs/batch ·
-           <input type="number" min="1" max="30" step="0.5" value="${m.shrinkPct}" onchange="setMachineVal('${esc}','${m.machine==='probat'?'probat_shrink_pct':'shrinkage_pct'}',this.value)">% shrink
+           <input type="number" min="1" step="0.5" value="${m.batchSize}" onchange="setMachineVal(${esc},'${m.machine==='probat'?'probat_batch_lbs':'batch_size_lbs'}',this.value)"> lbs/batch ·
+           <input type="number" min="1" max="30" step="0.5" value="${m.shrinkPct}" onchange="setMachineVal(${esc},'${m.machine==='probat'?'probat_shrink_pct':'shrinkage_pct'}',this.value)">% shrink
          </span>`
 
     return `<div class="row-card ${locked?'is-locked':''} ${batchesLeft===0&&canCompute?'is-done':''}">
       <div class="row-card-main">
-        <div class="row-name">${coffeeName}${locked?' <span class="badge badge-amber" style="font-size:10px">FROZEN</span>':''}</div>
+        <div class="row-name">${escHtml(coffeeName)}${locked?' <span class="badge badge-amber" style="font-size:10px">FROZEN</span>':''}</div>
         <div class="row-meta">
           <span>Roasted <b>${roastedLbs.toFixed(1)}</b> lbs</span>
-          <button class="math-toggle" onclick="toggleRoastMath('${esc}')">Green ${greenLbs.toFixed(1)} lbs ${expanded?'▾':'▸'}</button>
+          <button class="math-toggle" onclick="toggleRoastMath(${esc})">Green ${greenLbs.toFixed(1)} lbs ${expanded?'▾':'▸'}</button>
           <span class="machine-toggle">
-            <button class="machine-btn ${m.machine==='primo'?'active':''}" onclick="setMachine('${esc}','primo')">Primo</button>
-            <button class="machine-btn ${m.machine==='probat'?'active':''}" onclick="setMachine('${esc}','probat')">Probat</button>
+            <button class="machine-btn ${m.machine==='primo'?'active':''}" onclick="setMachine(${esc},'primo')">Primo</button>
+            <button class="machine-btn ${m.machine==='probat'?'active':''}" onclick="setMachine(${esc},'probat')">Probat</button>
           </span>
           ${editor}
         </div>
@@ -1423,18 +1512,18 @@ function renderRoasting() {
         <div class="count-label">needed</div>
       </div>
       <div class="counter-cell">
-        <button class="counter-btn" onclick="adjustBatches('${esc}', -1)">−</button>
+        <button class="counter-btn" onclick="adjustBatches(${esc}, -1)">−</button>
         <div class="count-block" style="min-width:46px">
           <div class="count-done">${batchesDone}</div>
           <div class="count-sub">done</div>
         </div>
-        <button class="counter-btn plus" onclick="adjustBatches('${esc}', 1)">+</button>
+        <button class="counter-btn plus" onclick="adjustBatches(${esc}, 1)">+</button>
       </div>
       <div class="count-block" style="min-width:60px">
         <div class="count-need" style="color:${batchesLeft===0?'var(--green)':'var(--black)'}">${canCompute?batchesLeft:'—'}</div>
         <div class="count-sub">remaining</div>
       </div>
-      <button class="lock-btn ${locked?'locked':''}" onclick="toggleRoastLock(this.dataset.name)" data-name="${coffeeName}">${locked?'🔒 Unlock':'Lock'}</button>
+      <button class="lock-btn ${locked?'locked':''}" onclick="toggleRoastLock(this.dataset.name)" data-name="${escHtml(coffeeName)}">${locked?'🔒 Unlock':'Lock'}</button>
     </div>`
   }).join('')
 
@@ -1531,7 +1620,7 @@ function renderAfterLock() {
       const at = new Date(r.created_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})
       return `<div class="alert alert-red" style="justify-content:space-between;align-items:center">
         <div>
-          <div style="font-weight:700">${r.product_name} — ${r.qty_needed} ${r.variant_title}</div>
+          <div style="font-weight:700">${escHtml(r.product_name)} — ${escHtml(r.qty_needed)} ${escHtml(r.variant_title)}</div>
           <div style="font-size:12px;margin-top:2px">Arrived ${at}, after this morning's lock. Rolling to tomorrow.</div>
         </div>
         <button class="btn btn-danger btn-sm" onclick="addLateToToday('${r.id}')">Add to today anyway</button>
@@ -1595,7 +1684,7 @@ function renderActivity() {
       ${!activityLog.length ? '<div class="empty" style="padding:24px">Nothing yet today</div>' :
         activityLog.map(ev=>`
           <div class="activity-item">
-            <div class="activity-text ${ev.undone?'is-undone':''}">${ev.text}</div>
+            <div class="activity-text ${ev.undone?'is-undone':''}">${escHtml(ev.text)}</div>
             <div class="activity-meta">
               <span>${new Date(ev.created_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}${ev.undone?' · undone':''}</span>
               ${ev.undo && !ev.undone ? `<button onclick="undoActivity('${ev.id}')">Undo</button>` : ''}
@@ -1672,7 +1761,7 @@ async function loadB2B() {
   container.innerHTML = '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">Loading B2B orders...</div>'
 
   try {
-    const res = await fetch('/api/shopify-token?type=b2b')
+    const res = await apiFetch('/api/shopify-token?type=b2b')
     const data = await res.json()
     const companies = data.companies || []
 
@@ -1695,23 +1784,23 @@ async function loadB2B() {
       <div class="company-card">
         <div class="company-header">
           <div>
-            <div class="company-name">${company.company_name}</div>
+            <div class="company-name">${escHtml(company.company_name)}</div>
             <div class="company-meta">
-              ${company.contact_name ? `${company.contact_name} · ` : ''}
-              ${company.email ? `<a href="mailto:${company.email}">${company.email}</a>` : ''}
+              ${company.contact_name ? `${escHtml(company.contact_name)} · ` : ''}
+              ${company.email ? `<a href="mailto:${escHtml(encodeURIComponent(company.email).replace(/%40/g, '@'))}">${escHtml(company.email)}</a>` : ''}
             </div>
           </div>
-          <span class="badge badge-blue">${company.order_count} order${company.order_count!==1?'s':''}</span>
+          <span class="badge badge-blue">${escHtml(company.order_count)} order${company.order_count!==1?'s':''}</span>
         </div>
         ${company.items.map(item=>`
-          <div class="b2b-line"><span class="b2b-line-qty">${item.qty}x</span> ${item.product_name} - ${item.variant_title}</div>
+          <div class="b2b-line"><span class="b2b-line-qty">${escHtml(item.qty)}x</span> ${escHtml(item.product_name)} - ${escHtml(item.variant_title)}</div>
         `).join('')}
         <div class="b2b-line" style="background:var(--cream-dark);font-weight:700">${company.items.reduce((s,i)=>s+i.qty,0)} bags total</div>
       </div>
     `).join('')
 
   } catch(err) {
-    container.innerHTML = `<div class="alert alert-red">Error loading B2B orders: ${err.message}</div>`
+    container.innerHTML = `<div class="alert alert-red">Error loading B2B orders: ${escHtml(err.message)}</div>`
   }
 
   btn.disabled = false
@@ -1826,13 +1915,13 @@ async function loadShipOrders() {
   document.getElementById('shipSummary').innerHTML = ''
   body.innerHTML = '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">Loading shippable B2B orders…</div>'
   try {
-    const res = await fetch('/api/shopify-token?type=b2b-ship')
+    const res = await apiFetch('/api/shopify-token?type=b2b-ship')
     const data = await res.json()
     if (data.error) throw new Error(data.error)
     b2bShipOrders = (data.orders || []).map(order => ({ ...order, items: expandShipItems(order.items) }))
   } catch (err) {
     b2bShipOrders = []
-    body.innerHTML = `<div class="alert alert-red">Couldn't load B2B orders: ${err.message}</div>`
+    body.innerHTML = `<div class="alert alert-red">Couldn't load B2B orders: ${escHtml(err.message)}</div>`
     return
   }
   await loadShipPending()
@@ -1917,12 +2006,12 @@ function renderShipList() {
     // Labels already bought for this order and never fulfilled — say so loudly.
     const pend = shipPending[o.order_id]
     const pendChip = pend
-      ? `<span class="badge badge-red">⚠ ${pend.labels_bought} label${pend.labels_bought != 1 ? 's' : ''} bought · NOT fulfilled</span>`
+      ? `<span class="badge badge-red">⚠ ${escHtml(pend.labels_bought)} label${pend.labels_bought != 1 ? 's' : ''} bought · NOT fulfilled</span>`
       : ''
     return `<div class="ship-order-row"${pend ? ' style="border-left:3px solid var(--red)"' : ''}>
       <div class="ship-addr">
-        <div class="ship-addr-name">${sa.company || sa.name || '—'}</div>
-        <div>${o.order_name} · ${where || 'no address'}</div>
+        <div class="ship-addr-name">${escHtml(sa.company || sa.name || '—')}</div>
+        <div>${escHtml(o.order_name)} · ${escHtml(where || 'no address')}</div>
       </div>
       <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         ${pendChip}
@@ -2000,9 +2089,9 @@ async function clearHandFulfilled(orderId) {
     if (error) throw error
     const tracking = (data || []).map(r => ({ number: r.tracking_number }))
     if (!tracking.length) throw new Error('no labels found for this order')
-    const res = await fetch('/api/shopify-fulfill', {
+    const res = await apiFetch('/api/shopify-fulfill', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_id: orderId, tracking, company: 'UPS', notifyCustomer: false })
+      body: JSON.stringify({ order_id: orderId, tracking, company: 'UPS', notifyCustomer: false, only_if_fulfilled: true })
     })
     const out = await res.json()
     if (!res.ok || !out.ok || !out.alreadyFulfilled) {
@@ -2046,13 +2135,13 @@ function renderShipDetail() {
 
   const bar = `<div class="ship-bar">
     ${s.phase === 'buying' ? '' : '<button class="btn btn-secondary btn-sm" onclick="backToShipList()">← Orders</button>'}
-    <div class="ship-bar-title">${o.order_name}</div>
+    <div class="ship-bar-title">${escHtml(o.order_name)}</div>
   </div>`
 
   const addr = `<div class="ship-addr" style="margin-bottom:1rem">
-    <div class="ship-addr-name">${sa.company || ''}${sa.name && sa.name !== sa.company ? ' · ' + sa.name : ''}</div>
-    <div>${[sa.address1, sa.address2].filter(Boolean).join(', ')}</div>
-    <div>${[sa.city, sa.province_code, sa.zip].filter(Boolean).join(', ')}</div>
+    <div class="ship-addr-name">${escHtml(sa.company || '')}${sa.name && sa.name !== sa.company ? ' · ' + escHtml(sa.name) : ''}</div>
+    <div>${escHtml([sa.address1, sa.address2].filter(Boolean).join(', '))}</div>
+    <div>${escHtml([sa.city, sa.province_code, sa.zip].filter(Boolean).join(', '))}</div>
   </div>`
 
   // Halt-and-warn: unpackable items block the buy (>20 lb single item, or unknown weight).
@@ -2060,7 +2149,7 @@ function renderShipDetail() {
   if (s.pack.unpackable.length) {
     const lines = s.pack.unpackable.map(u => {
       const why = u.reason === 'unit_exceeds_box_cap' ? "over 20 lb — won't fit one box" : 'unknown weight'
-      return `${u.qty}× ${u.product_name} (${u.variant_title}) — ${why}`
+      return `${escHtml(u.qty)}× ${escHtml(u.product_name)} (${escHtml(u.variant_title)}) — ${why}`
     }).join('<br>')
     warn = `<div class="alert alert-red">⚠ Some items can't be auto-packed into a 14x10x10 box — resolve these before shipping (nothing has been charged):<div class="stale-detail">${lines}</div></div>`
   }
@@ -2069,7 +2158,7 @@ function renderShipDetail() {
   // money is already spent and the customer is waiting on the fulfillment.
   if (s.recovered && s.recovered.attached) {
     const r = s.recovered
-    warn += `<div class="alert ${r.mismatch ? 'alert-red' : 'alert-blue'}">↻ ${r.attached} label${r.attached !== 1 ? 's were' : ' was'} already bought for this order and restored — nothing was re-charged. Print if you haven't, then fulfill.${r.mismatch ? `<div class="stale-detail">⚠ ${r.mismatch} — check the boxes below against what you actually packed before fulfilling.</div>` : ''}</div>`
+    warn += `<div class="alert ${r.mismatch ? 'alert-red' : 'alert-blue'}">↻ ${r.attached} label${r.attached !== 1 ? 's were' : ' was'} already bought for this order and restored — nothing was re-charged. Print if you haven't, then fulfill.${r.mismatch ? `<div class="stale-detail">⚠ ${escHtml(r.mismatch)} — check the boxes below against what you actually packed before fulfilling.</div>` : ''}</div>`
   }
 
   const boxesHtml = s.boxes.map((b, idx) => renderShipBox(b, idx)).join('')
@@ -2079,14 +2168,14 @@ function renderShipDetail() {
 function renderShipBox(b, idx) {
   const box = b.box
   const contents = (box.contents || []).map(c =>
-    `<div class="ship-content-line"><span class="ship-content-qty">${c.qty}×</span><span>${c.product_name}${c.variant_title ? ` (${c.variant_title})` : ''}</span></div>`
+    `<div class="ship-content-line"><span class="ship-content-qty">${escHtml(c.qty)}×</span><span>${escHtml(c.product_name)}${c.variant_title ? ` (${escHtml(c.variant_title)})` : ''}</span></div>`
   ).join('')
 
   let chip
   if (b.label) chip = `<span class="badge badge-green">✓ Label${b.label.test ? ' (TEST)' : ''}${b.label.recovered ? ' · recovered' : ''}</span>`
   else if (b.status === 'buying') chip = `<span class="badge badge-amber">Buying…</span>`
   else if (b.status === 'failed') chip = `<span class="badge badge-red">✕ Failed</span>`
-  else if (b.rate) chip = `<span class="badge badge-blue">$${Number(b.rate.amount).toFixed(2)} · UPS Ground${b.rate.zone ? ' · zone ' + b.rate.zone : ''}</span>`
+  else if (b.rate) chip = `<span class="badge badge-blue">$${Number(b.rate.amount).toFixed(2)} · UPS Ground${b.rate.zone ? ' · zone ' + escHtml(b.rate.zone) : ''}</span>`
   else if (b.priceChange) chip = `<span class="badge badge-amber">Price changed</span>`
   else if (b.rateError) chip = `<span class="badge badge-red">No rate</span>`
   else chip = `<span class="badge badge-gray">Packed</span>`
@@ -2105,8 +2194,8 @@ function renderShipBox(b, idx) {
     detail += `<div class="form-msg err" style="margin-top:.4rem">✕ ${b.labelError} — no label was bought for this box; retry below.</div>`
   }
   if (b.label) {
-    const tn = b.label.tracking_url ? `<a href="${b.label.tracking_url}" target="_blank" rel="noopener">${b.label.tracking_number}</a>` : b.label.tracking_number
-    const costWarn = b.label.cost_logged === false ? ` <span class="badge badge-amber" title="${b.label.cost_log_error || ''}">cost not logged</span>` : ''
+    const tn = trackingLink(b.label)
+    const costWarn = b.label.cost_logged === false ? ` <span class="badge badge-amber" title="${escHtml(b.label.cost_log_error || '')}">cost not logged</span>` : ''
     detail += `<div class="ship-track" style="margin-top:.4rem">📦 ${tn}${costWarn}</div>`
     detail += `<div style="margin-top:.5rem;display:flex;gap:.5rem;flex-wrap:wrap">
       <button class="btn btn-secondary btn-sm" onclick="printLabel(${idx})">🖨 ${b.labelOpened ? 'Reprint' : 'Print'} label</button>
@@ -2116,7 +2205,7 @@ function renderShipBox(b, idx) {
 
   return `<div class="ship-box">
     <div class="ship-box-head">
-      <div class="ship-box-title">BOX ${box.box_index} OF ${box.box_count} · ${box.weight_lb} lb coffee · declared ${declaredWeightLb(box) ?? '?'} lb · ${box.box_label}</div>
+      <div class="ship-box-title">BOX ${escHtml(box.box_index)} OF ${escHtml(box.box_count)} · ${escHtml(box.weight_lb)} lb coffee · declared ${declaredWeightLb(box) ?? '?'} lb · ${escHtml(box.box_label)}</div>
       ${chip}
     </div>
     <div class="ship-box-body">${contents || '<em>(no items)</em>'}${detail}</div>
@@ -2136,12 +2225,11 @@ function renderShipActions() {
   if (s.phase === 'fulfilled' || s.phase === 'alreadyFulfilled') {
     const f = s.fulfill || {}
     const links = s.boxes.filter(b => b.label).map(b => {
-      const tn = b.label.tracking_url ? `<a href="${b.label.tracking_url}" target="_blank" rel="noopener">${b.label.tracking_number}</a>` : b.label.tracking_number
-      return `<div class="ship-track">📦 BOX ${b.box.box_index}: ${tn}</div>`
+      return `<div class="ship-track">📦 BOX ${escHtml(b.box.box_index)}: ${trackingLink(b.label)}</div>`
     }).join('')
     const head = s.phase === 'alreadyFulfilled'
       ? `<div class="alert alert-blue" style="margin:0">This order was already fulfilled in Shopify — no new notification was sent. Tracking below.</div>`
-      : `<div class="alert alert-green" style="margin:0">✓ Fulfilled — ${f.notified ? 'customer notified once' : 'no notification'}; tracking written to ${f.order || s.order.order_name}.</div>`
+      : `<div class="alert alert-green" style="margin:0">✓ Fulfilled — ${f.notified ? 'customer notified once' : 'no notification'}; tracking written to ${escHtml(f.order || s.order.order_name)}.</div>`
     return `<div class="ship-actionbar" style="flex-direction:column;align-items:stretch;gap:.6rem">${head}${links}<div><button class="btn btn-secondary btn-sm" onclick="backToShipList()">← Back to orders</button></div></div>`
   }
 
@@ -2178,7 +2266,7 @@ function renderShipActions() {
     // the last visible act and reads as "shipped". Make the screen say, loudly and
     // persistently, that the job isn't done and the customer has no tracking.
     if (printed && !busy) {
-      block += `<div class="alert alert-red" style="margin:0 0 .75rem">⚠ <strong>${s.order.order_name} is NOT fulfilled yet.</strong> ${who} has no tracking until you tap <strong>Fulfill order</strong> below. Nothing is sent, and Shopify still shows this order unshipped.</div>`
+      block += `<div class="alert alert-red" style="margin:0 0 .75rem">⚠ <strong>${escHtml(s.order.order_name)} is NOT fulfilled yet.</strong> ${escHtml(who)} has no tracking until you tap <strong>Fulfill order</strong> below. Nothing is sent, and Shopify still shows this order unshipped.</div>`
     }
     return `<div class="ship-actionbar" style="flex-direction:column;align-items:stretch">
       ${block}
@@ -2353,7 +2441,7 @@ async function getRates() {
   for (const b of s.boxes) {
     if (b.rate || b.label) continue   // a box with a label is paid for; never re-rate it
     try {
-      const res = await fetch('/api/shippo-label?action=rate', {
+      const res = await apiFetch('/api/shippo-label?action=rate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address_to: toShippoAddress(s.order.shipping_address), parcel: boxParcel(b.box), carrier: SHIP_CARRIER, weight_basis: SHIP_WEIGHT_BASIS })
       })
@@ -2401,7 +2489,7 @@ async function buyLabels() {
     b.status = 'buying'; b.labelError = null
     renderShip()
     try {
-      const res = await fetch('/api/shippo-label?action=label', {
+      const res = await apiFetch('/api/shippo-label?action=label', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address_to: toShippoAddress(s.order.shipping_address),
@@ -2421,7 +2509,7 @@ async function buyLabels() {
         // back instead of charging again. Treat it like a recovered label.
         b.label = { tracking_number: data.tracking_number, tracking_url: data.tracking_url || null, label_url: data.label_url || null, shippo_object_id: data.shippo_object_id || null, recovered: true }
         b.labelError = null; b.status = 'bought'
-      } else if (res.status === 409) {
+      } else if (res.status === 409 && data.error === 'Price changed') {
         // Nothing bought: UPS's price moved above what was confirmed. A rise usually hits the
         // whole address, so every unbought box goes back to the rate step, and the buy stops.
         b.priceChange = { quoted: data.quoted, amount: data.amount }
@@ -2456,7 +2544,7 @@ async function fulfillOrder() {
   renderShip()
   try {
     const tracking = s.boxes.map(b => ({ number: b.label.tracking_number, url: b.label.tracking_url }))
-    const res = await fetch('/api/shopify-fulfill', {
+    const res = await apiFetch('/api/shopify-fulfill', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       // The server always writes UPS. company stays in the body so that a rollback to the
       // pre-ADR-0020 server (which defaulted to USPS) still labels these 1Z numbers UPS.
@@ -2499,7 +2587,7 @@ async function openShipPdf(boxes, { labels, slips }) {
         weight_lb: b.box.weight_lb, contents: b.box.contents || []
       }))
     }
-    const res = await fetch('/api/ship-doc', {
+    const res = await apiFetch('/api/ship-doc', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
@@ -2649,7 +2737,7 @@ async function renderBlendEditor() {
   const container = document.getElementById('blendCards')
   const originsBody = document.getElementById('originsBody')
   const blendNames = [...new Set(blendMatrix.map(b=>b.product_name))].sort()
-  const productOptions = shopifyProducts.map(p=>`<option value="${p}">${p}</option>`).join('')
+  const productOptions = shopifyProducts.map(p=>`<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('')
 
   if (!blendNames.length) {
     container.innerHTML = '<div class="empty">No blends yet. Click "+ New Blend".</div>'
@@ -2662,13 +2750,13 @@ async function renderBlendEditor() {
       const isStale = staleBlends.some(s=>s.blend===blendName)
       return `<div class="blend-card ${isStale?'stale':''}">
         <div class="blend-card-header">
-          <div class="blend-name">${blendName}${isStale?' ⚠':''}</div>
+          <div class="blend-name">${escHtml(blendName)}${isStale?' ⚠':''}</div>
           <div style="display:flex;align-items:center;gap:.5rem">
             <div class="batch-inline">
-              <input type="number" value="${batchSize}" min="1" max="20" onchange="updateBatchSize('${blendName}',this.value)">
+              <input type="number" value="${batchSize}" min="1" max="20" onchange="updateBatchSize(${jsArg(blendName)},this.value)">
               <span>lbs/batch</span>
             </div>
-            <button class="remove-btn" onclick="deleteBlend('${blendName}')">🗑</button>
+            <button class="remove-btn" onclick="deleteBlend(${jsArg(blendName)})">🗑</button>
           </div>
         </div>
         <div class="blend-card-body">
@@ -2676,7 +2764,7 @@ async function renderBlendEditor() {
             const isMissing = staleBlends.some(s=>s.blend===blendName&&s.component===comp.component_name)
             return `<div class="component-row" id="comp-${comp.id}">
               <select onchange="updateComponent('${comp.id}','component_name',this.value)" style="${isMissing?'border-color:var(--red)':''}">
-                <option value="${comp.component_name}" ${!shopifyProducts.includes(comp.component_name)?'selected':''}>${comp.component_name}${isMissing?' ⚠':''}</option>
+                <option value="${escHtml(comp.component_name)}" ${!shopifyProducts.includes(comp.component_name)?'selected':''}>${escHtml(comp.component_name)}${isMissing?' ⚠':''}</option>
                 ${productOptions}
               </select>
               <input type="number" min="1" max="100" value="${Math.round(Number(comp.ratio)*100)}" onchange="updateComponent('${comp.id}','ratio',this.value/100)">
@@ -2684,7 +2772,7 @@ async function renderBlendEditor() {
               <button class="remove-btn" onclick="removeComponent('${comp.id}')">✕</button>
             </div>`
           }).join('')}
-          <button class="add-comp-btn" onclick="addComponent('${blendName}')">+ Add component</button>
+          <button class="add-comp-btn" onclick="addComponent(${jsArg(blendName)})">+ Add component</button>
           <div class="ratio-status ${ratioOk?'ratio-ok':'ratio-warn'}">
             Total: ${Math.round(totalRatio*100)}% ${ratioOk?'✓ Good':'⚠ Must equal 100%'}
           </div>
@@ -2699,7 +2787,7 @@ async function renderBlendEditor() {
   originsBody.innerHTML = !liveSettings.length
     ? '<div class="empty">No coffees configured</div>'
     : liveSettings.map(gs=>`<div class="origin-grid-row">
-        <span class="origin-name">${gs.component_name}</span>
+        <span class="origin-name">${escHtml(gs.component_name)}</span>
         <span><input type="number" value="${gs.batch_size_lbs}" min="1" max="40" step="0.5" onchange="updateOrigin('${gs.id}','batch_size_lbs',this.value)"></span>
         <span><input type="number" value="${gs.shrinkage_pct}" min="1" max="30" step="0.5" onchange="updateOrigin('${gs.id}','shrinkage_pct',this.value)"></span>
         <span><input type="number" class="${gs.probat_batch_lbs==null?'unset':''}" value="${gs.probat_batch_lbs==null?'':gs.probat_batch_lbs}" placeholder="not set" min="1" max="40" step="0.5" onchange="updateOrigin('${gs.id}','probat_batch_lbs',this.value)"></span>
@@ -2831,16 +2919,16 @@ async function viewArchive() {
     .order('archived_at', { ascending: false })
 
   if (error) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">Error: ${error.message}</td></tr>`
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Error: ${escHtml(error.message)}</td></tr>`
     return
   }
 
   tbody.innerHTML = !data?.length
     ? '<tr><td colspan="5" class="empty">Nothing archived today yet</td></tr>'
     : data.map(r=>`<tr>
-        <td style="font-weight:500">${r.product_name}</td>
-        <td style="font-size:.8rem">${r.variant_title}</td>
-        <td style="font-family:var(--font-display);font-weight:800">${r.final_qty}</td>
+        <td style="font-weight:500">${escHtml(r.product_name)}</td>
+        <td style="font-size:.8rem">${escHtml(r.variant_title)}</td>
+        <td style="font-family:var(--font-display);font-weight:800">${escHtml(r.final_qty)}</td>
         <td><span class="source-tag ${r.source==='manual'?'manual':''}">${r.source==='manual'?'Internal':'Shopify'}</span></td>
         <td style="font-family:var(--font-mono);font-size:.75rem;color:var(--mid-gray)">${new Date(r.archived_at).toLocaleTimeString()}</td>
       </tr>`).join('')
@@ -2914,14 +3002,14 @@ function renderSchedule() {
   // truncate long single-origin names ("Balboa Cauca - Auction Lot, Colombia").
   const pick = (role, id, val, editable) => {
     const label = `<span class="pick-label">${role}</span>`
-    if (!editable) return `<div class="pick-row">${label}<div class="pick-static">${val || '—'}</div></div>`
+    if (!editable) return `<div class="pick-row">${label}<div class="pick-static">${escHtml(val || '—')}</div></div>`
     const known = val && !allCoffees.includes(val)
-      ? `<option value="${val}" selected>${val}</option>` : ''
+      ? `<option value="${escHtml(val)}" selected>${escHtml(val)}</option>` : ''
     return `<div class="pick-row">${label}
       <select id="${id}" onchange="markRowDirty('${id.split('-').slice(1).join('-')}')">
         <option value="">— select —</option>
         ${known}
-        ${allCoffees.map(c=>`<option value="${c}" ${c===val?'selected':''}>${c}</option>`).join('')}
+        ${allCoffees.map(c=>`<option value="${escHtml(c)}" ${c===val?'selected':''}>${escHtml(c)}</option>`).join('')}
       </select>
     </div>`
   }
@@ -3070,7 +3158,7 @@ function renderMixGuide() {
 
   // Selector buttons
   selectorEl.innerHTML = blendNames.map(name =>
-    `<button class="mix-selector-btn ${activeMix === name ? 'active' : ''}" onclick="selectMix(this.dataset.name)" data-name="${name.replace(/"/g,'&quot;')}">${name}</button>`
+    `<button class="mix-selector-btn ${activeMix === name ? 'active' : ''}" onclick="selectMix(this.dataset.name)" data-name="${escHtml(name)}">${escHtml(name)}</button>`
   ).join('')
 
   // Auto-select first blend
@@ -3115,7 +3203,7 @@ function renderMixGuide() {
   // Blend card — each row has a weight span updated in-place by calcMix()
   cardEl.innerHTML = `
     <div class="mix-card">
-      <div class="mix-blend-name">${activeMix}</div>
+      <div class="mix-blend-name">${escHtml(activeMix)}</div>
       ${components.map(comp => {
         const pct = Math.round(Number(comp.ratio) * 100)
         const parts = comp.component_name.split(' - ')
@@ -3124,7 +3212,7 @@ function renderMixGuide() {
         return `<div class="mix-component">
           <div class="mix-pct">${pct}%</div>
           <div class="mix-coffee-info">
-            <div class="mix-coffee-name">${coffeeName}</div>
+            <div class="mix-coffee-name">${escHtml(coffeeName)}</div>
           </div>
           <div class="mix-weight" id="weight-${pct}-${coffeeName.replace(/[^a-z0-9]/gi,'')}" data-ratio="${comp.ratio}"></div>
         </div>`
@@ -3171,32 +3259,117 @@ function calcMix() {
   }
 }
 
-// Realtime
-sb.channel('plan_changes')
-  .on('postgres_changes',{event:'*',schema:'public',table:'daily_plan'},()=>loadPlan())
-  .subscribe()
-sb.channel('roast_changes')
-  .on('postgres_changes',{event:'*',schema:'public',table:'roasting_progress'},async()=>{
-    const {data:rp}=await sb.from('roasting_progress').select('*').eq('team_id',TEAM_ID).eq('plan_date',todayStr)
-    roastingProgress={}
-    roastLocks={}
-    for(const r of (rp||[])) {
-      roastingProgress[r.green_name]=r
-      if (r.locked_roasted_lbs != null) roastLocks[r.green_name] = Number(r.locked_roasted_lbs)
+// Realtime. Subscribed only once signed in: the tables are readable by `authenticated` only,
+// and Realtime checks RLS with the subscriber's token (supabase-js passes refreshed tokens on).
+// Every event schedules a reload instead of running one (ADR 0023):
+//  - debounced: a Pull Orders on another device is dozens of row events, one reload here;
+//  - one at a time, plus one trailing run;
+//  - held while this device has a write in flight, wrote in the last RT_QUIET_MS, has a
+//    finger on the screen (a re-render would move rows under it), or a field is being edited
+//    (a re-render would reset it), for at most RT_MAX_HOLD_MS;
+//  - dropped and re-run if a local write went out while it was reading, so an echo of an
+//    earlier tap can't put back a counter value the next tap already moved past.
+const RT_QUIET_MS = 800
+const RT_MAX_HOLD_MS = 60000
+const rtJobs = new Set()
+let rtTimer = null, rtRunning = false, rtAgain = false, pointerIsDown = false, rtHeldSince = 0
+function isEditingField() {
+  const a = document.activeElement
+  return !!a && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' ||
+    (a.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(a.type)))
+}
+document.addEventListener('pointerdown', () => { pointerIsDown = true }, true)
+document.addEventListener('pointerup', () => { pointerIsDown = false }, true)
+document.addEventListener('pointercancel', () => { pointerIsDown = false }, true)
+window.addEventListener('blur', () => { pointerIsDown = false })   // released outside the window
+
+function scheduleRealtime(job) {
+  rtJobs.add(job)
+  clearTimeout(rtTimer)
+  rtTimer = setTimeout(runRealtime, RT_QUIET_MS)
+}
+async function runRealtime() {
+  if (rtRunning) { rtAgain = true; return }
+  if (restWritesInFlight > 0 || Date.now() - lastLocalWriteAt < RT_QUIET_MS) {
+    rtTimer = setTimeout(runRealtime, RT_QUIET_MS)
+    return
+  }
+  // Finger down or a field in use: wait, but not forever (a stuck flag, a field left focused).
+  if ((pointerIsDown || isEditingField()) && !(rtHeldSince && Date.now() - rtHeldSince > RT_MAX_HOLD_MS)) {
+    if (!rtHeldSince) rtHeldSince = Date.now()
+    rtTimer = setTimeout(runRealtime, RT_QUIET_MS)
+    return
+  }
+  rtHeldSince = 0
+  rtRunning = true
+  const jobs = [...rtJobs]
+  rtJobs.clear()
+  const gen = localWriteGen
+  const stillFresh = () => localWriteGen === gen && restWritesInFlight === 0
+  try {
+    for (const job of jobs) {
+      if ((await job(stillFresh)) === false) { jobs.forEach(j => rtJobs.add(j)); rtAgain = true; break }
     }
-    renderRoasting()
-  })
-  .subscribe()
-// Finalizing on one iPad has to show up on every other one.
-sb.channel('plan_state_changes')
-  .on('postgres_changes',{event:'*',schema:'public',table:'plan_state'},async()=>{
-    await loadPlanState()
-    renderRoasting()
-  })
-  .subscribe()
-sb.channel('activity_changes')
-  .on('postgres_changes',{event:'*',schema:'public',table:'activity_log'},()=>loadActivity())
-  .subscribe()
+  } catch (e) {
+    console.warn('realtime reload failed', e)
+  } finally {
+    rtRunning = false
+  }
+  if (rtAgain || rtJobs.size) { rtAgain = false; rtTimer = setTimeout(runRealtime, RT_QUIET_MS) }
+}
+
+async function reloadRoasting(stillFresh) {
+  const {data:rp, error}=await sb.from('roasting_progress').select('*').eq('team_id',TEAM_ID).eq('plan_date',todayStr)
+  if (stillFresh && !stillFresh()) return false
+  if (error) return true   // keep what is on screen
+  roastingProgress={}
+  roastLocks={}
+  for(const r of (rp||[])) {
+    roastingProgress[r.green_name]=r
+    if (r.locked_roasted_lbs != null) roastLocks[r.green_name] = Number(r.locked_roasted_lbs)
+  }
+  renderRoasting()
+  return true
+}
+async function reloadPlanState() {
+  await loadPlanState()
+  renderRoasting()
+  return true
+}
+async function reloadActivity() {
+  await loadActivity()
+  return true
+}
+
+// A channel that was live and drops shows on the sync pill. One that never connects (e.g.
+// before db/2026-10-18-realtime-publication.sql is applied) is only logged.
+const rtLive = {}
+function onChannelStatus(name, status, err) {
+  if (status === 'SUBSCRIBED') {
+    const wasDown = rtLive[name] === false
+    rtLive[name] = true
+    if (wasDown) { scheduleRealtime(loadPlan); setSync('live') }
+    return
+  }
+  if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+    console.warn(`realtime ${name}: ${status}`, err || '')
+    if (rtLive[name]) {
+      rtLive[name] = false
+      setSync('error', 'Live updates from other devices stopped. Reload to reconnect.')
+    }
+  }
+}
+
+function subscribeRealtime() {
+  const on = (name, table, job) => sb.channel(name)
+    .on('postgres_changes', { event: '*', schema: 'public', table }, () => scheduleRealtime(job))
+    .subscribe((status, err) => onChannelStatus(name, status, err))
+  on('plan_changes', 'daily_plan', loadPlan)
+  on('roast_changes', 'roasting_progress', reloadRoasting)
+  // Finalizing on one iPad has to show up on every other one.
+  on('plan_state_changes', 'plan_state', reloadPlanState)
+  on('activity_changes', 'activity_log', reloadActivity)
+}
 
 async function init() {
   await loadBlends()
@@ -3205,7 +3378,81 @@ async function init() {
   lastSyncAt = new Date()
   setSync('live')
 }
-init()
+
+// ── Sign-in (Supabase Auth, email + password, ADR 0023) ──────────────────────────────────
+// No sign-up and no reset link: accounts are made, and passwords reset, in the Supabase
+// dashboard. The app (data loads, realtime) starts only once a session exists.
+let appStarted = false
+
+function showSignIn(message) {
+  document.documentElement.classList.add('tq-locked')
+  const err = document.getElementById('signInErr')
+  err.textContent = message || ''
+  err.style.display = message ? 'block' : 'none'
+  const btn = document.getElementById('signInBtn')
+  btn.disabled = false
+  btn.textContent = 'Sign in'
+  document.getElementById(document.getElementById('signInEmail').value ? 'signInPassword' : 'signInEmail').focus()
+}
+
+function startApp(session) {
+  document.getElementById('signedInAs').textContent = (session.user && session.user.email) || ''
+  const wasLocked = document.documentElement.classList.contains('tq-locked')
+  document.documentElement.classList.remove('tq-locked')
+  // Signed in again after the screen locked (session ended mid-use): anything read while signed
+  // out was refused, so read everything again. A silent token refresh (not locked) reloads nothing.
+  if (appStarted) { if (wasLocked) init(); return }
+  appStarted = true
+  subscribeRealtime()
+  init()
+}
+
+async function signIn(e) {
+  e.preventDefault()
+  const email = document.getElementById('signInEmail').value.trim()
+  const pass = document.getElementById('signInPassword')
+  if (!email || !pass.value) return showSignIn('Enter your email and password.')
+  const btn = document.getElementById('signInBtn')
+  btn.disabled = true
+  btn.textContent = 'Signing in…'
+  let error
+  try { ({ error } = await sb.auth.signInWithPassword({ email, password: pass.value })) }
+  catch (err) { error = err }
+  if (error) {
+    pass.value = ''
+    // 400 = wrong email or password; 429 = too many tries; anything else is the network or Supabase.
+    return showSignIn(error.status === 400 ? 'Wrong email or password.'
+      : error.status === 429 ? 'Too many tries. Wait a few minutes, then sign in again.'
+      : "Can't reach the sign-in service. Check the connection and try again.")
+  }
+  pass.value = ''
+  // onAuthStateChange (SIGNED_IN) starts the app.
+}
+
+async function signOut() {
+  if (shipBuyInFlight || (shipState && shipState.phase === 'fulfilling')) {
+    alert('An order is being shipped. Wait until it finishes, then sign out.'); return
+  }
+  if (!confirm('Sign out of this device?')) return
+  // 'local': this device only. A global sign-out would also end the shared floor account on
+  // every other device using it.
+  await sb.auth.signOut({ scope: 'local' })
+}
+
+document.getElementById('signInForm').addEventListener('submit', signIn)
+// The old casual gate's cookie is meaningless now.
+document.cookie = 'tq_access=; max-age=0; path=/'
+
+function onAuthChange(event, session) {
+  if (session) return startApp(session)
+  if (!appStarted) return showSignIn()
+  // Signed out after the app ran: reload so nothing from the session stays in memory, unless
+  // a label buy is mid-loop (its labels are recoverable from the DB either way, ADR 0011).
+  if (shipBuyInFlight) return showSignIn('Signed out. Sign in again to finish.')
+  location.reload()
+}
+// Deferred: awaiting supabase calls inside this callback can deadlock supabase-js's auth lock.
+sb.auth.onAuthStateChange((event, session) => { setTimeout(() => onAuthChange(event, session), 0) })
 </script>
 </body>
 </html>

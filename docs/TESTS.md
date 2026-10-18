@@ -6,6 +6,126 @@ What must pass before committing each step. No CI here (single-file PWA, static 
 - [ ] Full-script syntax: extract `<script>` blocks and `node --check` → no errors. A paste error breaks the entire app's JS, so this is non-negotiable. Automated in `tests/syntax.test.js`.
 - [ ] `npm test` (`node --test "tests/*.test.js"`) → all pass.
 
+## Login slice (Supabase Auth, ADR [`0023`](./decisions/0023-supabase-auth-logins.md))
+
+Rollout order (RUNBOOK "First rollout"):
+- 0: login-prep and label-claims SQL; accounts created and marked `portal_staff`.
+- 1: deploy, and every device signs in.
+- 2: a day of observation. 2b: the realtime SQL once no old tab is left.
+- 3a: `PORTAL_AUTH_ENFORCE=1`. 3b: the access SQL.
+
+- [x] **L1:** `npm test` passes, syntax included.
+- [x] **L2 token check** (`tests/auth.test.js`, fetch stubbed; `tests/b0-ups.test.js` runs every API test with enforcement on and a token):
+  - Enforcing, each of the 4 functions answers 401, before any Shippo, Shopify or PostgREST call, to:
+    - a missing token, a bad one, `Basic …`, an empty bearer, two tokens, or one over 8 KB;
+    - an anonymous Supabase user.
+    - The token is never echoed back.
+  - Enforcing, 503 when:
+    - Supabase Auth returns 5xx, refuses the connection, or doesn't answer within the timeout;
+    - `SUPABASE_URL` or `SUPABASE_ANON_KEY` is unset;
+    - Supabase refuses the server's key ("Invalid API key"), so a rotated key can't send every device into a sign-in loop.
+  - A valid token passes. The check sends the token and the anon key to `/auth/v1/user`. "bearer" works in any case.
+  - The cost row, the one-label lookup and the fulfill status flip (`mark_ship_labels_fulfilled`) carry the user's token.
+  - **Double-charge guard:** nothing is bought (503), and no cost row is written, when the one-label lookup is refused, errors or times out. That holds enforcing, and not enforcing with no token or a bad one (the after-migration case). ADR 0020's "lookup fails → buy anyway" is reversed.
+  - Not enforcing:
+    - a missing, bad or unverifiable token is logged with the device's user agent, and the request passes;
+    - a bad token is forwarded as is, never swapped for the anon key;
+    - no token falls back to the anon key;
+    - tokens are never logged.
+  - Only the exact value `1` enforces.
+  - No CORS headers. Wrong method and OPTIONS → 405.
+  - `ship-doc` fetches labels only from `goshippo.com`. S3 buckets with "shippo" in the name are refused.
+- [x] **L3 page:**
+  - Sign-in screen:
+    - No TT password or cookie gate is left, and `<html>` starts locked.
+    - The form has `autocomplete="username"` / `"current-password"` and `onsubmit="return false"`, so it can't post credentials if the script fails. A failed supabase-js load shows a message.
+    - There's a Sign out button (refused mid-buy and mid-fulfill), and no sign-up or reset call.
+  - supabase-js is pinned (`@2.117.2`) with a sha384 `integrity` attribute. The CDN file was compared byte for byte with the npm tarball.
+  - `apiFetch`:
+    - all 10 `/api` call sites use it, and no bare `fetch('/api…')` is left;
+    - it sends `Authorization: Bearer <token>`, and none without a session;
+    - on a 401 it refreshes the session once and retries, then shows the sign-in screen.
+  - `sbFetch` (supabase-js's fetch):
+    - refuses any `/rest/v1/` call on the publishable key alone and shows the sign-in screen;
+    - counts in-flight writes;
+    - lets reads and `/auth/v1/` calls through.
+  - Session lifecycle:
+    - no session → the sign-in screen; `init()` and realtime don't run;
+    - a session (including repeated `TOKEN_REFRESHED`) starts them exactly once;
+    - signing out reloads the page, or only shows sign-in while a buy is running.
+  - Realtime:
+    - 60 events become one reload;
+    - a reload waits while this device writes or a finger is down;
+    - a reload whose reads raced a local write is dropped and re-run;
+    - `loadPlan` keeps the list on a failed read;
+    - a live channel that drops sets the sync pill to error, and one that never connected only logs.
+  - Escaping:
+    - `jsArg` round-trips quotes, backslashes and `</script>` and leaves no raw quote or bracket;
+    - `safeUrl` refuses `javascript:`, `data:`, `vbscript:` and relative URLs;
+    - ship box and B2B list output with `<img onerror>` in every Shopify field contains no live markup;
+    - no inline handler takes a data-derived name as a quoted JS string.
+  - Browser preview (Chromium, local static server, no session):
+    - only the sign-in screen is visible, with the email field focused;
+    - supabase-js loads through the integrity check, and no Supabase request is made;
+    - an empty submit shows the "enter your email and password" message;
+    - it fits a 375 px width.
+- [x] **L4 migrations** (`npm run test:db`, PGlite 0.5.8 with `tests/db/live-schema-2026-10-18.sql`, a copy of the live tables, keys, grants, 36 policies, 3 functions, default privileges and the empty publication; ADR [`0024`](./decisions/0024-pglite-for-migration-tests.md)):
+  - The fixture reproduces today: anon has full CRUD; a signed-in user sees and saves nothing on `activity_log` and `plan_state`.
+  - **login-prep:**
+    - signed-in users get exactly anon's access, and anon loses nothing;
+    - a second run is refused;
+    - the rollback restores today.
+  - **realtime:**
+    - publishes the 4 tables and can be run twice;
+    - access is unchanged and UPDATE/DELETE still work;
+    - the rollback unpublishes;
+    - it's refused if a table has no primary key.
+  - **access:**
+    - anon gets 0 rows on all 10 tables, inserts are refused, updates and deletes hit 0 rows, and all 3 functions are denied;
+    - `authenticated` access equals anon's before, cell for cell, and all 3 functions work;
+    - `green_planner_app` reads only its 2 tables, writes nothing, and loses the PUBLIC EXECUTE it had (including on `mark_ship_labels_fulfilled`);
+    - policies keep command and expressions; only role and name change;
+    - new tables and functions created by postgres get no anon grant.
+    - It is refused, with nothing changed, when: login-prep is missing; there are no accounts; an account has never signed in; an anonymous user exists; the policies drifted; it's run a second time. A deleted, never-signed-in account doesn't block.
+    - The rollback returns to the login-prep state (signed-in access intact), the prep rollback then to today, and a second rollback is refused.
+- [x] **Round 2 additions** (`npm test` 92, `npm run test:db` 16):
+  - **Staff marker:** an account without `app_metadata.portal_staff` gets 403 from `/api` and, after 3b, no rows, no writes and empty recovery functions; 3b refuses to run while one exists.
+  - **Always enforced:** label buying, fulfill, `ship-doc` and `?type=b2b` / `b2b-ship` answer 401 without a token even when not enforcing; products and the order list wait for the variable.
+  - **"Already bought":** the row is confirmed with Shippo (transaction id, SUCCESS, same tracking number), and the response carries Shippo's label and link. An unconfirmed row → 409, nothing bought.
+  - **One buyer per box:** a claimed box → 409, and a claim failure (including the migration missing) → 503, with no purchase in either case. A failed purchase releases its claim. L4: the second claim fails, a release or a 10-minute-old claim frees the box, anon and green_planner_app are denied, a stranger gets `false`, and the table is reachable only through the functions.
+  - **Token life:** a label buy with under 2 minutes left on the token → 401 before anything is bought; rating is unaffected.
+  - **Clear:** `only_if_fulfilled` on an order with open items → 409, nothing created or flipped.
+  - **Page:**
+    - a label 409 other than "Price changed" shows as a failed box;
+    - a failed `plan_state` or roasting read keeps what is shown;
+    - signing in again after a lock reloads the data;
+    - reloads wait while a field is focused (at most 60 s);
+    - sign-out is refused mid-buy and mid-fulfill.
+  - **Rollback** checks policies by name, so later tables don't block it.
+- [ ] **L5 live**, publishable key only, after step 3:
+  - `GET /rest/v1/daily_plan` → `[]`
+  - `POST /rest/v1/rpc/ship_labels_pending` → refused
+  - `POST /api/shippo-label?action=rate` and `GET /api/shopify-token?type=b2b-ship` → 401
+  - `GET /api/_auth` → 404. A 500 would mean Vercel built it as a function; that is not an exposure, but say so.
+- [ ] **L6 devices (Andy)**, after step 2b:
+  - The plan loads.
+  - A change on one device shows on another within a couple of seconds without a reload.
+  - Six fast "+" taps on one line store 6.
+  - Pull Orders works.
+  - Ship gets a rate with no purchase.
+  - The green planner still loads.
+- [ ] **L7:** adversarial review, then Andy approves each step.
+
+**Run log:**
+- 2026-10-18: L1–L3 PASS, 69/69 (`npm test`, Node 25.8.1). L4 PASS, 10/10. L4 caught a real hazard: publishing a table with no replica identity makes Postgres refuse its UPDATEs and DELETEs. All 4 live tables have primary keys; the realtime migration now checks.
+- 2026-10-18: L7 round 1 (Saboteur, Security Auditor, Architect; the first attempt hit the usage limit).
+  - 37 findings: 4 Blocks ship (3 of them the same hole), 15 Should fix, 18 Worth noting. Accepted fixes landed (JOURNAL).
+  - L1–L3 PASS, 82/82. L4 PASS, 13/13. L4 caught a second error: a schema-level default-privilege revoke can't remove PUBLIC's EXECUTE on new functions.
+- 2026-10-18: L7 round 2 (fresh reviewers).
+  - 0 Blocks ship, 18 Should fix (all fixed), 30 Worth noting.
+  - Andy ended the review loop after round 2.
+  - L1–L3 PASS, 92/92. L4 PASS, 16/16.
+
 ## UPS Ground (Phase B, plan: [`Retail-USPS-UPS.md`](./Retail-USPS-UPS.md))
 
 ### B0 — B2B cutover and safety
@@ -51,7 +171,7 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
   - No US-account `ups_ground` rate → 422, nothing bought. The response labels rates `torque-us`/`other` and carries no account ids.
   - A fresh price higher than confirmed, even by a cent (16.44 vs 16.43) → 409 with both prices, nothing bought.
   - An unreadable price (`''`, `N/A`, null, 0) or a non-USD one → 422 at rate and at label, nothing bought.
-  - A box that already has a label (same `order_id` + `box_index`, not voided) → 409 "Already bought" with that label, and no Shippo call. A label on another box, or a voided one, doesn't block. If the lookup fails, the buy goes ahead.
+  - A box that already has a label (same `order_id` + `box_index`, not voided) → 409 "Already bought" with that label, and no Shippo call. A label on another box, or a voided one, doesn't block. ~~If the lookup fails, the buy goes ahead.~~ Since the login slice: a failed or refused lookup → 503, nothing bought (ADR 0023).
   - The same or a lower price buys; the confirmed price may be a number.
   - A purchase logs `ups_ground`, `is_cubic false`, `weight_lb 22`.
   - A failed purchase → 502, no cost row.

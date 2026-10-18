@@ -11,10 +11,19 @@ const CA_UPS_ACCOUNT = '588f0f77b8c54b1da58732df6e91575c'
 const host = v => structuredClone(v)
 
 // ── fetch stub, installed before the API modules load (they capture fetch at require) ──
+// The API runs with the sign-in enforced (ADR 0023): every call() carries USER_TOKEN, and the
+// Supabase Auth check (/auth/v1/user) is answered here and kept out of `calls`.
+// JWT-shaped (the label endpoint reads exp); valid for an hour.
+const USER_TOKEN = ['e30', Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url'), 'sig'].join('.')
 let calls = [], respond = () => { throw new Error('unexpected fetch') }
 async function stubFetch(url, opts = {}) {
+  const headers = opts.headers || {}
+  if (String(url).endsWith('/auth/v1/user')) {
+    const ok = headers.Authorization === `Bearer ${USER_TOKEN}`
+    return { ok, status: ok ? 200 : 401, json: async () => (ok ? { id: 'u1', email: 'andy@example.com', app_metadata: { portal_staff: true } } : { msg: 'bad jwt' }) }
+  }
   const body = typeof opts.body === 'string' && opts.body.startsWith('{') ? JSON.parse(opts.body) : opts.body
-  calls.push({ url: String(url), body })
+  calls.push({ url: String(url), body, headers })
   const out = respond(String(url), body)
   const status = out.status || 200
   return { ok: status < 400, status, json: async () => out.json, text: async () => out.text ?? JSON.stringify(out.json) }
@@ -24,7 +33,8 @@ function reset(fn) { calls = []; respond = fn }
 
 Object.assign(process.env, {
   SHIPPO_TOKEN: 'shippo_test_stub', SUPABASE_URL: 'https://sb.example', SUPABASE_ANON_KEY: 'anon',
-  SHOPIFY_CLIENT_ID: 'id', SHOPIFY_CLIENT_SECRET: 'secret', SHOPIFY_STORE_HANDLE: 'store'
+  SHOPIFY_CLIENT_ID: 'id', SHOPIFY_CLIENT_SECRET: 'secret', SHOPIFY_STORE_HANDLE: 'store',
+  PORTAL_AUTH_ENFORCE: '1'
 })
 const shippoLabel = require('../api/shippo-label.js')
 const shopifyFulfill = require('../api/shopify-fulfill.js')
@@ -32,11 +42,13 @@ const { resolveWeightLb, isShippableB2BLine } = require('../api/shopify-token.js
 const fs = require('fs')
 const path = require('path')
 
-async function call(handler, { method = 'POST', query = {}, body } = {}) {
+async function call(handler, { method = 'POST', query = {}, body, headers = { authorization: `Bearer ${USER_TOKEN}` } } = {}) {
   const res = { code: null, payload: null, setHeader() {}, status(c) { this.code = c; return this }, json(p) { this.payload = p; return this }, end() { return this } }
-  await handler({ method, query, body }, res)
+  await handler({ method, query, body, headers, url: '/api/test' }, res)
   return res
 }
+// The page side of the same thing: apiFetch() reads the session from supabase-js.
+const SB_AUTH = { getSession: async () => ({ data: { session: { access_token: USER_TOKEN } }, error: null }) }
 
 const ADDR = { name: 'Pete Smith', company: 'Best Coffee', street1: '1 Main St', street2: '', city: 'Goleta', state: 'CA', zip: '93117', country: 'US', phone: '' }
 const PARCEL = { length: 14, width: 10, height: 10, weight: 22 }
@@ -52,6 +64,7 @@ const MIXED_RATES = [
 ]
 const shippoOk = (rates = MIXED_RATES, prior = []) => (url) => {
   if (url.includes('/rpc/ship_labels_for_order')) return { json: prior }
+  if (url.includes('/rpc/claim_label_box') || url.includes('/rpc/release_label_box')) return { json: true }
   if (url.endsWith('/shipments/')) return { json: { rates, messages: [] } }
   if (url.endsWith('/transactions/')) return { json: { status: 'SUCCESS', tracking_number: '1Z29G1830300998096', tracking_url_provider: 'https://ups/t', label_url: 'https://shippo-delivery.s3.amazonaws.com/x.pdf', object_id: 'txn_1', test: false } }
   if (url.includes('/rest/v1/shipping_labels')) return { status: 201, text: '' }
@@ -197,8 +210,9 @@ function shipFlow(qty = 5) {
   }
   const F = loadFromIndex(['PACK_BOX', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'MEASURED_NET_LB', 'CARTON_TARE_LB', 'PACK_ALLOWANCE_LB',
     'escHtml', 'declaredWeightLb', 'toShippoAddress', 'boxParcel', 'getRates', 'reRate', 'buyLabels', 'fulfillOrder',
-    'renderShipActions', 'pluralBox', 'shipAllPrinted'],
-  { shipState, shipPending: {}, shipBuyInFlight: false, renderShip() {}, confirm: () => true, alert() {}, fetch: stubFetch })
+    'renderShipActions', 'pluralBox', 'shipAllPrinted', 'apiFetch'],
+  { shipState, shipPending: {}, shipBuyInFlight: false, renderShip() {}, confirm: () => true, alert() {}, fetch: stubFetch,
+    sb: { auth: SB_AUTH }, showSignIn() {} })
   return { F, shipState }
 }
 const apiCalls = (path) => calls.filter(c => c.url.startsWith(path))
@@ -297,12 +311,13 @@ test('G2: "Already bought" from the server becomes a recovered label, not a fail
 test('G2: Clear closes out a hand-fulfilled order only when Shopify says it is fulfilled', async () => {
   for (const [reply, cleared] of [[{ ok: true, alreadyFulfilled: true }, true], [{ error: 'not fulfilled' }, false]]) {
     const shipPending = { 'gid://shopify/Order/7': { order_name: '#7000' } }
-    const sb = { rpc: async () => ({ data: [{ box_index: 1, tracking_number: '9400111899223197428490' }], error: null }) }
-    const H = loadFromIndex(['clearHandFulfilled'], { sb, shipPending, fetch: stubFetch, renderShip() {}, alert() {} })
+    const sb = { auth: SB_AUTH, rpc: async () => ({ data: [{ box_index: 1, tracking_number: '9400111899223197428490' }], error: null }) }
+    const H = loadFromIndex(['clearHandFulfilled', 'apiFetch'], { sb, shipPending, fetch: stubFetch, renderShip() {}, alert() {}, showSignIn() {} })
     reset(() => ({ status: reply.ok ? 200 : 409, json: reply }))
     await H.clearHandFulfilled('gid://shopify/Order/7')
     const body = apiCalls('/api/shopify-fulfill')[0].body
     assert.equal(body.notifyCustomer, false)
+    assert.equal(body.only_if_fulfilled, true)
     assert.equal('gid://shopify/Order/7' in shipPending, !cleared)
   }
 })
@@ -509,13 +524,30 @@ test('G3: a price that can\'t be read, or not in USD, is refused at rate and at 
 })
 
 test('G3: a box that already has a label gets that label back, nothing is bought', async () => {
-  const prior = [{ box_index: 1, tracking_number: '1Z29G1830300998096', tracking_url: 'https://ups/t', label_url: 'https://shippo/x.pdf', shippo_object_id: 'txn_0', status: 'purchased' }]
-  reset(shippoOk(MIXED_RATES, prior))
+  const TXN = 'a'.repeat(32)
+  const prior = [{ box_index: 1, tracking_number: '1Z29G1830300998096', tracking_url: 'https://evil/t', label_url: 'https://evil/x.pdf', shippo_object_id: TXN, status: 'purchased' }]
+  const shippoTxn = (t) => (url) => url.endsWith(`/transactions/${TXN}`) ? { json: t } : shippoOk(MIXED_RATES, prior)(url)
+  const real = { object_id: TXN, status: 'SUCCESS', tracking_number: '1Z29G1830300998096', tracking_url_provider: 'https://ups/t', label_url: 'https://deliver.goshippo.com/x.pdf' }
+  reset(shippoTxn(real))
   const r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
   assert.equal(r.code, 409)
   assert.equal(r.payload.error, 'Already bought')
   assert.equal(r.payload.tracking_number, '1Z29G1830300998096')
+  // Shippo's own label and tracking link, never the row's (ADR 0023)
+  assert.equal(r.payload.label_url, 'https://deliver.goshippo.com/x.pdf')
+  assert.equal(r.payload.tracking_url, 'https://ups/t')
   assert.equal(calls.filter(c => c.url.endsWith('/shipments/') || c.url.endsWith('/transactions/')).length, 0)
+  // A row Shippo doesn't confirm (planted, or another tracking number) is refused, not bought over.
+  for (const t of [{ ...real, tracking_number: '1Z999' }, { ...real, status: 'ERROR' }]) {
+    reset(shippoTxn(t))
+    const x = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
+    assert.equal(x.code, 409)
+    assert.match(x.payload.error, /doesn't confirm/)
+    assert.equal(x.payload.label_url, undefined)
+    assert.equal(calls.filter(c => c.url.endsWith('/transactions/')).length, 0)
+  }
+  reset(shippoOk(MIXED_RATES, [{ ...prior[0], shippo_object_id: 'txn_0' }]))   // not a Shippo id
+  assert.match((await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })).payload.error, /doesn't confirm/)
   // a label for a different box, or a voided one, does not block
   for (const p of [[{ ...prior[0], box_index: 2 }], [{ ...prior[0], status: 'voided' }]]) {
     reset(shippoOk(MIXED_RATES, p))
@@ -523,9 +555,17 @@ test('G3: a box that already has a label gets that label back, nothing is bought
   }
 })
 
-test('G3: if the already-bought lookup fails, the buy goes ahead (R8)', async () => {
+test('G3: if the already-bought lookup fails or is refused, nothing is bought (ADR 0023, was R8: buy anyway)', async () => {
+  for (const fail of [{ status: 500, text: 'down' }, { status: 401, json: { message: 'permission denied for function ship_labels_for_order' } }, { status: 404, json: {} }]) {
+    reset((url) => url.includes('/rpc/ship_labels_for_order') ? fail : shippoOk()(url))
+    const r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
+    assert.equal(r.code, 503, String(fail.status))
+    assert.match(r.payload.error, /nothing was bought/)
+    assert.equal(calls.filter(c => c.url.endsWith('/shipments/') || c.url.endsWith('/transactions/')).length, 0)
+  }
+  // The lookup is skipped at rate time: rating never needs it.
   reset((url) => url.includes('/rpc/ship_labels_for_order') ? { status: 500, text: 'down' } : shippoOk()(url))
-  assert.equal((await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })).code, 200)
+  assert.equal((await call(shippoLabel, { query: { action: 'rate' }, body: OK_BODY })).code, 200)
 })
 
 test('G3: the confirmed price as a number also works', async () => {
@@ -601,12 +641,14 @@ test('G3: an order already fulfilled (e.g. by hand in Shopify) clears its pendin
     if (url.includes('/graphql.json') && /fulfillmentOrders/.test(body.query)) return { json: { data: { order: { id: 'gid://shopify/Order/1', name: '#8100', cancelledAt: null, displayFulfillmentStatus: 'FULFILLED', fulfillmentOrders: { edges: [{ node: { id: 'fo', status: 'CLOSED' } }] } } } } }
     return shopifyOk()(url, body)
   })
-  const r = await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking: [{ number: '9400111899223197428490' }] } })
+  const r = await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking: [{ number: '9400111899223197428490' }], only_if_fulfilled: true } })
   assert.equal(r.code, 200)
   assert.equal(r.payload.alreadyFulfilled, true)
   assert.equal(r.payload.notified, false)
   assert.equal(r.payload.cost_rows_updated, 4)
-  assert.equal(calls.filter(c => c.url.includes('/rpc/mark_ship_labels_fulfilled')).length, 1)
+  const flips = calls.filter(c => c.url.includes('/rpc/mark_ship_labels_fulfilled'))
+  assert.equal(flips.length, 1)
+  assert.equal(flips[0].headers.Authorization, `Bearer ${USER_TOKEN}`)   // as the signed-in user (ADR 0023)
   assert.equal(calls.filter(c => c.body && c.body.variables && c.body.variables.fulfillment).length, 0)
 })
 
@@ -644,4 +686,40 @@ test('G3: fulfill sends no tracking URL (Shopify builds the UPS link; a page-sen
   await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking: [{ number: '1Z29G1830300998096', url: 'https://evil.example/login' }] } })
   const m = calls.find(c => c.body && c.body.variables && c.body.variables.fulfillment)
   assert.equal('urls' in m.body.variables.fulfillment.trackingInfo, false)
+})
+
+test('G3: Clear (only_if_fulfilled) on an order Shopify still has open items for creates nothing', async () => {
+  reset(shopifyOk())
+  const r = await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking: TRACKING, notifyCustomer: false, only_if_fulfilled: true } })
+  assert.equal(r.code, 409)
+  assert.match(r.payload.error, /nothing was changed/)
+  assert.equal(calls.filter(c => c.body && c.body.variables && c.body.variables.fulfillment).length, 0)
+  assert.equal(calls.filter(c => c.url.includes('/rpc/mark_ship_labels_fulfilled')).length, 0)
+})
+
+test('G3: one buyer per box: a box claimed by another device buys nothing; a failed purchase releases the claim', async () => {
+  reset((url) => url.includes('/rpc/claim_label_box') ? { json: false } : shippoOk()(url))
+  let r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
+  assert.equal(r.code, 409)
+  assert.match(r.payload.error, /another device/)
+  assert.equal(calls.filter(c => c.url.endsWith('/transactions/')).length, 0)
+  for (const fail of [{ status: 500, text: 'down' }, { status: 404, json: {} }]) {   // e.g. the claims migration not applied
+    reset((url) => url.includes('/rpc/claim_label_box') ? fail : shippoOk()(url))
+    r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
+    assert.equal(r.code, 503)
+    assert.equal(calls.filter(c => c.url.endsWith('/transactions/')).length, 0)
+  }
+  reset((url) => url.endsWith('/transactions/') ? { json: { status: 'ERROR', messages: [{ text: 'no' }] } } : shippoOk()(url))
+  r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
+  assert.equal(r.code, 502)
+  const release = calls.filter(c => c.url.includes('/rpc/release_label_box'))
+  assert.equal(release.length, 1)
+  assert.deepEqual(release[0].body, { p_order_id: 'gid://shopify/Order/1', p_box_index: 1 })
+  // A successful purchase claims first and keeps the claim.
+  reset(shippoOk())
+  r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
+  assert.equal(r.code, 200)
+  const order = calls.map(c => c.url.includes('claim_label_box') ? 'claim' : c.url.endsWith('/transactions/') ? 'buy' : null).filter(Boolean)
+  assert.deepEqual(order, ['claim', 'buy'])
+  assert.equal(calls.filter(c => c.url.includes('/rpc/release_label_box')).length, 0)
 })
