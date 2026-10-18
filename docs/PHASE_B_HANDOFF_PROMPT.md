@@ -30,9 +30,9 @@ Andy copies the Phase A files from the source folder into the repo's `docs/` fol
 - Pickup items are open (fee, account, Saturday). Not a blocker.
 
 ## Slices (one at a time; each ships on its own)
-B0 B2B cutover and safety, B1 retail order list, B2 `packRetail()`, B3 batch ship screen, B4 retail packing slip, B5 cost report, B6 void and refund, B7 retail cutover. Done-when criteria are in the plan doc table.
+B0 B2B cutover and safety (built), B1 retail order list, B2a shared ship rules (`lib/ship-rules.js`), B2 `packRetail()`, B3 batch ship screen, B4 retail packing slip, B5 cost report, B6 void and refund, B7 retail cutover. Done-when criteria are in the plan doc table.
 
-Order of work: B0 alone first (ships before any retail work). Then B1, B2, B3. B6 must exist before the first full week of live retail.
+Order of work: B0 alone first (ships before any retail work), then the login slice. Then B1, B2a, B2, B3. B6 must exist before the first full week of live retail.
 
 ## Rules for this session
 - Before each slice: state the plan and the test gates; wait for Andy's go.

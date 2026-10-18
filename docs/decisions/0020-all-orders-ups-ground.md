@@ -33,7 +33,7 @@ This reverses two decisions Andy marked RESOLVED on 2026-06-29 in [`b2b-cubic-sh
 ## Decision
 
 - Every order rates and buys `ups_ground` on UPS account `21db4cf80df74a2cb27fc20948862003`. The account is pinned on every shipment, and the chosen rate must carry it. There is no Ground Saver, no USPS and no fallback.
-- **Weight per bag (R10, R3):** taken from the variant title first, then the product title, then Shopify grams. xPods and the 250 g box count as 12 oz.
+- **Weight per bag (R10, R3):** taken from the variant title first, then the product title, then Shopify grams. Units: lb, oz, g, kg. A title naming several bags ("2 x 12oz", "6 pack") or a fraction is held (unpackable), not guessed. xPods and the 250 g box count as 12 oz only when the title gives no other size.
 - **Declared parcel weight (R3):** `ceil(measured net + carton tare + 0.05)`, 1 lb minimum.
   - Nets: 12 oz 0.75, 2 lb 2.03, 5 lb 5.07. Any other size counts at its nominal weight.
   - The 14x10x10 tare is 0.83, the Uline spec.
@@ -41,7 +41,13 @@ This reverses two decisions Andy marked RESOLVED on 2026-06-29 in [`b2b-cubic-sh
   - The page computes the weight. The server accepts only a whole pound of at least 1, sent with `weight_basis: 'packed'`. **B0 does not verify the weight on the server; `weight_basis` only detects stale pages.**
   - `shipping_labels.weight_lb` holds this declared weight from the deploy on. Rows before the deploy hold net weight.
 - **Price guard:** the label step re-rates. Nothing is bought (409) when UPS now charges more than the confirmed price, or when the price can't be read or isn't in USD; the box goes back to the rate step, and the buy stops. A lower price buys without asking. The 0.005 tolerance only absorbs float noise.
-- **Fulfillment:** tracking company is always UPS, and every number must be `1Z` + 16. A USPS label bought before the deploy is fulfilled by hand in Shopify. Reopening the order in the portal and tapping Fulfill then takes the already-fulfilled path, which clears its "paid, not fulfilled" flag.
+- **Fulfillment:**
+  - The tracking company is always UPS, every number must be `1Z` + 16, and no tracking URL is sent (Shopify builds the UPS link).
+  - An order counts as already fulfilled only when Shopify shows it FULFILLED with every fulfillment order CLOSED. Held, scheduled, incomplete, cancelled and invisible orders get a 409 that says what to do, and their label rows stay pending.
+  - A USPS label bought before the deploy is fulfilled by hand in Shopify. Then either tap Fulfill order again on the open screen, or tap Clear on the red banner (shown for pending orders no longer in the list). Both take the already-fulfilled path, which clears the "paid, not fulfilled" flag.
+- **One label per box:** before buying, the server looks up the order's existing labels (the ADR 0011 RPC). If this `box_index` already has one, it hands that label back (409 "Already bought") instead of charging again. If the lookup fails, the buy goes ahead (R8). The page also blocks leaving or reopening an order while a buy is running.
+- **Address lines:** street 1, street 2 and city longer than 35 characters are refused with a message to shorten them in Shopify, never cut. Name and company are cut to 35. Fields over 200 characters are refused before any processing.
+- **Rate step:** a price that can't be read or isn't in USD is refused (422) at rate time too, so it's never shown as buyable.
 - **Addresses:** the ship-from phone is 6192305400. A recipient with no phone gets Torque's phone (R5). Shippo receives only the known address fields, and never a recipient email (R6).
 - **Box cap:** the 20 lb net cap stays. It began as the USPS cubic ceiling; `b2b_slip_spec.md` keeps box splitting unchanged, and A3 measured that 4 x 5 lb fits the 14x10x10.
 

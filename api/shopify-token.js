@@ -53,7 +53,7 @@ const MULTI_OR_FRACTION_RX = /\d+\s*[x×]\s*\d|(?:^|[^a-z])[x×]\s*\d|\bpack\b|\
 const SIZE_RX = /(\d+(?:\.\d+)?|\.\d+)\s*(lbs?|pounds?|oz|ounces?|kg|kilograms?|g|grams?)\b/i
 function weightFromTitle(title) {
   if (!title) return null
-  const t = String(title)
+  const t = String(title).slice(0, 255)   // Shopify titles are at most 255; bounds the regex work
   if (MULTI_OR_FRACTION_RX.test(t)) return HOLD
   const m = t.match(SIZE_RX)
   if (m) {

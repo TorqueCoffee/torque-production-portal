@@ -153,7 +153,7 @@ These supersede or sharpen the body above; the body is left intact for provenanc
 - **Weight source: RESOLVED, then superseded 2026-10-17 by [ADR 0020](./decisions/0020-all-orders-ups-ground.md)** (title first, then grams, per R10). Original (Andy, 2026-06-29): Use Shopify's weight if present, else derive from the variant name. Resolver: prefer Shopify variant grams from the payload; fall back to `variantSortWeight(variant_title)` (handles "5lb"/"2lb"/"12oz").
 
 ### Known prerequisite (Steps 4–5) — ✅ RESOLVED 2026-06-30
-- **Extend the Shopify b2b payload.** ✅ DONE — added `api/shopify-token.js?type=b2b-ship`: per-ORDER (not company-merged) with `order_id`/`order_name`, `shipping_address`, and `items[]` carrying `grams` + resolved `weight_lb` (grams→lb snapped to 0.25, variant-title fallback). Feeds packer + label + fulfill.
+- **Extend the Shopify b2b payload.** ✅ DONE — added `api/shopify-token.js?type=b2b-ship`: per-ORDER (not company-merged) with `order_id`/`order_name`, `shipping_address`, and `items[]` carrying `grams` + resolved `weight_lb` (grams→lb snapped to 0.25, variant-title fallback; superseded 2026-10-17 by title-first per [ADR 0020](./decisions/0020-all-orders-ups-ground.md)). Feeds packer + label + fulfill.
 
 ## Amendment — actual hardware is a Rollo, not a bare Zebra (2026-06-30)
 

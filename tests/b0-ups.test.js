@@ -50,7 +50,8 @@ const MIXED_RATES = [
   rate('ups_ground', 15.00, CA_UPS_ACCOUNT),
   rate('ups_ground', 16.43)
 ]
-const shippoOk = (rates = MIXED_RATES) => (url) => {
+const shippoOk = (rates = MIXED_RATES, prior = []) => (url) => {
+  if (url.includes('/rpc/ship_labels_for_order')) return { json: prior }
   if (url.endsWith('/shipments/')) return { json: { rates, messages: [] } }
   if (url.endsWith('/transactions/')) return { json: { status: 'SUCCESS', tracking_number: '1Z29G1830300998096', tracking_url_provider: 'https://ups/t', label_url: 'https://shippo-delivery.s3.amazonaws.com/x.pdf', object_id: 'txn_1', test: false } }
   if (url.includes('/rest/v1/shipping_labels')) return { status: 201, text: '' }
@@ -197,7 +198,7 @@ function shipFlow(qty = 5) {
   const F = loadFromIndex(['PACK_BOX', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'MEASURED_NET_LB', 'CARTON_TARE_LB', 'PACK_ALLOWANCE_LB',
     'escHtml', 'declaredWeightLb', 'toShippoAddress', 'boxParcel', 'getRates', 'reRate', 'buyLabels', 'fulfillOrder',
     'renderShipActions', 'pluralBox', 'shipAllPrinted'],
-  { shipState, shipPending: {}, renderShip() {}, confirm: () => true, alert() {}, fetch: stubFetch })
+  { shipState, shipPending: {}, shipBuyInFlight: false, renderShip() {}, confirm: () => true, alert() {}, fetch: stubFetch })
   return { F, shipState }
 }
 const apiCalls = (path) => calls.filter(c => c.url.startsWith(path))
@@ -230,11 +231,80 @@ test('G2: a price change buys nothing, stops the order, and asks for a re-rate',
   assert.equal(b1.label, null); assert.equal(b1.rate, null)
   assert.deepEqual(host(b1.priceChange), { quoted: '16.43', amount: '18.10' })
   assert.equal(b1.rateError, null)                                            // not shown as "No rate"
-  for (const b of [b2, b3]) { assert.equal(b.label, null); assert.equal(b.status, 'packed'); assert.ok(b.rate) }
+  for (const b of [b2, b3]) { assert.equal(b.label, null); assert.equal(b.status, 'packed'); assert.equal(b.rate, null) }  // whole address re-rates
   const bar = F.renderShipActions()
-  assert.match(bar, /UPS changed the price for 1 box/)
+  assert.match(bar, /UPS changed the price after you confirmed/)
+  assert.match(bar, /Nothing was bought for 3 boxes/)
   assert.match(bar, /reRate\(\)/)
   assert.doesNotMatch(bar, /buyLabels\(\)/)
+  // Re-rate: all three get the new price, the warning clears, Buy offers the new total
+  reset(() => ({ json: { ok: true, amount: '18.10', currency: 'USD' } }))
+  F.reRate(); await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0))
+  assert.equal(b1.priceChange, null)
+  assert.match(F.renderShipActions(), /Buy 3 labels — \$54\.30/)
+})
+
+test('G2: a nested Get rates mid-buy cannot put a Buy button on screen', async () => {
+  const { F, shipState } = shipFlow(11)
+  let after = null
+  reset((url) => {
+    if (url.startsWith('/api/shippo-label?action=rate')) return { json: { ok: true, amount: '16.43', currency: 'USD' } }
+    if (apiCalls('/api/shippo-label?action=label').length === 1) { F.getRates(); F.reRate(); after = F.renderShipActions() }
+    return { json: { ok: true, tracking_number: '1Z29G1830300998096', cost: '16.43', currency: 'USD' } }
+  })
+  await F.getRates()
+  await F.buyLabels()
+  assert.match(after, /Buying labels/)
+  assert.doesNotMatch(after, /onclick/)
+  assert.equal(apiCalls('/api/shippo-label?action=rate').length, 3)
+  assert.equal(F.__ctx.shipBuyInFlight, false)                                // released when done
+  assert.equal(shipState.phase, 'bought')
+})
+
+test('G2: leaving or reopening an order mid-buy is refused (the second-loop double charge)', async () => {
+  const { F, shipState } = shipFlow(11)
+  const G = loadFromIndex(['backToShipList', 'openShipOrder', 'loadShipOrders'], {
+    shipBuyInFlight: false, shipState, b2bShipOrders: [shipState.order],
+    alert(m) { G.__alerts = (G.__alerts || 0) + 1 }, confirm: () => true, renderShip() {}, packBoxes() { throw new Error('reopened') }
+  })
+  reset((url) => {
+    if (url.startsWith('/api/shippo-label?action=rate')) return { json: { ok: true, amount: '16.43', currency: 'USD' } }
+    if (apiCalls('/api/shippo-label?action=label').length === 1) {
+      G.__ctx.shipBuyInFlight = F.__ctx.shipBuyInFlight                        // same page, same flag
+      assert.equal(G.__ctx.shipBuyInFlight, true)
+      G.backToShipList(); G.openShipOrder(0); G.loadShipOrders()
+    }
+    return { json: { ok: true, tracking_number: '1Z29G1830300998096', cost: '16.43', currency: 'USD' } }
+  })
+  await F.getRates()
+  await F.buyLabels()
+  assert.equal(G.__alerts, 3)
+  assert.equal(G.__ctx.shipState, shipState)                                  // never reset mid-buy
+  assert.deepEqual(apiCalls('/api/shippo-label?action=label').map(c => c.body.box_index), [1, 2, 3])
+})
+
+test('G2: "Already bought" from the server becomes a recovered label, not a failure', async () => {
+  const { F, shipState } = shipFlow()
+  reset((url) => url.startsWith('/api/shippo-label?action=rate')
+    ? { json: { ok: true, amount: '16.43', currency: 'USD' } }
+    : { status: 409, json: { error: 'Already bought', tracking_number: '1Z29G1830300998096', label_url: 'https://shippo/x.pdf' } })
+  await F.getRates()
+  await F.buyLabels()
+  for (const b of shipState.boxes) { assert.equal(b.status, 'bought'); assert.equal(b.label.recovered, true); assert.equal(b.labelError, null) }
+  assert.equal(shipState.phase, 'bought')
+})
+
+test('G2: Clear closes out a hand-fulfilled order only when Shopify says it is fulfilled', async () => {
+  for (const [reply, cleared] of [[{ ok: true, alreadyFulfilled: true }, true], [{ error: 'not fulfilled' }, false]]) {
+    const shipPending = { 'gid://shopify/Order/7': { order_name: '#7000' } }
+    const sb = { rpc: async () => ({ data: [{ box_index: 1, tracking_number: '9400111899223197428490' }], error: null }) }
+    const H = loadFromIndex(['clearHandFulfilled'], { sb, shipPending, fetch: stubFetch, renderShip() {}, alert() {} })
+    reset(() => ({ status: reply.ok ? 200 : 409, json: reply }))
+    await H.clearHandFulfilled('gid://shopify/Order/7')
+    const body = apiCalls('/api/shopify-fulfill')[0].body
+    assert.equal(body.notifyCustomer, false)
+    assert.equal('gid://shopify/Order/7' in shipPending, !cleared)
+  }
 })
 
 test('G2: while labels are being bought nothing can start a second buy (no double charge)', async () => {
@@ -322,17 +392,28 @@ test('G3: rate pins the US UPS account, real origin phone, phone fallback, no em
   assert.equal(r.payload.amount, '16.43')        // the US-account ups_ground, not Saver/USPS/CA
 })
 
-test('G3: address fields are strings, cleaned and cut to the UPS line length', async () => {
+test('G3: address fields are strings, cleaned; name and company are cut to the UPS line length', async () => {
   reset(shippoOk())
-  const long = 'A'.repeat(50)
-  const r = await call(shippoLabel, { query: { action: 'rate' }, body: { ...OK_BODY, address_to: { ...ADDR, name: 'Pete\r\nSmith\u0000', street1: ['PO', 'Box 9'], street2: long, city: { x: 1 }, company: '😀'.repeat(40) } } })
+  const r = await call(shippoLabel, { query: { action: 'rate' }, body: { ...OK_BODY, address_to: { ...ADDR, name: 'Pete\r\nSmith\u0000\u00AD', street1: ['PO', 'Box 9'], street2: '123½ Main St', city: { x: 1 }, company: '😀'.repeat(40) } } })
   assert.equal(r.code, 200)
   const a = calls[0].body.address_to
   assert.equal(a.name, 'Pete Smith')
   assert.equal(a.street1, '')                      // not a string: dropped, not joined into "PO,Box 9"
   assert.equal(a.city, '')
-  assert.equal(a.street2.length, 35)
+  assert.equal(a.street2, '123½ Main St')           // NFC, not NFKC: ½ is not rewritten to 1⁄2
   assert.equal(Array.from(a.company).length, 35)    // cut by code point, no half emoji
+})
+
+test('G3: an address line, line 2 or city longer than UPS allows is refused, not cut', async () => {
+  reset(shippoOk())
+  for (const k of ['street1', 'street2', 'city']) {
+    const r = await call(shippoLabel, { query: { action: 'rate' }, body: { ...OK_BODY, address_to: { ...ADDR, [k]: '4501 Mission Bay Dr Building 2 Ste 3C' } } })
+    assert.equal(r.code, 400, k)
+    assert.match(r.payload.error, /longer than UPS allows/)
+  }
+  const huge = await call(shippoLabel, { query: { action: 'rate' }, body: { ...OK_BODY, address_to: { ...ADDR, name: '\uFDFA'.repeat(300) } } })
+  assert.equal(huge.code, 400)                     // refused before it is normalized
+  assert.equal(calls.length, 0)
 })
 
 test('G3: a street named Pobox still ships', async () => {
@@ -376,6 +457,14 @@ test('G3: refused before any Shippo call: wrong carrier, stale page, bad action,
     [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'POB 12' } }],
     [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'P.O.B. 12' } }],
     [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'P0 Box 1' } }],
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'PO-Box 7' } }],
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'P/O Box 5' } }],
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'Po Bx 4' } }],
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'Postal Box 9' } }],
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'PO\u00ADBox 12' } }],          // soft hyphen
+    [{ action: 'label' }, { ...LABEL_BODY, address_to: { ...ADDR, street1: 'P\u200EO Box 12' } }],         // bidi mark
+    [{ action: 'label' }, { ...LABEL_BODY, order_id: undefined }],
+    [{ action: 'label' }, { ...LABEL_BODY, box_index: undefined }],
     [{ action: 'Rates' }, OK_BODY],
     [{ action: ['rate', 'rate'] }, OK_BODY],
     [{ action: 'void' }, OK_BODY]
@@ -408,13 +497,35 @@ test('G3: price above the confirmed one, even by a cent -> 409 with the new pric
   }
 })
 
-test('G3: a price that can\'t be read, or not in USD, buys nothing (fails closed)', async () => {
-  for (const r0 of [{ amount: '' }, { amount: 'N/A' }, { amount: null }, { amount: '0' }, { currency: 'CAD' }]) {
-    reset(shippoOk([{ ...rate('ups_ground', '16.43'), ...r0 }]))
-    const r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
-    assert.equal(r.code, 409, JSON.stringify(r0))
-    assert.equal(calls.filter(c => c.url.endsWith('/transactions/')).length, 0)
+test('G3: a price that can\'t be read, or not in USD, is refused at rate and at label (fails closed)', async () => {
+  for (const action of ['rate', 'label']) {
+    for (const r0 of [{ amount: '' }, { amount: 'N/A' }, { amount: null }, { amount: '0' }, { currency: 'CAD' }]) {
+      reset(shippoOk([{ ...rate('ups_ground', '16.43'), ...r0 }]))
+      const r = await call(shippoLabel, { query: { action }, body: LABEL_BODY })
+      assert.equal(r.code, 422, action + JSON.stringify(r0))
+      assert.equal(calls.filter(c => c.url.endsWith('/transactions/')).length, 0)
+    }
   }
+})
+
+test('G3: a box that already has a label gets that label back, nothing is bought', async () => {
+  const prior = [{ box_index: 1, tracking_number: '1Z29G1830300998096', tracking_url: 'https://ups/t', label_url: 'https://shippo/x.pdf', shippo_object_id: 'txn_0', status: 'purchased' }]
+  reset(shippoOk(MIXED_RATES, prior))
+  const r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
+  assert.equal(r.code, 409)
+  assert.equal(r.payload.error, 'Already bought')
+  assert.equal(r.payload.tracking_number, '1Z29G1830300998096')
+  assert.equal(calls.filter(c => c.url.endsWith('/shipments/') || c.url.endsWith('/transactions/')).length, 0)
+  // a label for a different box, or a voided one, does not block
+  for (const p of [[{ ...prior[0], box_index: 2 }], [{ ...prior[0], status: 'voided' }]]) {
+    reset(shippoOk(MIXED_RATES, p))
+    assert.equal((await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })).code, 200)
+  }
+})
+
+test('G3: if the already-bought lookup fails, the buy goes ahead (R8)', async () => {
+  reset((url) => url.includes('/rpc/ship_labels_for_order') ? { status: 500, text: 'down' } : shippoOk()(url))
+  assert.equal((await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })).code, 200)
 })
 
 test('G3: the confirmed price as a number also works', async () => {
@@ -451,13 +562,13 @@ test('G3: failed purchase -> 502 and no cost row', async () => {
   reset((url) => url.endsWith('/transactions/') ? { json: { status: 'ERROR', messages: [{ text: 'bad' }] } } : shippoOk()(url))
   const r = await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })
   assert.equal(r.code, 502)
-  assert.equal(calls.filter(c => c.url.includes('/rest/v1/')).length, 0)
+  assert.equal(calls.filter(c => c.url.includes('/rest/v1/shipping_labels')).length, 0)
 })
 
 // ── G3 server: shopify-fulfill ──────────────────────────────────────────────────────────
 const shopifyOk = () => (url, body) => {
   if (url.includes('/oauth/access_token')) return { json: { access_token: 'tok' } }
-  if (url.includes('/graphql.json') && /fulfillmentOrders/.test(body.query)) return { json: { data: { order: { id: 'gid://shopify/Order/1', name: '#8263', fulfillmentOrders: { edges: [{ node: { id: 'gid://shopify/FulfillmentOrder/9', status: 'OPEN' } }] } } } } }
+  if (url.includes('/graphql.json') && /fulfillmentOrders/.test(body.query)) return { json: { data: { order: { id: 'gid://shopify/Order/1', name: '#8263', cancelledAt: null, displayFulfillmentStatus: 'UNFULFILLED', fulfillmentOrders: { edges: [{ node: { id: 'gid://shopify/FulfillmentOrder/9', status: 'OPEN' } }] } } } } }
   if (url.includes('/graphql.json')) return { json: { data: { fulfillmentCreate: { fulfillment: { id: 'f1', status: 'SUCCESS', trackingInfo: body.variables.fulfillment.trackingInfo }, userErrors: [] } } } }
   if (url.includes('/rpc/mark_ship_labels_fulfilled')) return { text: '4' }
   throw new Error('unexpected ' + url)
@@ -487,7 +598,7 @@ test('G3: fulfill refuses a non-UPS tracking number on an open order; nothing is
 
 test('G3: an order already fulfilled (e.g. by hand in Shopify) clears its pending labels, even with USPS numbers', async () => {
   reset((url, body) => {
-    if (url.includes('/graphql.json') && /fulfillmentOrders/.test(body.query)) return { json: { data: { order: { id: 'gid://shopify/Order/1', name: '#8100', fulfillmentOrders: { edges: [{ node: { id: 'fo', status: 'CLOSED' } }] } } } } }
+    if (url.includes('/graphql.json') && /fulfillmentOrders/.test(body.query)) return { json: { data: { order: { id: 'gid://shopify/Order/1', name: '#8100', cancelledAt: null, displayFulfillmentStatus: 'FULFILLED', fulfillmentOrders: { edges: [{ node: { id: 'fo', status: 'CLOSED' } }] } } } } }
     return shopifyOk()(url, body)
   })
   const r = await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking: [{ number: '9400111899223197428490' }] } })
@@ -506,4 +617,31 @@ test('G3: fulfill refuses a box with no tracking number instead of dropping it, 
     assert.equal(r.code, 400, JSON.stringify(tracking))
   }
   assert.equal(calls.length, 0)
+})
+
+test('G3: held, scheduled, incomplete, cancelled or invisible orders are NOT treated as fulfilled; rows stay pending', async () => {
+  const cases = [
+    [{ status: 'ON_HOLD' }, null, 'UNFULFILLED', /Release the hold/],
+    [{ status: 'SCHEDULED' }, null, 'SCHEDULED', /SCHEDULED/],
+    [{ status: 'INCOMPLETE' }, null, 'UNFULFILLED', /INCOMPLETE/],
+    [null, null, 'UNFULFILLED', /none visible/],
+    [{ status: 'CLOSED' }, '2026-10-17T00:00:00Z', 'UNFULFILLED', /cancelled/]
+  ]
+  for (const [fo, cancelledAt, dfs, rx] of cases) {
+    reset((url, body) => {
+      if (url.includes('/graphql.json') && /fulfillmentOrders/.test(body.query)) return { json: { data: { order: { id: 'gid://shopify/Order/1', name: '#8100', cancelledAt, displayFulfillmentStatus: dfs, fulfillmentOrders: { edges: fo ? [{ node: { id: 'fo', ...fo } }] : [] } } } } }
+      return shopifyOk()(url, body)
+    })
+    const r = await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking: TRACKING } })
+    assert.equal(r.code, 409, JSON.stringify(fo))
+    assert.match(r.payload.error, rx)
+    assert.equal(calls.filter(c => c.url.includes('/rpc/mark_ship_labels_fulfilled')).length, 0)
+  }
+})
+
+test('G3: fulfill sends no tracking URL (Shopify builds the UPS link; a page-sent URL could be anything)', async () => {
+  reset(shopifyOk())
+  await call(shopifyFulfill, { body: { order_id: 'gid://shopify/Order/1', tracking: [{ number: '1Z29G1830300998096', url: 'https://evil.example/login' }] } })
+  const m = calls.find(c => c.body && c.body.variables && c.body.variables.fulfillment)
+  assert.equal('urls' in m.body.variables.fulfillment.trackingInfo, false)
 })

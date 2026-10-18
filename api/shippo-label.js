@@ -40,26 +40,40 @@ const ORIGIN = {
 // customer email comes from Shopify on fulfillment; a recipient email makes Shippo send its
 // own notice). No phone on the order -> Torque's phone (R5).
 const ADDRESS_FIELDS = ['name', 'company', 'street1', 'street2', 'city', 'state', 'zip', 'country', 'phone']
-const UPS_LINE_MAX = 35   // UPS address line limit
-// Control characters become spaces; zero-width characters are dropped (they print as
-// nothing but defeat text checks like the P.O. box test).
+const UPS_LINE_MAX = 35      // UPS address line limit
+const RAW_FIELD_MAX = 200    // anything longer is not an address; refuse before normalizing it
+// Cutting these would misdeliver the box, so a line that's too long is refused, not cut.
+const STRICT_FIELDS = { street1: 'Address line 1', street2: 'Address line 2', city: 'City' }
+// NFC text for the label. Invisible format characters (zero-width, soft hyphen, bidi marks)
+// are dropped; control characters become spaces.
 function cleanText(v) {
-  if (typeof v !== 'string') return ''
-  const t = v.normalize('NFKC').replace(/[\u200B-\u200D\u2060\uFEFF]/g, '').replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim()
-  return Array.from(t).slice(0, UPS_LINE_MAX).join('')   // by code point: never split an emoji
+  return v.normalize('NFC').replace(/\p{Cf}/gu, '').replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim()
 }
+// -> { address } or { error }
 function recipientAddress(a) {
-  if (!a || typeof a !== 'object' || Array.isArray(a)) return null
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return { error: 'address_to required' }
   const out = {}
-  for (const k of ADDRESS_FIELDS) out[k] = cleanText(a[k])
+  for (const k of ADDRESS_FIELDS) {
+    const v = a[k]
+    if (typeof v !== 'string') { out[k] = ''; continue }
+    if (v.length > RAW_FIELD_MAX) return { error: `Address field ${k} is too long.` }
+    const t = cleanText(v)
+    const chars = Array.from(t)   // by code point: never split an emoji
+    if (STRICT_FIELDS[k] && chars.length > UPS_LINE_MAX) {
+      return { error: `${STRICT_FIELDS[k]} is longer than UPS allows (${UPS_LINE_MAX} characters). Shorten it in Shopify (for example, move the suite to line 2), then re-rate.` }
+    }
+    out[k] = chars.slice(0, UPS_LINE_MAX).join('')
+  }
   if (!out.phone) out.phone = ORIGIN.phone
   if (!out.country) out.country = 'US'
-  return out
+  return { address: out }
 }
-// UPS does not deliver to P.O. boxes: "P.O. Box 12", "PO BOX 9", "POB 12", "P.O.B. 12",
-// "P0 Box 1", "Post Office Box 5". A box word must be followed by a number, so a street
-// named "Pobox Way" still ships. Run on cleanText() output (NFKC, zero-width removed).
-const PO_BOX = /\b(?:p\s*\.?\s*[o0]\s*\.?\s*b(?:ox)?\.?|post\s+office\s+box)\s*(?:#|no\.?)?\s*\d/i
+// UPS does not deliver to P.O. boxes: "P.O. Box 12", "PO-Box 7", "P/O Box 5", "PO BOX 9",
+// "POB 12", "P.O.B. 12", "Po Bx 4", "P0 Box 1", "Post Office Box 5", "Postal Box 9". A box
+// word must be followed by a number, so a street named "Pobox Way" still ships. Tested on
+// the NFKC form of the cleaned line.
+const PO_BOX = /\b(?:p[\s.\-\/]*[o0][\s.\-\/]*b(?:o?x)?\.?|post(?:al)?\s+(?:office\s+)?box)\s*(?:#|no\.?)?\s*\d/i
+const isPoBox = line => PO_BOX.test(line.normalize('NFKC'))
 // The confirmed price, as the page sends it (Number(...).toFixed(2)).
 const AMOUNT_RX = /^\d{1,4}(\.\d{1,2})?$/
 
@@ -70,6 +84,23 @@ function cleanParcel(p) {
   if (!dims.every(d => typeof d === 'number' && Number.isFinite(d) && d > 0)) return null
   if (!(typeof p.weight === 'number' && Number.isInteger(p.weight) && p.weight >= 1)) return null
   return { length: p.length, width: p.width, height: p.height, weight: p.weight }
+}
+
+// Existing label for this order + box, via the SECURITY DEFINER RPC from ADR 0011 (no anon
+// SELECT on shipping_labels). null when there is none, or when the lookup can't be made.
+async function existingLabel(orderId, boxIndex) {
+  const SB_URL = process.env.SUPABASE_URL, SB_KEY = process.env.SUPABASE_ANON_KEY
+  if (!SB_URL || !SB_KEY) return null
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/ship_labels_for_order`, {
+      method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_order_id: String(orderId) })
+    })
+    if (!r.ok) return null
+    const rows = await r.json()
+    return (Array.isArray(rows) ? rows : []).find(x => Number(x.box_index) === boxIndex && x.status !== 'voided') || null
+  } catch { return null }
 }
 
 module.exports = async function handler(req, res) {
@@ -97,9 +128,10 @@ module.exports = async function handler(req, res) {
   if (body.weight_basis !== 'packed') {
     return res.status(400).json({ error: 'This page is out of date (it sends coffee weight, not packed weight). Reload the page and rate again.' })
   }
-  const address_to = recipientAddress(body.address_to)
-  if (!address_to) return res.status(400).json({ error: 'address_to required' })
-  if (PO_BOX.test(address_to.street1) || PO_BOX.test(address_to.street2)) {
+  const addr = recipientAddress(body.address_to)
+  if (addr.error) return res.status(400).json({ error: addr.error })
+  const address_to = addr.address
+  if (isPoBox(address_to.street1) || isPoBox(address_to.street2)) {
     return res.status(400).json({ error: 'UPS does not deliver to P.O. boxes. Get a street address for this order.' })
   }
   const parcel = cleanParcel(body.parcel)
@@ -111,10 +143,24 @@ module.exports = async function handler(req, res) {
   if (action === 'label' && !expectedOk) {
     return res.status(400).json({ error: 'expected_amount (the confirmed rate, e.g. "16.43") is required to buy a label' })
   }
+  const boxIndex = Number(body.box_index)
+  if (action === 'label' && !(body.order_id && Number.isInteger(boxIndex) && boxIndex >= 1)) {
+    return res.status(400).json({ error: 'order_id and box_index are required to buy a label' })
+  }
 
   const auth = { 'Authorization': `ShippoToken ${token}`, 'Content-Type': 'application/json' }
 
   try {
+    // 0) One label per box. If this box already has a label (a lost response, a second tab, a
+    // reopened order), hand that label back instead of buying another. R9: a reload never
+    // re-buys. If the lookup itself fails, buying goes ahead (R8: logging never blocks).
+    if (action === 'label') {
+      const prior = await existingLabel(body.order_id, boxIndex)
+      if (prior) {
+        return res.status(409).json({ error: 'Already bought', tracking_number: prior.tracking_number, tracking_url: prior.tracking_url, label_url: prior.label_url, shippo_object_id: prior.shippo_object_id })
+      }
+    }
+
     // 1) Rate the shipment.
     const shipmentRes = await fetch(`${SHIPPO_BASE}/shipments/`, {
       method: 'POST', headers: auth,
@@ -132,6 +178,11 @@ module.exports = async function handler(req, res) {
     const shipment = await shipmentRes.json()
     const rates = shipment.rates || []
     const upsRate = rates.find(r => r.servicelevel && r.servicelevel.token === SERVICE_TOKEN && r.carrier_account === UPS_ACCOUNT)
+    // A price that can't be read, or isn't in USD, is never shown as buyable (fail closed).
+    const fresh = upsRate ? Number(upsRate.amount) : NaN
+    if (upsRate && !(Number.isFinite(fresh) && fresh > 0 && upsRate.currency === 'USD')) {
+      return res.status(422).json({ error: "UPS returned a price that can't be used. Nothing was bought. Re-rate; if it repeats, tell Andy.", rates: [], messages: shipment.messages || [] })
+    }
     if (!upsRate) {
       // Edge case: box disqualified / no rate for the required service — surface the rates,
       // never silently buy a different service or carrier.
@@ -157,12 +208,10 @@ module.exports = async function handler(req, res) {
     if (action === 'rate') return res.status(200).json({ ok: true, action: 'rate', ...rateOut })
 
     // The label step re-rates. UPS prices move (address reclassified to commercial, delivery
-    // area surcharge), so a price above the confirmed one buys nothing; nor does a price that
-    // can't be read or isn't in USD (fail closed). Same or lower buys. 0.005 absorbs float noise.
-    const fresh = Number(upsRate.amount)
-    const freshOk = Number.isFinite(fresh) && fresh > 0 && upsRate.currency === 'USD'
-    if (!freshOk || fresh > expected + 0.005) {
-      return res.status(409).json({ error: freshOk ? 'Price changed' : 'Price not readable', quoted: expected.toFixed(2), amount: String(upsRate.amount), currency: upsRate.currency })
+    // area surcharge), so a price above the confirmed one buys nothing. Same or lower buys.
+    // 0.005 absorbs float noise.
+    if (fresh > expected + 0.005) {
+      return res.status(409).json({ error: 'Price changed', quoted: expected.toFixed(2), amount: String(upsRate.amount), currency: upsRate.currency })
     }
 
     // 2) Buy the label as a native 4x6 PDF (PDF_4x6) — the physical MediaBox is the 4x6

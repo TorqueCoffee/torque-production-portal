@@ -1,6 +1,6 @@
 # 0002 — Cubic rate gate: certify mechanics on test token, dollar on live token, judge across zone distribution
 
-- **Status**: Accepted — amended by [#0003](./0003-live-dollar-not-a-gate.md) (live dollar reclassified from gate to non-blocking tripwire, 2026-06-29)
+- **Status**: Superseded by [#0020](./0020-all-orders-ups-ground.md) (every order ships UPS Ground; no cubic path, 2026-10-17). Earlier amended by [#0003](./0003-live-dollar-not-a-gate.md) (live dollar reclassified from gate to non-blocking tripwire, 2026-06-29)
 - **Date**: 2026-06-29
 
 ## Context

@@ -767,6 +767,9 @@ let b2bShipOrders = []   // from /api/shopify-token?type=b2b-ship — the ship-o
 let shipState = null     // current open order's ship flow (in-memory), or null = list
 let shipPending = {}     // order_id → labels bought but not fulfilled (from the DB, survives a reload)
 let shipPendingAlerted = false  // one modal alert per session for the above
+// True while a buy loop is running. Module-level, not per order: leaving and reopening an
+// order builds a new shipState, so a per-state guard can't stop a second loop (double charge).
+let shipBuyInFlight = false
 
 const today = new Date()
 const todayStr = today.toISOString().split('T')[0]
@@ -1817,6 +1820,7 @@ function initShipTab() {
 }
 
 async function loadShipOrders() {
+  if (shipBuyInFlight) { alert('Labels are being bought. Wait until that finishes.'); return }
   shipState = null
   const body = document.getElementById('shipBody')
   document.getElementById('shipSummary').innerHTML = ''
@@ -1885,7 +1889,12 @@ function renderShipList() {
   let pendBanner = ''
   if (pendIds.length) {
     const names = pendIds.map(id => shipPending[id].order_name).filter(Boolean).join(', ')
-    pendBanner = `<div class="alert alert-red" style="margin:.5rem 0">⚠ <strong>${pendIds.length} order${pendIds.length !== 1 ? 's have' : ' has'} paid labels that were never fulfilled</strong> (${names}). The customer${pendIds.length !== 1 ? 's have' : ' has'} no tracking — open ${pendIds.length !== 1 ? 'each' : 'it'} and tap <strong>Finish →</strong>.</div>`
+    // An order fulfilled by hand in Shopify leaves this list, so it has no Finish → button.
+    // Clear checks Shopify and, only if the order really is fulfilled, closes its labels out.
+    const listed = new Set(b2bShipOrders.map(o => o.order_id))
+    const gone = pendIds.filter(id => !listed.has(id))
+    const clearBtns = gone.map(id => `<button class="btn btn-secondary btn-sm" style="margin:.4rem .4rem 0 0" data-id="${escHtml(id)}" onclick="clearHandFulfilled(this.dataset.id)">Clear ${escHtml(shipPending[id].order_name || 'order')} (fulfilled in Shopify)</button>`).join('')
+    pendBanner = `<div class="alert alert-red" style="margin:.5rem 0">⚠ <strong>${pendIds.length} order${pendIds.length !== 1 ? 's have' : ' has'} paid labels that were never fulfilled</strong> (${escHtml(names)}). The customer${pendIds.length !== 1 ? 's have' : ' has'} no tracking — open ${pendIds.length !== 1 ? 'each' : 'it'} and tap <strong>Finish →</strong>.${gone.length ? `<div style="margin-top:.4rem">Not in the list below (already fulfilled by hand in Shopify?):</div>${clearBtns}` : ''}</div>`
     if (!shipPendingAlerted) {
       shipPendingAlerted = true
       setTimeout(() => alert(`${pendIds.length} B2B order${pendIds.length !== 1 ? 's' : ''} printed labels but ${pendIds.length !== 1 ? 'were' : 'was'} never fulfilled:\n\n${names}\n\nOpen ${pendIds.length !== 1 ? 'each' : 'it'} and tap "Finish →" to send the customer tracking.`), 300)
@@ -1928,6 +1937,7 @@ function renderShipList() {
 }
 
 async function openShipOrder(i) {
+  if (shipBuyInFlight) { alert('Labels are being bought. Wait until that finishes.'); return }
   const order = b2bShipOrders[i]
   if (!order) return
   const pack = packBoxes(order.items)
@@ -1982,7 +1992,32 @@ async function rehydrateBoughtLabels() {
   if (s.boxes.every(b => b.label)) s.phase = 'bought'
 }
 
+// Close out an order that was fulfilled by hand in Shopify: the fulfill endpoint checks
+// Shopify, and only for a truly fulfilled order flips the label rows (no email is sent).
+async function clearHandFulfilled(orderId) {
+  try {
+    const { data, error } = await sb.rpc('ship_labels_for_order', { p_order_id: orderId })
+    if (error) throw error
+    const tracking = (data || []).map(r => ({ number: r.tracking_number }))
+    if (!tracking.length) throw new Error('no labels found for this order')
+    const res = await fetch('/api/shopify-fulfill', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_id: orderId, tracking, company: 'UPS', notifyCustomer: false })
+    })
+    const out = await res.json()
+    if (!res.ok || !out.ok || !out.alreadyFulfilled) {
+      alert(`Not cleared: ${out.error || 'Shopify does not show this order as fulfilled yet.'}`)
+      return
+    }
+    delete shipPending[orderId]
+    renderShip()
+  } catch (e) {
+    alert(`Not cleared: ${e.message || e}`)
+  }
+}
+
 function backToShipList() {
+  if (shipBuyInFlight) { alert('Labels are being bought. Stay on this screen until that finishes.'); return }
   // Warn if money's been spent but the order isn't fulfilled — going back drops
   // this screen's state (the labels stay bought in Shippo regardless).
   const bought = shipState && shipState.boxes.some(b => b.label)
@@ -2010,7 +2045,7 @@ function renderShipDetail() {
   `
 
   const bar = `<div class="ship-bar">
-    <button class="btn btn-secondary btn-sm" onclick="backToShipList()">← Orders</button>
+    ${s.phase === 'buying' ? '' : '<button class="btn btn-secondary btn-sm" onclick="backToShipList()">← Orders</button>'}
     <div class="ship-bar-title">${o.order_name}</div>
   </div>`
 
@@ -2081,7 +2116,7 @@ function renderShipBox(b, idx) {
 
   return `<div class="ship-box">
     <div class="ship-box-head">
-      <div class="ship-box-title">BOX ${box.box_index} OF ${box.box_count} · ${box.weight_lb} lb coffee · bills ${declaredWeightLb(box) ?? '?'} lb · ${box.box_label}</div>
+      <div class="ship-box-title">BOX ${box.box_index} OF ${box.box_count} · ${box.weight_lb} lb coffee · declared ${declaredWeightLb(box) ?? '?'} lb · ${box.box_label}</div>
       ${chip}
     </div>
     <div class="ship-box-body">${contents || '<em>(no items)</em>'}${detail}</div>
@@ -2120,7 +2155,7 @@ function renderShipActions() {
   // Step 3 (print + fulfill), not back at "Get rates" as if nothing had been bought.
   // While labels are being bought, show nothing to click: a Re-rate or Buy button here
   // would start a second buy loop over boxes the first one hasn't reached (double charge).
-  if (s.phase === 'buying') {
+  if (s.phase === 'buying' || shipBuyInFlight) {
     return `<div class="ship-actionbar"><div class="ship-step">Buying labels… don't close this tab.</div></div>`
   }
 
@@ -2135,7 +2170,7 @@ function renderShipActions() {
   // thing left is to print and write tracking back, whatever else is in state.
   if (allBought) {
     let block = ''
-    if (s.fulfillError) block = `<div class="alert alert-red" style="margin:0 0 .75rem">✕ Fulfillment didn't complete: ${s.fulfillError}. The labels are bought — retry the fulfillment; it won't re-buy.</div>`
+    if (s.fulfillError) block = `<div class="alert alert-red" style="margin:0 0 .75rem">✕ Fulfillment didn't complete: ${s.fulfillError}. The labels stay bought; tapping Fulfill order again never buys new ones.</div>`
     const busy = s.phase === 'fulfilling'
     const printed = shipAllPrinted(s)
     const who = (s.order.shipping_address || {}).company || s.order.order_name
@@ -2162,8 +2197,8 @@ function renderShipActions() {
   if (anyPriceChange && !anyRateErr) {
     const k = s.boxes.filter(b => !b.label && b.priceChange).length
     return `<div class="ship-actionbar">
-      <div class="ship-step" style="flex:1">⚠ UPS changed the price for ${pluralBox(k)} after you confirmed (see above). Nothing was bought for ${k === 1 ? 'it' : 'them'}. Re-rate, then confirm the new total.</div>
-      <button class="btn btn-secondary" onclick="reRate()">Re-rate</button>
+      <div class="ship-step" style="flex:1">⚠ UPS changed the price after you confirmed (see above). Nothing was bought for ${pluralBox(needRate.length)}. Re-rate, then confirm the new total.</div>
+      <button class="btn btn-secondary" onclick="reRate()" ${s.phase === 'rating' ? 'disabled' : ''}>${s.phase === 'rating' ? 'Getting rates…' : 'Re-rate'}</button>
     </div>`
   }
 
@@ -2177,7 +2212,7 @@ function renderShipActions() {
   }
   if (anyRateErr) {
     return `<div class="ship-actionbar">
-      <div class="ship-step" style="flex:1">⚠ UPS returned no Ground rate for some boxes (reason above). Fix the address in Shopify, then re-rate. Nothing can be bought until every box has a rate. Everything ships UPS Ground — do NOT ship USPS.</div>
+      <div class="ship-step" style="flex:1">⚠ Some boxes have no rate. The reason is shown on each box. Nothing can be bought until every box has a rate. Everything ships UPS Ground — do NOT ship USPS.</div>
       <button class="btn btn-secondary" onclick="reRate()">Re-rate</button>
     </div>`
   }
@@ -2311,8 +2346,9 @@ function shipTotal() {
 
 async function getRates() {
   const s = shipState
-  if (s.phase === 'buying' || s.phase === 'rating') return   // one loop at a time
+  if (s.phase === 'buying' || s.phase === 'rating' || shipBuyInFlight) return   // one loop at a time
   s.phase = 'rating'
+  try {
   renderShip()
   for (const b of s.boxes) {
     if (b.rate || b.label) continue   // a box with a label is paid for; never re-rate it
@@ -2326,35 +2362,40 @@ async function getRates() {
         // No USPS fallback any more, so say why UPS refused (bad ZIP/state, account issue).
         const why = (data.messages || []).map(m => m && m.text).filter(Boolean).join('; ')
         b.rateError = escHtml((data.error || `No UPS Ground rate (${res.status})`) + (why ? ' — ' + why : ''))
+        b.priceChange = null
         b.rateAlt = data.rates || null
         b.rate = null
       } else {
         b.rate = data; b.rateError = null; b.rateAlt = null; b.priceChange = null
       }
     } catch (e) {
-      b.rateError = escHtml(e.message)
+      b.rateError = escHtml(e.message); b.priceChange = null
     }
     renderShip()
   }
-  s.phase = s.boxes.every(b => b.rate) ? 'rated' : 'packed'
+  } finally {
+    s.phase = s.boxes.every(b => b.rate) ? 'rated' : 'packed'   // never left stuck at 'rating'
+  }
   renderShip()
 }
 
 function reRate() {
-  if (shipState.phase === 'buying') return
+  if (shipState.phase === 'buying' || shipBuyInFlight) return
   for (const b of shipState.boxes) { if (!b.rate) { b.rateError = null; b.rateAlt = null } }
   getRates()
 }
 
 async function buyLabels() {
   const s = shipState
-  if (s.phase === 'buying') return   // a second loop would re-buy boxes the first hasn't reached
+  if (s.phase === 'buying' || shipBuyInFlight) return   // a second loop would re-buy boxes the first hasn't reached
   // Never re-buy a box that already has a label; never buy one without a confirmed rate.
   const todo = s.boxes.filter(b => !b.label && b.rate)
   if (!todo.length) return
   const due = todo.reduce((sum, b) => sum + (b.rate ? Number(b.rate.amount) || 0 : 0), 0)
   if (!confirm(`Buy ${todo.length} label${todo.length !== 1 ? 's' : ''} for ${s.order.order_name} — $${due.toFixed(2)}? This charges the Shippo account.`)) return
   s.phase = 'buying'
+  shipBuyInFlight = true
+  try {
   renderShip()
   for (const b of todo) {
     b.status = 'buying'; b.labelError = null
@@ -2375,11 +2416,16 @@ async function buyLabels() {
         })
       })
       const data = await res.json()
-      if (res.status === 409) {
-        // Nothing bought: UPS's price moved above what was confirmed. Back to the rate step,
-        // and stop: the rest of the order waits for a fresh confirmation.
-        b.rate = null; b.status = 'packed'; b.label = null
+      if (res.status === 409 && data.error === 'Already bought') {
+        // This box already had a label (a lost response, another tab): the server handed it
+        // back instead of charging again. Treat it like a recovered label.
+        b.label = { tracking_number: data.tracking_number, tracking_url: data.tracking_url || null, label_url: data.label_url || null, shippo_object_id: data.shippo_object_id || null, recovered: true }
+        b.labelError = null; b.status = 'bought'
+      } else if (res.status === 409) {
+        // Nothing bought: UPS's price moved above what was confirmed. A rise usually hits the
+        // whole address, so every unbought box goes back to the rate step, and the buy stops.
         b.priceChange = { quoted: data.quoted, amount: data.amount }
+        for (const x of s.boxes) if (!x.label) { x.rate = null; x.status = 'packed' }
         break
       } else if (!res.ok || !data.ok || !data.tracking_number) {
         b.labelError = escHtml(data.error || `Label purchase failed (${res.status})`)
@@ -2392,7 +2438,10 @@ async function buyLabels() {
     }
     renderShip()
   }
-  s.phase = s.boxes.every(b => b.label) ? 'bought' : 'partial'
+  } finally {
+    shipBuyInFlight = false
+    s.phase = s.boxes.every(b => b.label) ? 'bought' : 'partial'   // never left stuck at 'buying'
+  }
   // Money has moved — mark the order pending so the list flags it even if this
   // screen is lost before the fulfillment happens.
   const boughtNow = s.boxes.filter(b => b.label).length

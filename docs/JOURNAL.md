@@ -1,6 +1,6 @@
 # Journal
 
-## 2026-10-17 — Phase B, B0: every order ships UPS Ground
+## 2026-10-17 to 18 — Phase B, B0: every order ships UPS Ground
 
 ### Work done
 
@@ -9,10 +9,10 @@
   - Shippo: all 75 transactions since 2026-09-20 are `test:false`, and the 12 `ups_ground` rows in `shipping_labels` (#7417, #7480, #8263, Goleta) match them by object id. The Vercel token was already live. The "test token until cutover" comment and RUNBOOK line were out of date.
   - The rate behind #8263 came from UPS account `21db4cf8…`. A second (Canada) UPS account exists on the login.
   - All 12 UPS boxes were declared at 20 lb net. A packed box weighs 21.27 lb.
-  - No labels were bought and waiting to be fulfilled at that point. That gets rechecked at the push (TESTS G7.2).
+  - No labels were bought and waiting to be fulfilled at that point. That gets rechecked right before the push (TESTS G7.3).
 - `index.html`:
   - `UPS_COMPANIES` and `carrierForOrder()` are gone. The page sends `carrier: 'ups'` and `weight_basis: 'packed'` with every rate and label call.
-  - New pure `declaredWeightLb(box)` = ceil(measured net + 0.83 tare + 0.05), 1 lb minimum. `boxParcel()` sends that weight. Box headers read "20 lb coffee · bills 22 lb".
+  - New pure `declaredWeightLb(box)` = ceil(measured net + 0.83 tare + 0.05), 1 lb minimum. `boxParcel()` sends that weight. Box headers read "20 lb coffee · declared 22 lb".
   - The label call carries the confirmed price. If UPS now charges more, the box shows "Price changed" with both prices, the buy stops, and Re-rate is offered.
   - While labels are being bought the action bar has no buttons, and `getRates`/`reRate`/`buyLabels` refuse to start a second loop.
   - Re-rating skips boxes that already have a label. The buy button counts only boxes still to buy.
@@ -28,25 +28,28 @@
     - a P.O. box
     - any `action` but exactly `rate` or `label`
     - a label call without a confirmed price (`"16.43"` form)
-  - Price guard: a fresh price that is higher, unreadable or not USD returns 409 and buys nothing.
-  - The recipient address is rebuilt from 9 known string fields, cleaned and cut to 35 characters. With no phone it gets Torque's 6192305400, the same number as the ship-from phone. No email.
+  - Price guard: a fresh price higher than the confirmed one returns 409 and buys nothing. A price that can't be read or isn't USD returns 422, at rate and at label.
+  - One label per box: before buying, the server checks the order's existing labels (the ADR 0011 RPC). A box that already has one gets it back (409 "Already bought") instead of a second charge.
+  - The recipient address is rebuilt from 9 known string fields and cleaned (NFC). Street 1, street 2 or city over 35 characters is refused with a message to shorten it in Shopify; only name and company are cut. With no phone it gets Torque's 6192305400, the same number as the ship-from phone. No email.
   - The USPS cubic path is removed.
 - `api/shopify-fulfill.js`:
   - Always writes tracking company UPS; a `company` in the body is ignored.
   - Every box needs a string tracking number.
-  - An order that is already fulfilled (a retry, or by hand in Shopify) flips its label rows to fulfilled.
-  - An open order with a non-`1Z` number gets a 400: fulfill by hand, then reopen and tap Fulfill to clear it.
+  - An order that is really fulfilled (Shopify FULFILLED, every fulfillment order CLOSED) flips its label rows to fulfilled, e.g. after a retry or after fulfilling by hand. Held, scheduled, incomplete, cancelled or invisible orders get a 409 that says what to do, and their rows stay pending.
+  - An open order with a non-`1Z` number gets a 400: fulfill by hand in Shopify, then tap Fulfill order again, or Clear on the red banner.
+  - No tracking URL is sent; Shopify builds the UPS link.
 - `api/shopify-token.js`:
   - `resolveWeightLb` follows R10: the size in the variant title, then the product title, then Shopify grams. Units: lb, oz, g, kg. xPods and 250 g count as 12 oz (R3) only when no other size is given.
   - A multipack ("2 x 12oz", "6 pack") or a fraction ("1/2 lb") is held, not guessed.
   - "weight for shipping" filler lines are left out of the B2B ship list.
   - `weightFromVariantTitle` is renamed `weightFromTitle`.
+- `index.html` (round 3): a module-level buy lock blocks ← Orders (hidden while buying), reopening the order and Refresh Orders. The red banner gets a Clear button for pending orders that dropped out of the list after being fulfilled by hand.
 - `.vercelignore` allowlist: only `index.html`, `api/`, `package.json` (plus a lockfile or `vercel.json` if one appears) are deployed (ADR 0022).
 - `tests/`, run with `node --test` (`npm test`, ADR 0021):
-  - 38 tests in total.
+  - 47 tests in total.
   - They drive the real `getRates`/`buyLabels`/`renderShipActions`/`fulfillOrder` in a sandbox.
   - A sweep over all 470 shippable variants in `retail_catalog.csv` explains every difference from A1 by a named exception.
-- **`shipping_labels.weight_lb` changes meaning at the deploy.** Rows before it hold net weight (the 12 earlier UPS rows say 20); rows after it hold the declared weight. The deploy time is recorded here at G7.3: _not yet deployed_.
+- **`shipping_labels.weight_lb` changes meaning at the deploy.** Rows before it hold net weight (the 12 earlier UPS rows say 20); rows after it hold the declared weight. The deploy time is recorded here at G7.4: _not yet deployed_.
 - ADR 0018 marked superseded. ADRs 0020, 0021, 0022 written. RUNBOOK, TESTS, the plan, the handoff prompt, `b2b-cubic-shipping.md`, ADR 0016 and the R5 phone line updated.
 
 ### Detours & fixes
@@ -64,15 +67,24 @@
   - **The new 409 path could buy a box twice.** It set a rate error mid-loop, the action bar showed Re-rate (and then Buy) while the first loop was still running, and a second loop re-bought boxes the first hadn't reached. The Saboteur reproduced box_index purchases `[1, 2, 2, 3, 3]`.
   - **The price guard failed open.** A rate with no readable amount compared `NaN > x` as false and bought, and `expected_amount: "1e308"` disabled the guard. It now fails closed.
   - **`escHtml` existed twice.** The test loaded the copy the browser never runs. One copy remains.
-  - **"Fulfill by hand" never cleared the pending flag**, so the red "paid, not fulfilled" banner would have stayed forever and G7.2 could never pass. The already-fulfilled path now flips the rows.
+  - **"Fulfill by hand" never cleared the pending flag**, so the red "paid, not fulfilled" banner would have stayed forever and the pre-push check (now G7.3) could never pass. The already-fulfilled path now flips the rows.
   - **The resolver's xPods rule beat an explicit "45lb"**, "12oz x 2" read as one bag, and "900g" fell back to wrong grams. All fixed, with the catalog sweep as the guard.
   - Also: the filler lines; a box with an empty tracking number was silently dropped from the email; the 422 carried account ids; control characters and arrays in address fields; P.O. box variants (POB, P0, zero-width).
+- **Adversarial review round 3** (2026-10-18, the cap; the first attempt hit the usage limit). Fixed:
+  - **Held or cancelled orders were treated as "already fulfilled"** (Saboteur and Security independently). The round 2 flip ran for any order without an OPEN or IN_PROGRESS fulfillment order: ON_HOLD, SCHEDULED, CANCELLED, or none visible. That erased the stranded-label alarm, and reopening then offered to buy every box again. Now only FULFILLED with all CLOSED counts.
+  - **← Orders mid-buy double-charged** (Saboteur and Architect, reproduced as box purchases `[1,1,2,2,3,3]`). The round 2 guard lived on `shipState`, and reopening built a new one. Fixed with the module-level lock, plus the server-side one-label-per-box check, which also covers lost responses and a second device.
+  - **The hand-fulfill remedy was unreachable** once the order left the list. Fixed with the Clear button and corrected messages.
+  - **Street lines were cut to 35 silently** ("…Ste 3C" lost the suite), and NFKC turned "123½" into "1231⁄2". Long lines are now refused, NFC goes to Shippo, NFKC is used only for the P.O. box test, and oversized fields are refused before normalizing (one 4.4 MB name took 1 GB).
+  - **The rate step showed unbuyable prices** ("$NaN", or "Buy — $0.00"). Now refused at rate.
+  - Also: one 409 now re-rates every unbought box, not one per round; the no-rate bar no longer always blames the address; the Re-rate button has a busy state; `getRates`/`buyLabels` reset their phase in `finally`; titles are clipped to 255 before regex matching; tracking URLs are no longer sent; more P.O. box spellings; ADRs 0002/0003 marked superseded; plan row B2a made concrete; the RUNBOOK rollback advice was backwards (reloading loads the old page that sends USPS) and is rewritten.
+  - **The allowlist ships after the docs it hides** (Architect, Blocks ship). It can't be fixed without rewriting unpushed `main`, which this session must not do. G7.2 now ships `.vercelignore` alone, first, and verifies the 404 before anything else is pushed.
 - **Rejected or deferred from the reviews:**
   - The 0.83 tare stays, because R3 is locked. A3's packed box implies 0.99; that question goes to Andy.
   - Unknown bag sizes still count at nominal weight rather than blocking the rate.
   - The server does not recompute the weight. That needs the rules in a file shared with the page: plan row B2a.
   - `net_weight_lb` waits for B5 (a migration).
-  - No auth on `/api/*`, the client-supplied ship-to address, open fulfillment, the `ship-doc` host check, and older unescaped templates all predate B0. They are being handled in the separate login/security analysis Andy asked for on 2026-10-17.
+  - No auth on `/api/*`, the client-supplied ship-to address, open fulfillment, the `ship-doc` host check, and older unescaped templates all predate B0. They go to the login slice that follows B0 (email and password, five accounts). That slice should also revoke anon EXECUTE on `mark_ship_labels_fulfilled`, and give the test helper `call()` request headers.
+  - Left for later slices: B2B packs the ordered quantity, not `fulfillable_quantity` (pre-existing; can over-ship partly fulfilled orders); a versioned page/server contract instead of `weight_basis`; the UPS account as an env var; the slip still prints net weight; the help card has no line for "Price changed"; splitting ADR 0020's bundled decisions.
 
 ### Decisions captured
 

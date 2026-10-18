@@ -94,7 +94,7 @@ module.exports = async function handler(req, res) {
 
     // 1) Look up the order's fulfillment orders (idempotency guard).
     const foRes = await gql(
-      `query($id: ID!) { order(id: $id) { id name fulfillmentOrders(first: 10) { edges { node { id status } } } } }`,
+      `query($id: ID!) { order(id: $id) { id name cancelledAt displayFulfillmentStatus fulfillmentOrders(first: 50) { edges { node { id status } } } } }`,
       { id: orderId }
     )
     const order = foRes.data && foRes.data.order
@@ -109,9 +109,21 @@ module.exports = async function handler(req, res) {
         : 'Order not found'
       return res.status(accessDenied || errs.length ? 502 : 404).json({ error: msg, detail: errs.length ? errs : null })
     }
-    const openFOs = (order.fulfillmentOrders.edges || []).map(e => e.node)
-      .filter(n => n.status === 'OPEN' || n.status === 'IN_PROGRESS')
+    const allFOs = (order.fulfillmentOrders.edges || []).map(e => e.node)
+    const openFOs = allFOs.filter(n => n.status === 'OPEN' || n.status === 'IN_PROGRESS')
+    if (order.cancelledAt) {
+      return res.status(409).json({ error: 'This order is cancelled in Shopify. Nothing was fulfilled. Void these labels in Shippo.' })
+    }
     if (!openFOs.length) {
+      // Only a truly fulfilled order counts as done. ON_HOLD, SCHEDULED, INCOMPLETE or no
+      // visible fulfillment order is NOT done: flipping its rows would hide paid labels from
+      // the "paid, not fulfilled" alarm (ADR 0011) and invite buying them again.
+      const done = allFOs.length > 0 && allFOs.every(n => n.status === 'CLOSED') && order.displayFulfillmentStatus === 'FULFILLED'
+      if (!done) {
+        const statuses = [...new Set(allFOs.map(n => n.status))].join(', ') || 'none visible'
+        const hint = allFOs.some(n => n.status === 'ON_HOLD') ? ' Release the hold in Shopify, then tap Fulfill order again.' : ''
+        return res.status(409).json({ error: `Shopify can't fulfill this order right now (fulfillment status: ${statuses}). Nothing was fulfilled.${hint}` })
+      }
       // Already fulfilled (by a retry, or by hand in Shopify) — do not create or notify again,
       // but do flip the label rows so the order stops showing as "paid, not fulfilled".
       const flip = await markLabelsFulfilled(orderId)
@@ -121,14 +133,15 @@ module.exports = async function handler(req, res) {
     // Checked after the already-fulfilled guard, so a hand-fulfilled USPS order can still
     // clear its pending flag here.
     if (tracking.some(t => !UPS_TRACKING.test(t.number.trim()))) {
-      return res.status(400).json({ error: 'Not a UPS tracking number. These labels were not bought as UPS Ground: fulfill this order by hand in Shopify, then reopen it here and tap Fulfill to clear it.' })
+      return res.status(400).json({ error: 'Not a UPS tracking number: these labels were not bought as UPS Ground. Fulfill this order by hand in Shopify, then tap Fulfill order again here (or Clear on the red banner) to close it out' })
     }
 
     // 2) Create ONE fulfillment with all tracking numbers; notify once.
     const numbers = tracking.map(t => t.number.trim())
-    const urlsAll = tracking.map(t => t.url)
+    // No URLs: Shopify builds the UPS tracking link from company + number. A URL taken from
+    // the page (or from a shipping_labels row anon can update) would put an arbitrary link
+    // in the customer's shipping email.
     const trackingInfo = { company, numbers }
-    if (urlsAll.every(Boolean)) trackingInfo.urls = urlsAll  // positional match only if complete
 
     const mRes = await gql(
       `mutation($fulfillment: FulfillmentInput!) {

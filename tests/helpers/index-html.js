@@ -50,7 +50,10 @@ function loadFromIndex(names, globals = {}) {
   const src = inlineScripts().join('\n')
   const code = names.map(n => declarationSource(src, n)).join('\n') +
     `\n;({ ${names.join(', ')} })`
-  return vm.runInNewContext(code, { ...globals })
+  const ctx = { ...globals }
+  const out = vm.runInNewContext(code, ctx)
+  Object.defineProperty(out, '__ctx', { value: ctx })   // read module-level state the code set
+  return out
 }
 
 module.exports = { INDEX, inlineScripts, declarationSource, loadFromIndex }

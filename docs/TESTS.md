@@ -2,7 +2,7 @@
 
 What must pass before committing each step. No CI here (single-file PWA, static deploy) — gates are checked by eye or a node snippet; the automatable ones are actually run.
 
-## Global (any commit touching index.html)
+## Global (any commit touching index.html, api/ or tests/)
 - [ ] Full-script syntax: extract `<script>` blocks and `node --check` → no errors. A paste error breaks the entire app's JS, so this is non-negotiable. Automated in `tests/syntax.test.js`.
 - [ ] `npm test` (`node --test "tests/*.test.js"`) → all pass.
 
@@ -23,15 +23,17 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
   - #6486 (21x5 lb) → [22,22,22,22,22,6].
 - [x] **G2 client flow** (real `getRates`/`reRate`/`buyLabels`/`renderShipActions`/`fulfillOrder` in a sandbox):
   - Rate and label requests carry `carrier:'ups'`, `weight_basis:'packed'` and the same declared weights. The label request carries the confirmed price as `"16.43"`.
-  - **A 409 stops the buy after that box.** The box shows "Price changed" (not "No rate") and the action bar offers Re-rate, not Buy.
-  - **While buying, the action bar has no buttons.** Taps on Buy, Re-rate or Get rates mid-buy start nothing, so each box is bought at most once.
+  - **A 409 stops the buy after that box** and sends every unbought box back to the rate step. The box shows "Price changed" (not "No rate"), and the action bar offers Re-rate, not Buy. After the re-rate, the warning clears and Buy shows the new total.
+  - **While buying, the action bar has no buttons and "← Orders" is hidden.** Buy, Re-rate, Get rates (even nested mid-buy), ← Orders, reopening the order and Refresh Orders all refuse while a buy is running. The lock is module-level, so a reopened order can't start a second loop.
+  - "Already bought" from the server becomes a recovered label, not a failure.
+  - Clear on the red banner closes out a hand-fulfilled order only when the server says it is fulfilled, and sends no email.
   - Re-rating skips boxes with a label. The buy button counts only boxes still to buy.
   - Shippo's reason and fulfill errors are HTML-escaped. There is exactly one `escHtml`, and it escapes `& < > " '`.
   - Fulfill sends `company:'UPS'` (rollback safety).
   - No `carrierForOrder`, `UPS_COMPANIES` or `'usps'` is left in the page.
 - [x] **G3 label endpoint, accepted path:**
   - The request pins `carrier_accounts [21db4cf8…]`, origin phone 6192305400 and ZIP 92104.
-  - The recipient address is 9 known string fields: email, extras and non-strings dropped; control characters and zero-width characters removed; cut to 35 characters by code point; the phone falls back to Torque's.
+  - The recipient address is 9 known string fields: email, extras and non-strings dropped; control and invisible format characters removed; NFC (not NFKC, so "123½" stays); name and company cut to 35 characters by code point; the phone falls back to Torque's.
   - From Saver, USPS, CA-account UPS and US-account UPS rates it picks the US-account `ups_ground`.
   - "1 Pobox Way" still ships.
 - [x] **G3 label endpoint, refused with 400 before any Shippo call:**
@@ -39,14 +41,17 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
   - no `weight_basis`, at rate and at label
   - a weight that is not a whole-pound number (20.5, `'22'`, `true`, 0), or string dims
   - an address that is not an object
-  - a P.O. box (P.O. Box, PO BOX, POB, P.O.B., P0 Box, PO + zero-width + Box)
+  - a P.O. box (P.O. Box, PO BOX, POB, P.O.B., P0 Box, PO-Box, P/O Box, Po Bx, Postal Box, with zero-width, soft-hyphen or bidi characters inside)
+  - street 1, street 2 or city over 35 characters (refused, never cut), or any field over 200 characters
+  - a label request without `order_id` and `box_index`
   - a label request with no confirmed price, or one not in `"16.43"` form (`1e308`, `[16.43]`, `true`, `16.431`, `0`, `-1`)
   - `action` Rates, `[rate,rate]`, void
   - No error echoes caller input.
 - [x] **G3 label endpoint, purchase path:**
   - No US-account `ups_ground` rate → 422, nothing bought. The response labels rates `torque-us`/`other` and carries no account ids.
   - A fresh price higher than confirmed, even by a cent (16.44 vs 16.43) → 409 with both prices, nothing bought.
-  - An unreadable price (`''`, `N/A`, null, 0) or a non-USD one → 409, nothing bought.
+  - An unreadable price (`''`, `N/A`, null, 0) or a non-USD one → 422 at rate and at label, nothing bought.
+  - A box that already has a label (same `order_id` + `box_index`, not voided) → 409 "Already bought" with that label, and no Shippo call. A label on another box, or a voided one, doesn't block. If the lookup fails, the buy goes ahead.
   - The same or a lower price buys; the confirmed price may be a number.
   - A purchase logs `ups_ground`, `is_cubic false`, `weight_lb 22`.
   - A failed purchase → 502, no cost row.
@@ -54,7 +59,9 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
   - The tracking company is UPS whatever the page sends.
   - A box with no tracking number (empty, missing, null, an array) → 400 with zero Shopify calls.
   - An open order with a USPS or malformed number → 400 "fulfill by hand", and nothing is created.
-  - An already-fulfilled order (e.g. fulfilled by hand) → 200 `alreadyFulfilled`, no notification, label rows flipped to fulfilled.
+  - An already-fulfilled order (Shopify FULFILLED, every fulfillment order CLOSED, e.g. fulfilled by hand) → 200 `alreadyFulfilled`, no notification, label rows flipped to fulfilled.
+  - ON_HOLD, SCHEDULED, INCOMPLETE, no visible fulfillment order, or a cancelled order → 409 with what to do. Rows are not flipped.
+  - No tracking URL is sent to Shopify.
 - [ ] **G4 rate match (no purchase):** after deploy, open one B2B order and tap Get rates.
   - Then quote the same parcel directly in Shippo: account `21db4cf80df74a2cb27fc20948862003`, 14x10x10 in, the "bills N lb" weight from the box header, the order's ship-to address, origin 3459 El Cajon Blvd 92104, residential flag unset.
   - Pass: the amounts are equal.
@@ -65,19 +72,23 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
   - one customer email
 - [ ] **G6 cutover step 1:** the first 5 B2B UPS shipments. For each: tracking, Shopify email, cost row, and UPS billed weight against declared (A3's tare gap, ADR 0020). Logged in the run log below.
 - [ ] **G7 merge (in this order):**
-  1. Adversarial review is done and Andy approves.
-  2. **Never push `main` on its own.** fc0f43c (the Phase A docs) ships only in the same push as the `.vercelignore` commit. `main` is fast-forwarded to `b0-b2b-ups`, then pushed once.
-  3. **Immediately before the push**, in the Supabase SQL editor (anon has no SELECT, ADR 0004): `select order_id, order_name, service, count(*) from public.shipping_labels where status = 'purchased' group by 1, 2, 3;` returns no rows. For each row it does return, the order is fulfilled (by hand in Shopify if its labels are USPS), then `select public.mark_ship_labels_fulfilled('gid://shopify/Order/<id>');`, and the query is re-run.
-  4. After deploy:
-     - `/docs/RUNBOOK.md` and `/db/2026-07-25-ship-label-recovery.sql` return 404 (ADR [`0022`](./decisions/0022-deploy-allowlist.md)).
+  1. Andy approves the merge and signs off on two open questions: the 14x10x10 tare (0.83 per R3, or the 0.99 that A3's packed box implies), and whether xPods count as 12 oz (0.75 lb) for B2B billed weight.
+  2. **The allowlist ships alone, first.** Local `main` (fc0f43c, the Phase A docs) must not reach origin before it.
+     - On a fresh branch from `origin/main`, commit only `.vercelignore` (its final form from `b0-b2b-ups`) and push it to `main`.
+     - Verify: `/docs/RUNBOOK.md` and `/db/2026-07-25-ship-label-recovery.sql` return 404, `/api/shopify-token?type=products` returns 200, and the app loads.
+     - Only then rebase or merge local `main` + `b0-b2b-ups` onto it and continue.
+  3. **Immediately before the B0 push**, in the Supabase SQL editor (anon has no SELECT, ADR 0004), run `select order_id, order_name, service, count(*) from public.shipping_labels where status = 'purchased' group by 1, 2, 3;` and expect no rows. For each row it does return: fulfill the order (by hand in Shopify if its labels are USPS), run `select public.mark_ship_labels_fulfilled('gid://shopify/Order/<id>');`, then re-run the query.
+  4. Push `main` once. After deploy:
+     - Repeat the 404 checks, plus `/tests/b0-ups.test.js` and `/.vercelignore`.
      - `/api/shopify-token?type=products` returns 200, and the app loads.
-     - Record the deployment time in the JOURNAL B0 entry: `shipping_labels.weight_lb` is declared weight from then on.
+     - Record the deployment time in the JOURNAL B0 entry: `shipping_labels.weight_lb` is the declared weight from then on.
   5. Andy checks in the Vercel dashboard whether Deployment Protection covers old `*.vercel.app` deployment URLs, which still serve `/docs` from before the allowlist.
 
 **Run log:**
 - 2026-10-17: G1–G3 PASS, 18/18 (`node --test "tests/*.test.js"`, Node 25.8.1).
 - 2026-10-17: adversarial review round 1. Accepted fixes landed (see JOURNAL). G1–G3 PASS, 25/25.
 - 2026-10-17: adversarial review round 2. Accepted fixes landed (see JOURNAL). G1–G3 PASS, 38/38 (`npm test`).
+- 2026-10-18: adversarial review round 3 (the cap). Accepted fixes landed (see JOURNAL). G1–G3 PASS, 47/47 (`npm test`).
 
 ## B2B Cubic Shipping
 

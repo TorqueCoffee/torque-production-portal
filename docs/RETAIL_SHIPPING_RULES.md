@@ -54,7 +54,7 @@ Change reason: the plan's "one 2 lb bag assumed to fit" is confirmed by A3, and 
 
 **R9 Batching.** Up to 25 orders per batch; one failure does not stop the rest; reload never re-buys a label.
 
-**R10 Weight source (changed).** Weight comes from the weight in the variant title (or product title), then Shopify grams. Grams first is wrong for 98 of 576 variants (grams and title disagree; mostly archived variants; 9 eligible orders in 90 days, 3 in 30 days). 28 variants have zero grams with a usable title (39 eligible orders, 10 in 30 days). No grams and no title weight: hold (27 variants).
+**R10 Weight source (changed).** Weight comes from the weight in the variant title (or product title), then Shopify grams. Grams first is wrong for 98 of 576 variants (grams and title disagree; mostly archived variants; 9 eligible orders in 90 days, 3 in 30 days). 28 variants have zero grams with a usable title (39 eligible orders, 10 in 30 days). No grams and no title weight: hold (27 variants). Built in B0 (`resolveWeightLb`): lb, oz, g and kg are read from titles; a title naming several bags ("2 x 12oz", "6 pack", "case of") or a fraction ("1/2 lb") holds rather than guesses; xPods and 250 g count as 12 oz only when the title gives no other size.
 Fellow orders (if they return) record weight zero in Shopify; the title weight applies.
 
 ## New rules

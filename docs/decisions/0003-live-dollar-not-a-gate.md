@@ -1,6 +1,6 @@
 # 0003 — Live cubic dollar confirmation is not a build gate
 
-- **Status**: Accepted
+- **Status**: Superseded by [#0020](./0020-all-orders-ups-ground.md) (no cubic path, 2026-10-17)
 - **Date**: 2026-06-29
 
 ## Context
