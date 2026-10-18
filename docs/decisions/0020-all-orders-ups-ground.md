@@ -8,28 +8,50 @@
 
 ADR 0018 routed one account (Best Coffee) to UPS Ground and left every other B2B order on USPS Ground Advantage cubic. Torque has now decided to move all shipping, B2B and retail, to UPS Ground bought through Shippo ([`Retail-USPS-UPS.md`](../Retail-USPS-UPS.md)). Andy, 2026-10-17: "we will ship every order only UPS." This ADR covers B0, the B2B half. Retail follows in slices B1 to B7.
 
-Three facts from live data shaped the build:
-- Every Shippo transaction since 2026-09-20 is `test:false`, and the 12 `ups_ground` rows in `shipping_labels` match live transactions. The Vercel `SHIPPO_TOKEN` is already the live token.
-- The Shippo login has two UPS accounts, `21db4cf8…` (US, the one used so far) and `588f0f77…` (Canada). The endpoint did not pin either.
-- B2B parcels were declared at net coffee weight. All 12 UPS boxes went out declared at 20 lb. A packed 4 x 5 lb box weighs 21.27 lb (A3), and UPS bills actual weight rounded up to the next pound, so each full box was declared about 2 lb light.
+Facts from live data that shaped the build:
+- Every Shippo transaction since 2026-09-20 is `test:false`, so the Vercel `SHIPPO_TOKEN` is already live.
+- The Shippo login has two UPS accounts: `21db4cf8…` (US, the one used so far) and `588f0f77…` (Canada). The endpoint pinned neither.
+- B2B parcels were declared at net coffee weight. All 12 UPS boxes went out at 20 lb, while a packed 4 x 5 lb box weighs 21.27 lb (A3). UPS bills actual weight rounded up to the next pound.
+- Under USPS cubic the price ignored weight up to 20 lb, so wrong Shopify grams did no harm. Under UPS they do. 98 of 576 variants carry grams that disagree with the title; La Mora 5lb, for example, stores 340 g.
 
 ## Options considered
 
-- **Keep per-account routing and add every account to the list.** It still fails silently: a new or renamed company falls back to USPS.
-- **UPS for everyone on the client only.** A page loaded before the deploy keeps sending `usps`, and nothing on the server stops it.
-- **UPS only, enforced on the server (chosen).** The client always sends `ups`, `shippo-label.js` refuses any other carrier, and `shopify-fulfill.js` refuses any tracking company but UPS.
-- **For the declared weight: keep net weight** and let UPS correct the invoice afterwards. Rejected: under-declared by design, with possible correction fees and a ledger that doesn't match the invoice.
+- **Keep per-account routing and list every account.** Still fails silently: a new or renamed company falls back to USPS.
+- **UPS for everyone, client only.** A page loaded before the deploy keeps buying what it always did.
+- **UPS only, enforced on the server (chosen).** The client sends `ups` and `weight_basis: 'packed'`. The label endpoint refuses any other carrier, a missing basis (an old page sending net weight), a non-integer weight, and a P.O. box. Fulfillment refuses any tracking number that isn't UPS.
+- **Declared weight: keep net weight** and let UPS correct the invoice. Rejected: it under-declares by design.
+- **Declared weight: compute it on the server from the box contents.** Stronger, but it needs the packing rules shared between page and server. That is B2's job (see Consequences).
 
 ## Decision
 
-- Every order rates and buys `ups_ground` only. There is no Ground Saver, no USPS and no fallback.
-- Shipments are pinned to UPS account `21db4cf80df74a2cb27fc20948862003`, and the rate chosen must carry that account.
-- Declared parcel weight = `ceil(measured net + carton tare + 0.05)`, 1 lb minimum (R3). Measured nets: 12 oz 0.75, 2 lb 2.03, 5 lb 5.07. A size with no measured net counts at its nominal weight. The 14x10x10 tare is 0.83. A full 4 x 5 lb box declares 22 lb. The cost row's `weight_lb` holds this declared weight.
-- The ship-from phone is 6192305400. A recipient with no phone gets Torque's phone (R5). No recipient email ever reaches Shippo.
-- The 20 lb net box cap stays. It began as the USPS cubic ceiling and is now the 14x10x10 box limit.
+- Every order rates and buys `ups_ground` on UPS account `21db4cf80df74a2cb27fc20948862003`. The account is pinned on every shipment, and the chosen rate must carry it. There is no Ground Saver, no USPS and no fallback.
+- **Weight per bag (R10, R3):** taken from the variant title first, then the product title, then Shopify grams. xPods and the 250 g box count as 12 oz.
+- **Declared parcel weight (R3):** `ceil(measured net + carton tare + 0.05)`, 1 lb minimum.
+  - Nets: 12 oz 0.75, 2 lb 2.03, 5 lb 5.07. Any other size counts at its nominal weight.
+  - The 14x10x10 tare is 0.83, the Uline spec.
+  - A full 4 x 5 lb box declares 22 lb.
+  - The page computes the weight. The server accepts only a whole pound of at least 1, sent with `weight_basis: 'packed'`.
+  - `shipping_labels.weight_lb` holds this declared weight from the deploy on. Rows before the deploy hold net weight.
+- **Price guard:** the label step re-rates. If UPS now charges more than the price the operator confirmed, nothing is bought (409) and the box goes back to the rate step.
+- **Addresses:** the ship-from phone is 6192305400. A recipient with no phone gets Torque's phone (R5). Shippo receives only the known address fields, and never a recipient email (R6).
+- **Box cap:** the 20 lb net cap stays. It began as the USPS cubic ceiling; `b2b_slip_spec.md` keeps box splitting unchanged, and A3 measured that 4 x 5 lb fits the 14x10x10.
 
 ## Consequences
 
-**Positive:** one carrier with no silent fallback, enforced where the money moves. The declared weight matches what UPS bills, so captured cost should match the invoice. A page loaded before the deploy gets a clear "reload" error instead of buying USPS.
-**Negative:** B2B costs more per box. Goleta 20 lb UPS was $16.43, against $10.95 for USPS cubic to La Jolla (plan: about +$127 a month for B2B). The portal can no longer buy a USPS label for anything. A USPS shipment has to be bought by hand in Shippo or Shopify. The cubic code path is gone.
-**When to revisit:** the day-90 retail test (if retail returns to USPS, B2B stays on UPS per the plan), new cartons in January (tare table), or a monthly invoice variance above 3%.
+**Positive:**
+- One carrier with no silent fallback, enforced where the money moves.
+- A page loaded before the deploy is refused with "reload" instead of buying USPS or buying at net weight.
+- Wrong Shopify grams no longer shrink a box.
+- A price jump between quote and purchase can't be bought without a fresh confirmation.
+
+**Negative:**
+- B2B costs more per box. The plan estimates about +$127 a month.
+- The portal can no longer buy a USPS label. A USPS label bought before the deploy and not yet fulfilled must be fulfilled by hand in Shopify.
+- xPods now pack at 0.75 lb each, so a large xPods order uses more boxes.
+- A3's packed box (21.27 lb) is 0.11 lb heavier than the model (20.28 + 0.83 + 0.05 = 21.16). Boxes near a pound line may still bill 1 lb over the declared weight, for example a single 5 lb bag (5.95 declared as 6, about 6.06 packed).
+
+**When to revisit:**
+- Before B2: move the carton tares, bag nets and billed-lb rule into one file that both the page and the server load, so the server can recompute the weight instead of trusting the page.
+- The monthly invoice check shows variance above 3%, or the tare is re-measured.
+- New cartons arrive in January.
+- The day-90 retail test (if retail returns to USPS, B2B stays on UPS).

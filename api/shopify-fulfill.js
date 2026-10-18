@@ -5,15 +5,17 @@
 // from shopify-token.js.
 //
 //   POST /api/shopify-fulfill
-//   body: { order_id, tracking: [{ number, url }], company?: 'UPS', notifyCustomer?: true }
-//   company is always 'UPS' (ADR 0020); any other value is refused so a USPS label can never
-//   be announced, and a UPS label never mislabeled.
+//   body: { order_id, tracking: [{ number, url }], notifyCustomer?: true }
+//   The tracking company is always UPS (ADR 0020), and every number must be a UPS number
+//   (1Z + 16). A USPS label bought before the switch is refused here, so it can never be
+//   announced to the customer as UPS; fulfill that order by hand in Shopify.
 //
 // Idempotent: if the order has no open fulfillment order (already fulfilled), it does NOT
 // create a fulfillment or notify again — guards against double-notify on retry.
 
 const fetch = globalThis.fetch || require('node-fetch')
 const API_VERSION = '2025-01'
+const UPS_TRACKING = /^1Z[0-9A-Z]{16}$/i
 
 async function getToken() {
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
@@ -37,8 +39,10 @@ module.exports = async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body || '{}') } catch { body = {} } }
   body = body || {}
   const tracking = Array.isArray(body.tracking) ? body.tracking.filter(t => t && t.number) : []
-  const company = body.company || 'UPS'
-  if (company !== 'UPS') return res.status(400).json({ error: `Only UPS tracking is allowed (got '${company}'). Reload the page and fulfill again.` })
+  const company = 'UPS'
+  if (tracking.some(t => !UPS_TRACKING.test(String(t.number)))) {
+    return res.status(400).json({ error: 'Not a UPS tracking number. These labels were not bought as UPS Ground: fulfill this order by hand in Shopify.' })
+  }
   const notifyCustomer = body.notifyCustomer !== false
   let orderId = body.order_id
   if (!orderId || !tracking.length) return res.status(400).json({ error: 'order_id and tracking[] required' })

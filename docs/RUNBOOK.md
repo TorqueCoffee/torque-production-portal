@@ -19,7 +19,7 @@ cd "/Users/andynewbom/Developer/Torque-Projects/torque-production-portal"
 node --test "tests/*.test.js"
 ```
 
-Node 18 or newer, no install. The tests stub `fetch`, so they touch no live service. `tests/helpers/index-html.js` loads named functions out of `index.html` so its pure code can be tested without a browser.
+Node 22 or newer (older versions don't expand the quoted glob), no install. The tests stub `fetch`, so they touch no live service. `tests/helpers/index-html.js` loads named functions out of `index.html` so its pure code can be tested without a browser.
 
 ## Data sources (Supabase)
 
@@ -51,6 +51,8 @@ The `api/` functions run on Vercel and hold all secrets server-side (never in `i
 ## Deploy
 
 Push to `main` on [`TorqueCoffee/torque-production-portal`](https://github.com/TorqueCoffee/torque-production-portal). Vercel builds from that branch automatically — static `index.html` plus the `api/` serverless functions. Set the env vars above in the Vercel project before the endpoints work.
+
+`.vercelignore` is an allowlist: only `index.html`, `api/` and `package.json` are deployed, so `docs/`, `db/` and `tests/` are never served (ADR [`0022`](./decisions/0022-deploy-allowlist.md)). A new static file the page needs must be added to it.
 
 - **Vercel project:** [`torquecoffees-projects/torque-production-portal`](https://vercel.com/torquecoffees-projects/torque-production-portal/deployments)
 - **Supabase project:** `torque-roast-scheduler` (`gblkovtjylrfdotoktkb`)

@@ -2,7 +2,7 @@
 
 _Created: 2026-06-29 · Last updated: 2026-06-30 · Status: building (Steps 0–5 done — both Step 5 slices complete; remaining: live e2e + on-hardware print + Step 6 cutover, all deploy-gated to Andy)_
 
-> **Carrier superseded 2026-10-17:** every order now ships UPS Ground; the USPS cubic path is removed ([ADR 0020](./decisions/0020-all-orders-ups-ground.md)). Packing, labels, slips and fulfillment below still describe the flow.
+> **Carrier superseded 2026-10-17:** every order now ships UPS Ground at the packed weight; the USPS cubic path is removed ([ADR 0020](./decisions/0020-all-orders-ups-ground.md)). The live token has been in use since at least 2026-09-20, so Step 6 is done. Packing, labels, slips and fulfillment below still describe the flow.
 >
 > Provenance: authored in the prebuild intake. This file is the canonical spec for the feature.
 > See the **Amendments** section at the end for corrections from the Step 0 gate + pre-build pressure-test.

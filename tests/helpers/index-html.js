@@ -43,12 +43,14 @@ function declarationSource(src, name) {
   throw new Error(`unterminated declaration: ${name}`)
 }
 
-// Load the named declarations (in order) into a fresh sandbox and return it.
-function loadFromIndex(names) {
+// Load the named declarations (in order) into a fresh sandbox and return them. `globals`
+// stands in for page state and browser APIs the code touches (shipState, fetch, confirm…).
+// Values come back from another realm: compare them with structuredClone(), not directly.
+function loadFromIndex(names, globals = {}) {
   const src = inlineScripts().join('\n')
   const code = names.map(n => declarationSource(src, n)).join('\n') +
     `\n;({ ${names.join(', ')} })`
-  return vm.runInNewContext(code, {})
+  return vm.runInNewContext(code, { ...globals })
 }
 
 module.exports = { INDEX, inlineScripts, declarationSource, loadFromIndex }

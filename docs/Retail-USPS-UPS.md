@@ -25,7 +25,7 @@ Both phases use these as given.
 
 | Item | Value |
 | --- | --- |
-| Ship-from | 3459 El Cajon Blvd, San Diego, CA **92104** (confirmed by Andy). The portal code is right; the wholesale-shipping notes say 92105 and are wrong. The portal's origin phone (6195551234) is a placeholder. |
+| Ship-from | 3459 El Cajon Blvd, San Diego, CA **92104** (confirmed by Andy). The portal code is right; the wholesale-shipping notes say 92105 and are wrong. The portal's origin phone is 6192305400 (set in B0, 2026-10-17; was the placeholder 6195551234). |
 | Service | UPS Ground only (Shippo token `ups_ground`). No Ground Saver (UPS says it "may be delivered by UPS or the USPS"). No fallback to USPS. |
 | Label source | Shippo API, UPS carrier account `21db4cf80df74a2cb27fc20948862003`. Shippo rates are reference rates; UPS invoices can differ. |
 | UPS billing | Actual weight rounded up to the next whole pound, 1 lb minimum. Dimensional weight applies only at 1,728 in³ or more; every carton below is smaller. |

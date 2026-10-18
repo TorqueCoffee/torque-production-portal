@@ -2082,7 +2082,6 @@ function renderShipBox(b, idx) {
 function renderShipActions() {
   const s = shipState
   const n = s.boxes.length
-  const { total } = shipTotal()
 
   if (!n && !s.pack.unpackable.length) {
     return `<div class="ship-actionbar"><div class="ship-step">Nothing to pack for this order.</div></div>`
@@ -2159,10 +2158,13 @@ function renderShipActions() {
 
   // Step 2 — buy (the spend gate; the visible total + a confirm dialog).
   if (allRated && !allBought && s.phase !== 'buying' && !anyFailed) {
+    // Only boxes without a label get bought (a recovered label is already paid for).
+    const k = needRate.length
+    const due = Math.round(needRate.reduce((sum, b) => sum + (Number(b.rate.amount) || 0), 0) * 100) / 100
     return `<div class="ship-actionbar">
-      <div class="ship-total">$${total.toFixed(2)}<span>${n} label${n !== 1 ? 's' : ''} · total</span></div>
-      <div class="ship-step" style="flex:1">Step 2 — buy labels for ${pluralBox(n)}. This charges the Shippo account.</div>
-      <button class="btn btn-primary" onclick="buyLabels()">Buy ${n} label${n !== 1 ? 's' : ''} — $${total.toFixed(2)}</button>
+      <div class="ship-total">$${due.toFixed(2)}<span>${k} label${k !== 1 ? 's' : ''} · total</span></div>
+      <div class="ship-step" style="flex:1">Step 2 — buy labels for ${pluralBox(k)}. This charges the Shippo account.</div>
+      <button class="btn btn-primary" onclick="buyLabels()">Buy ${k} label${k !== 1 ? 's' : ''} — $${due.toFixed(2)}</button>
     </div>`
   }
   if (s.phase === 'buying') {
@@ -2220,10 +2222,16 @@ document.addEventListener('visibilitychange', () => {
 })
 
 // Carrier (ADR 0020): every order ships UPS Ground. api/shippo-label.js refuses any other
-// carrier and api/shopify-fulfill.js any other tracking company, so these are the only
-// values the client sends.
+// carrier; api/shopify-fulfill.js writes tracking company UPS and refuses non-UPS numbers.
 const SHIP_CARRIER = 'ups'
-const SHIP_CARRIER_LABEL = 'UPS'
+// Sent with every rate/label call so the server can tell this page (packed weight) from
+// one loaded before ADR 0020 (net coffee weight), which it refuses.
+const SHIP_WEIGHT_BASIS = 'packed'
+
+// Escape text from outside the app (Shippo messages) before it goes into innerHTML.
+function escHtml(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
 
 // Declared parcel weight (ADR 0020). UPS bills actual weight rounded up to the next whole
 // pound (1 lb minimum), so Shippo gets the packed weight, not the coffee weight:
@@ -2234,7 +2242,8 @@ const MEASURED_NET_LB = { 0.75: 0.75, 2: 2.03, 5: 5.07 }
 const CARTON_TARE_LB = { '14x10x10': 0.83 }
 const PACK_ALLOWANCE_LB = 0.05
 function declaredWeightLb(box) {
-  const tare = CARTON_TARE_LB[(box && box.box_label) || PACK_BOX.label]
+  if (!box) return null
+  const tare = CARTON_TARE_LB[box.box_label || PACK_BOX.label]
   if (tare == null) return null
   let net = 0
   for (const line of (box.contents || [])) {
@@ -2275,7 +2284,9 @@ function boxParcel(box) {
 function shipTotal() {
   let total = 0, cur = 'USD'
   for (const b of shipState.boxes) {
-    if (b.rate) { total += Number(b.rate.amount) || 0; cur = b.rate.currency || cur }
+    // What was actually charged once a label exists; the quote before that.
+    const src = b.label && b.label.cost != null ? { amount: b.label.cost, currency: b.label.currency } : b.rate
+    if (src) { total += Number(src.amount) || 0; cur = src.currency || cur }
   }
   return { total: Math.round(total * 100) / 100, cur }
 }
@@ -2285,15 +2296,17 @@ async function getRates() {
   s.phase = 'rating'
   renderShip()
   for (const b of s.boxes) {
-    if (b.rate) continue
+    if (b.rate || b.label) continue   // a box with a label is paid for; never re-rate it
     try {
       const res = await fetch('/api/shippo-label?action=rate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address_to: toShippoAddress(s.order.shipping_address), parcel: boxParcel(b.box), carrier: SHIP_CARRIER })
+        body: JSON.stringify({ address_to: toShippoAddress(s.order.shipping_address), parcel: boxParcel(b.box), carrier: SHIP_CARRIER, weight_basis: SHIP_WEIGHT_BASIS })
       })
       const data = await res.json()
       if (!res.ok || !data.ok) {
-        b.rateError = data.error || `No UPS Ground rate (${res.status})`
+        // No USPS fallback any more, so say why UPS refused (bad ZIP/state, account issue).
+        const why = (data.messages || []).map(m => m && m.text).filter(Boolean).join('; ')
+        b.rateError = escHtml((data.error || `No UPS Ground rate (${res.status})`) + (why ? ' — ' + why : ''))
         b.rateAlt = data.rates || null
         b.rate = null
       } else {
@@ -2331,6 +2344,8 @@ async function buyLabels() {
           address_to: toShippoAddress(s.order.shipping_address),
           parcel: boxParcel(b.box),
           carrier: SHIP_CARRIER,
+          weight_basis: SHIP_WEIGHT_BASIS,
+          expected_amount: b.rate && b.rate.amount,   // server buys nothing if UPS now charges more
           order_id: s.order.order_id,
           order_name: s.order.order_name,
           box_index: b.box.box_index,
@@ -2338,8 +2353,12 @@ async function buyLabels() {
         })
       })
       const data = await res.json()
-      if (!res.ok || !data.ok || !data.tracking_number) {
-        b.labelError = data.error || `Label purchase failed (${res.status})`
+      if (res.status === 409) {
+        // Nothing bought: UPS's price moved above what was confirmed. Back to the rate step.
+        b.rate = null; b.status = 'packed'; b.label = null
+        b.rateError = `Price changed: confirmed $${escHtml(data.quoted)}, UPS now charges $${escHtml(data.amount)}. Nothing was bought for this box. Re-rate and confirm the new price.`
+      } else if (!res.ok || !data.ok || !data.tracking_number) {
+        b.labelError = escHtml(data.error || `Label purchase failed (${res.status})`)
         b.status = 'failed'; b.label = null
       } else {
         b.label = data; b.labelError = null; b.status = 'bought'
@@ -2366,7 +2385,7 @@ async function fulfillOrder() {
     const tracking = s.boxes.map(b => ({ number: b.label.tracking_number, url: b.label.tracking_url }))
     const res = await fetch('/api/shopify-fulfill', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_id: s.order.order_id, tracking, company: SHIP_CARRIER_LABEL, notifyCustomer: true })
+      body: JSON.stringify({ order_id: s.order.order_id, tracking, notifyCustomer: true })
     })
     const data = await res.json()
     if (!res.ok || !data.ok) {

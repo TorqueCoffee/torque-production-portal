@@ -21,17 +21,34 @@
   - Recipient email is stripped on the server too.
   - The USPS cubic path is removed.
 - `api/shopify-fulfill.js`: the tracking company defaults to UPS, and anything else gets a 400.
-- New `tests/` folder with `node --test`. `tests/helpers/index-html.js` loads named functions out of `index.html`, which B2 (`packRetail()`) will reuse. G1–G3: 18/18 pass.
+- New `tests/` folder with `node --test` (ADR 0021). `tests/helpers/index-html.js` loads named functions out of `index.html`. G1–G3: 25/25 pass after review.
 - ADR 0018 marked superseded. ADR 0020 written. RUNBOOK, TESTS, `b2b-cubic-shipping.md` and the R5 phone line updated.
 
 ### Detours & fixes
 
 - **Test arrays failed `deepStrictEqual` while printing identical.** Functions loaded into a `vm` sandbox build arrays with that realm's prototype. The tests compare JSON copies.
 - **ZIP 92105 in the "wholesale-shipping notes":** not found anywhere in this repo. Andy: the ship-from ZIP is 92104; ignore anything else.
+- **Adversarial review, round 1 (Saboteur, Security Auditor, Architect).** The first version only refused the wrong carrier string. Three reviewers independently showed that a USPS label bought before the deploy would be fulfilled as "UPS": restored labels carry no service, and our own 400 told the operator to reload, after which the new page sent "UPS". Fixed:
+  - `shopify-fulfill.js` always writes UPS and refuses any number that isn't `1Z` + 16. Those orders are fulfilled by hand. G7 now checks for pending USPS rows right before the push.
+  - **The server trusted any positive weight**, so a Best Coffee page loaded before the deploy (it already sent `ups`) would still buy at 20 lb net. The page now sends `weight_basis: 'packed'`. The server refuses it missing, and refuses any weight that isn't a whole-pound number.
+  - **Grams-first weights would have under-declared real SKUs to UPS.** La Mora 5lb stores 340 g, so 4 bags read as 3 lb. `resolveWeightLb` now follows R10 (variant title, product title, then grams) and R3 (xPods and 250 g count as 12 oz). Under USPS cubic this only mis-split boxes; under UPS it sets the price.
+  - **The label step re-rates and bought whatever came back.** The page now sends the confirmed price. A higher fresh price returns 409 and buys nothing, and the box goes back to the rate step.
+  - `action` other than exactly `rate` or `label` used to fall through to a purchase. It now gets a 400.
+  - The recipient address is rebuilt from known fields only. P.O. boxes are refused. Errors no longer echo caller input.
+  - The page shows Shippo's reason on a no-rate error and skips boxes that already have a label when re-rating. The buy button counts only boxes still to buy, and the Cost card shows what was charged once labels exist.
+  - **`production.torque.coffee/docs/*` and `/db/*` were publicly served** (HTTP 200). Pushing would have published the Phase A margin and cost docs. Added a `.vercelignore` allowlist (ADR 0022).
+  - Test helper: `structuredClone` replaces the JSON copy, so NaN and undefined survive. Syntax checks moved to `tests/syntax.test.js` and read `api/` instead of a fixed list. Payload tests now drive the real `getRates`/`buyLabels`/`fulfillOrder`.
+- **Rejected or deferred from the review:**
+  - The 0.83 tare stays, because R3 is locked; A3's packed box implies 0.99, and that question goes to Andy.
+  - Unknown bag sizes still count at nominal weight rather than blocking the rate.
+  - Moving the weight rules into a file shared with the server is deferred to before B2 (ADR 0020).
+  - The no-auth endpoints, shipment redirect via a client-supplied address, open fulfillment, the `ship-doc` host check, and unescaped HTML in older templates all predate B0 and are not made worse. They go to their own task.
 
 ### Decisions captured
 
 - [`0020-all-orders-ups-ground.md`](./decisions/0020-all-orders-ups-ground.md)
+- [`0021-node-test-harness.md`](./decisions/0021-node-test-harness.md)
+- [`0022-deploy-allowlist.md`](./decisions/0022-deploy-allowlist.md)
 
 ## 2026-10-13 — Fix: archived coffees still in bagging / blends / settings lists
 

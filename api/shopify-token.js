@@ -21,9 +21,11 @@ function isCoffeeProduct(p) {
   return status === 'DRAFT' && (p.tags || []).some(t => String(t).toLowerCase().includes('roast-profile'))
 }
 
-// Weight resolution for B2B cubic shipping. Prefer Shopify's per-line `grams` (the REST
-// line item is always in grams), else parse the variant title. Returns POUNDS, or null
-// if unknown — the packer flags null-weight items as unpackable rather than guessing.
+// Weight resolution for B2B shipping (R10 in docs/RETAIL_SHIPPING_RULES.md): the size in
+// the variant title, then in the product title, then Shopify's per-line `grams`. Grams
+// first was wrong for 98 of 576 variants (La Mora 5lb stores 340 g, so 4 bags read as
+// 3 lb). xPods and the 250 g box count as a 12 oz bag (R3). Returns POUNDS, or null if
+// unknown — the packer flags null-weight items as unpackable rather than guessing.
 const GRAMS_PER_LB = 453.59237
 // Coffee bags come in clean 0.25-lb increments (12oz, 1/2/5 lb). Shopify stores grams
 // rounded (a "5 lb" bag = 2270 g = 5.004 lb), which would push 4×5lb to 20.016 > the 20 lb
@@ -31,12 +33,15 @@ const GRAMS_PER_LB = 453.59237
 // honor the "4×5lb = 20 flat" decision.
 function snapQuarterLb(lb) { return Math.round(lb * 4) / 4 }
 function resolveWeightLb(item) {
+  const fromTitle = weightFromVariantTitle(item && item.variant_title) ?? weightFromVariantTitle(item && item.title)
+  if (fromTitle != null) return fromTitle
   const g = Number(item && item.grams)
   if (Number.isFinite(g) && g > 0) return snapQuarterLb(g / GRAMS_PER_LB)
-  return weightFromVariantTitle(item && item.variant_title)
+  return null
 }
 function weightFromVariantTitle(variant) {
   if (!variant) return null
+  if (/\bx\s*pods?\b|\b250\s*g\b/i.test(String(variant))) return 0.75   // R3: counts as 12 oz
   const m = String(variant).match(/(\d+\.?\d*)\s*(lb|pound|oz|ounce)/i)
   if (!m) return null
   const n = parseFloat(m[1]), u = m[2].toLowerCase()

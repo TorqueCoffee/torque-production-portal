@@ -9,19 +9,59 @@ What must pass before committing each step. No CI here (single-file PWA, static 
 ## UPS Ground (Phase B, plan: [`Retail-USPS-UPS.md`](./Retail-USPS-UPS.md))
 
 ### B0 — B2B cutover and safety
-Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020-all-orders-ups-ground.md)). `tests/b0-ups.test.js`, fetch stubbed, no network:
-- [x] **G1 syntax:** both inline `<script>` blocks parse; `node --check` on all four `api/*.js`.
-- [x] **G2 client:** `SHIP_CARRIER` is `ups`, `SHIP_CARRIER_LABEL` is `UPS`; no `carrierForOrder`, `UPS_COMPANIES` or `'usps'` left in the page. `declaredWeightLb`: 4x5 lb → 22, 3x5 lb → 17, 1x5 lb → 6, 10x2 lb → 22, 26x12 oz → 21, mixed 2x5+4x2+2x12oz → 21, TCCDS-40 half (20 lb nominal) → 21, exact 2.00 → 2 (no float push). Unknown carton, empty box, bad weight, zero qty → null. Real shape #6486 (21x5 lb, 2270 g) → boxes [20,20,20,20,20,5] → declared [22,22,22,22,22,6]. Client address carries no email.
-- [x] **G3 server:** rate request pins `carrier_accounts [21db4cf8…]`, origin phone 6192305400 and ZIP 92104, recipient phone falls back to Torque's, email stripped, parcel weight as declared. From Saver + USPS + CA-account UPS + US-account UPS, picks the US-account `ups_ground` (16.43). `carrier` usps/USPS/fedex → 400, and a parcel weight of null/0/text → 400, both with zero Shippo calls. No US-account `ups_ground` → 422, nothing bought. The label buys the chosen rate (PDF_4x6) and logs `service ups_ground`, `is_cubic false`, `weight_lb 22`. A failed purchase → 502 with no cost row. Fulfill with no company → `UPS`; company USPS/ups/FedEx → 400 with zero Shopify calls.
-- [ ] **G4 rate match (no purchase):** after deploy, rate one open B2B order in the portal; quote the same parcel in Shippo directly; amounts equal.
-- [ ] **G5 live buy (Andy):** next real B2B order through the portal. Check by read: Shippo `test:false`, account `21db4cf8…`, `ups_ground`, declared weight, cost row = rate amount, Shopify fulfillment company UPS with a 1Z number, one customer email.
-- [ ] **G6 cutover step 1:** first 5 B2B UPS shipments: tracking, Shopify email, cost row each. Run log below.
-- [ ] **G7:** adversarial review of the diff, then Andy approves the merge.
+Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020-all-orders-ups-ground.md)). `tests/syntax.test.js` + `tests/b0-ups.test.js` (ADR [`0021`](./decisions/0021-node-test-harness.md)), fetch stubbed, no network:
+- [x] **G1 syntax:** both inline `<script>` blocks parse; every `api/*.js` passes `node --check`.
+- [x] **G2 weight:** title first, then grams (R10). La Mora 5lb at 340 g → 5 lb, 4 bags → one box declared 22. xPods and 250 g → 0.75 (R3). TCCDS-40 product title → 40.
+- [x] **G2 declared weight:** `declaredWeightLb`: 4x5 lb → 22, 3x5 → 17, 1x5 → 6, 10x2 lb → 22, 26x12 oz → 21, mixed → 21, TCCDS-40 half → 21, exact 2.00 → 2. Unknown carton, empty box, bad weight, zero qty or no box → null. #6486 (21x5 lb) → [22,22,22,22,22,6].
+- [x] **G2 client flow (real `getRates`/`buyLabels`/`fulfillOrder` in a sandbox):**
+  - Rate and label requests carry `carrier:'ups'`, `weight_basis:'packed'` and the same declared weights. The label request carries the confirmed `expected_amount`.
+  - A 409 buys nothing and puts the box back at the rate step with both prices.
+  - Boxes that already have a label are not re-rated.
+  - Shippo's reason shows on a no-rate error, HTML-escaped.
+  - Fulfill sends no company.
+  - No `carrierForOrder`, `UPS_COMPANIES` or `'usps'` is left in the page.
+- [x] **G3 label endpoint, accepted path:**
+  - The request pins `carrier_accounts [21db4cf8…]`, origin phone 6192305400 and ZIP 92104.
+  - The recipient address carries the 9 known fields only (email and extras dropped), with the phone fallback.
+  - From Saver, USPS, CA-account UPS and US-account UPS rates it picks the US-account `ups_ground`.
+- [x] **G3 label endpoint, refused with 400 before any Shippo call:**
+  - carrier usps/USPS/fedex
+  - no `weight_basis` (a page from before the deploy)
+  - weight that is not a whole-pound number (20.5, `'22'`, `true`, 0)
+  - string dims
+  - an address that is not an object
+  - P.O. box in street1 or street2
+  - a label request with no `expected_amount`
+  - `action` Rates, `[rate,rate]`, void
+  - No error echoes caller input.
+- [x] **G3 label endpoint, purchase path:**
+  - No US-account `ups_ground` rate → 422, nothing bought.
+  - A higher price than confirmed → 409 with both prices, nothing bought.
+  - The same or a lower price buys.
+  - A purchase logs `ups_ground`, `is_cubic false`, `weight_lb 22`.
+  - A failed purchase → 502, no cost row.
+- [x] **G3 fulfill:** the tracking company is UPS whatever the page sends. A USPS or malformed tracking number → 400 "fulfill this order by hand in Shopify", with zero Shopify calls.
+- [ ] **G4 rate match (no purchase):** after deploy, open one B2B order and tap Get rates.
+  - Then quote the same parcel directly in Shippo: account `21db4cf80df74a2cb27fc20948862003`, 14x10x10 in, the "bills N lb" weight from the box header, the order's ship-to address, origin 3459 El Cajon Blvd 92104, residential flag unset.
+  - Pass: the amounts are equal.
+- [ ] **G5 live buy (Andy):** the next real B2B order goes through the portal. Check by read:
+  - Shippo `test:false`, account `21db4cf8…`, `ups_ground`, parcel weight = "bills N lb"
+  - cost row = label amount
+  - Shopify fulfillment company UPS with a 1Z number
+  - one customer email
+- [ ] **G6 cutover step 1:** the first 5 B2B UPS shipments. For each: tracking, Shopify email, cost row, and UPS billed weight against declared (A3's tare gap, ADR 0020). Logged in the run log below.
+- [ ] **G7 merge (in this order):**
+  1. Adversarial review is done and Andy approves.
+  2. **Immediately before the push**, `select order_name, service, count(*) from shipping_labels where status='purchased' group by 1,2` returns no `usps_ground_advantage` rows. Any it does return are fulfilled by hand in Shopify first.
+  3. After deploy, `/docs/RUNBOOK.md` returns 404 (ADR [`0022`](./decisions/0022-deploy-allowlist.md)), and the app loads.
 
 **Run log:**
 - 2026-10-17: G1–G3 PASS, 18/18 (`node --test "tests/*.test.js"`, Node 25.8.1).
+- 2026-10-17: adversarial review round 1. Accepted fixes landed (see JOURNAL). G1–G3 PASS, 25/25.
 
 ## B2B Cubic Shipping
+
+> Carrier-specific gates below (cubic GA rate, `is_cubic` true, company USPS, the grams-first resolver) are superseded by B0 above (ADR [`0020`](./decisions/0020-all-orders-ups-ground.md)). They stay as the record of what was tested at the time.
 
 ### Step 0 — rate-test gate · DONE 2026-06-29 (test token)
 - [x] `usps_ground_advantage` rate returns for 14x10x10 / 20 lb.
@@ -116,5 +156,5 @@ The actual hardware is a Rollo (system printer, 4x6 PDF/HTML), not a bare Zebra 
 
 **Run log:**
 - 2026-06-30: On-hardware gate **FAIL** (Andy) — printed slip came back as a 1-page, ~885-byte (effectively blank) PDF in Safari. Root cause: the print iframe was sized `width:0;height:0`; Chromium prints a 0×0 iframe's content fine (why the preview-tool check above missed it), but Safari computes the print canvas from the iframe's own rendered box, so a 0×0 frame yields a blank page regardless of the `srcdoc` content's own size. Fixed: real off-screen dimensions (`width:4in;height:6in`, `left/top:-10000px` instead of `width/height:0`) + a 50ms settle delay before calling `print()`. See JOURNAL "Fix: packing slip printed as a blank page in Safari". **Re-run by Andy still pending** — this exact gate is what caught the bug, so it's the one that must re-PASS before calling this closed.
-### Step 6 — live cutover — TBD
-Switch `SHIPPO_TOKEN` test→live only after 1–5b pass end to end on deploy. Confirm Shippo funding + live multi-zone $ (near + far) first; planner-app fulfillment scope + all env vars set in Vercel.
+### Step 6 — live cutover · DONE (found 2026-10-17)
+The live token was in place by 2026-09-20 at the latest: every Shippo transaction since then is `test:false`, and the `shipping_labels` rows match them. The carrier cutover itself is B0 above.
