@@ -1,0 +1,577 @@
+product_id,variant_id,product_title,variant_title,vendor,product_type,product_status,sku,requires_shipping,shopify_weight_value,shopify_weight_unit,grams,title_weight_text,title_weight_g,title_weight_source,eff_g_R10_draft,eff_g_proposed,grams_title_conflict,bag12oz_equiv,ship_status,carton_class,flags
+7556252532956,43214871429340,Coffee Drop - Bulk 2lbs,Default Title,Torque Coffees,Coffee,ARCHIVED,TCD-Bulk,1,900.0,GRAMS,900.0,2lbs,907.2,product,900.0,900.0,N,2.65,SHIP,12x8x6,
+7584014893276,42634344825052,Torque Third Wave Water - 2x Gallons,Default Title,Third Wave Water,,ARCHIVED,3rdwave-2Gal,1,1.0,GRAMS,1.0,,,none,1.0,1.0,N,0,HOLD_NON_TORQUE_VENDOR,,
+7716708122844,43216837476572,"Tierra Santa, Don Mario - Colombia",Whole Bean,Torque Coffees,Coffee,ARCHIVED,TC-FTS,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,
+7716708122844,43216837509340,"Tierra Santa, Don Mario - Colombia",Ground for Filter Drip,Torque Coffees,Coffee,ARCHIVED,TC-FTS-2,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,
+7716711203036,43216836886748,Fapecafes Loja - Ecuador,Whole Bean / 340g,Torque Coffees,Coffee,ARCHIVED,TC-FAPWB340,1,340.0,GRAMS,340.0,340g,340.0,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+7716711203036,43545741918428,Fapecafes Loja - Ecuador,Whole Bean / 900g,Torque Coffees,Coffee,ARCHIVED,TC-FAPWB900,1,340.0,GRAMS,340.0,900g,900.0,variant,340.0,900.0,Y,2.65,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+7716711203036,43216836919516,Fapecafes Loja - Ecuador,Ground for filter drip / 340g,Torque Coffees,Coffee,ARCHIVED,TC-FAPGR340,1,340.0,GRAMS,340.0,340g,340.0,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+7716711203036,43545741951196,Fapecafes Loja - Ecuador,Ground for filter drip / 900g,Torque Coffees,Coffee,ARCHIVED,TC-FAPGR900,1,340.0,GRAMS,340.0,900g,900.0,variant,340.0,900.0,Y,2.65,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+7734809297116,43112188149980,Torque Coffees Gift Card - Online Shop,$20.00,Torque Coffees,Gift Cards,ACTIVE,,0,0.0,GRAMS,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7734809297116,43679734431964,Torque Coffees Gift Card - Online Shop,$25.00,Torque Coffees,Gift Cards,ACTIVE,,0,0.0,GRAMS,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7734809297116,43112188182748,Torque Coffees Gift Card - Online Shop,$30.00,Torque Coffees,Gift Cards,ACTIVE,,0,0.0,GRAMS,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7734809297116,46218017636572,Torque Coffees Gift Card - Online Shop,50.00,Torque Coffees,Gift Cards,ACTIVE,,0,0.0,GRAMS,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7734809297116,43112188215516,Torque Coffees Gift Card - Online Shop,$100.00,Torque Coffees,Gift Cards,ACTIVE,,0,0.0,GRAMS,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7734809297116,43112188248284,Torque Coffees Gift Card - Online Shop,$200.00,Torque Coffees,Gift Cards,ACTIVE,,0,0.0,GRAMS,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7734809297116,46218017669340,Torque Coffees Gift Card - Online Shop,500,Torque Coffees,Gift Cards,ACTIVE,,0,0.0,GRAMS,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7734809297116,46218017702108,Torque Coffees Gift Card - Online Shop,1000,Torque Coffees,Gift Cards,ACTIVE,,0,0.0,GRAMS,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7787230920924,43246809120988,Espresso Drop- 2lbs Bulk,Default Title,Torque Coffees,Coffee,ARCHIVED,TCED,1,900.0,GRAMS,900.0,2lbs,907.2,product,900.0,900.0,N,2.65,SHIP,12x8x6,
+7806417830108,43308901400796,"Garcilazo, Hybrid15 Honey - Costa Rica - Bulk 2lbs",Default Title,Torque Coffees,Coffee,ARCHIVED,FGCR-BULK,1,900.0,GRAMS,900.0,2lbs,907.2,product,900.0,900.0,N,2.65,SHIP,12x8x6,
+7806432411868,43308938854620,"Diamante, Hoja Blanca - Guatemala",Default Title,Torque Coffees,Coffee,ARCHIVED,FDG,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,
+7887401353436,43525219680476,"El Socorro, Pacamara Honey - Guatemala - Bulk 2lbs",Default Title,Torque Coffees,Coffee,ARCHIVED,TCESHP-BULK,1,900.0,GRAMS,900.0,2lbs,907.2,product,900.0,900.0,N,2.65,SHIP,12x8x6,
+7887425994972,43525256020188,"El Socorro, Red Bourbon - Guatemala - Bulk 2lbs",Default Title,Torque Coffees,Coffee,ARCHIVED,TCESRB-BULK,1,900.0,GRAMS,900.0,2lbs,907.2,product,900.0,900.0,N,2.65,SHIP,12x8x6,
+7892310163676,43538534236380,"Malacara B, Orange Bourbon - El Salvador",Default Title,Torque Coffees,Coffee,ARCHIVED,ESMO,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,
+7893617148124,43571851755740,Nanelle's Drop - Compositions,Default Title,Torque Coffees,Coffee,ARCHIVED,TCNDC,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,
+7905987920092,43584841089244,Snow Drop - Holiday Blend- Bulk 2lbs,Default Title,Torque Coffees,Coffee,ARCHIVED,TCSN-BULK,1,900.0,GRAMS,900.0,2lbs,907.2,product,900.0,900.0,N,2.65,SHIP,12x8x6,
+7920704880860,43624456519900,Dark Drop - Bulk 2lbs,Default Title,Torque Coffees,Coffee,ARCHIVED,TDD-bulk,1,900.0,GRAMS,900.0,2lbs,907.2,product,900.0,900.0,N,2.65,SHIP,12x8x6,
+7931162427612,43654346801372,Drip coffee,Default Title,Torque Coffees,,ARCHIVED,,1,0.0,GRAMS,0.0,,,none,0,0,N,0,HOLD_NO_WEIGHT,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7931162689756,43654347096284,Espresso,Default Title,Torque Coffees,,ARCHIVED,,1,0.0,GRAMS,0.0,,,none,0,0,N,0,HOLD_NO_WEIGHT,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7931162984668,43654347292892,Cold Brew,Default Title,Torque Coffees,,ARCHIVED,,1,0.0,GRAMS,0.0,,,none,0,0,N,0,HOLD_NO_WEIGHT,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+7933988339932,43660965085404,Nanelle's Drop - Single Origin,Default Title,Torque Coffees,Coffee,ARCHIVED,TCNDS,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,
+7942326550748,43682604908764,"OLD El Socorro, Red Bourbon - Guatemala",Default Title,Torque Coffees,Coffee,ARCHIVED,TCESRB-B,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,
+7943285571804,43684950671580,"El Socorro, Pacamara Honey - Guatemala",Default Title,Torque Coffees,Coffee,ARCHIVED,TCHP,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,
+7943289995484,43983112011996,Gum Drop,12oz,Torque Coffees,Coffee,ACTIVE,TQ-XGDR-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+7943289995484,43983112044764,Gum Drop,2lb,Torque Coffees,Coffee,ACTIVE,TQ-XGDR-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+7943289995484,44573003841756,Gum Drop,5lb,Torque Coffees,Coffee,ACTIVE,TQ-XGDR-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+7943289995484,47514063798492,Gum Drop,8 xPods,Torque Coffees,Coffee,ACTIVE,TQ-XGDR-8XP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+7943290847452,43983113257180,Dark Drop,12oz,Torque Coffees,Coffee,ACTIVE,TQ-XDDR-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,
+7943290847452,43983113289948,Dark Drop,2lb,Torque Coffees,Coffee,ACTIVE,TQ-XDDR-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+7943290847452,44572998271196,Dark Drop,5lb,Torque Coffees,Coffee,ACTIVE,TQ-XDDR-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+7943290847452,47514063110364,Dark Drop,8 xPods,Torque Coffees,Coffee,ACTIVE,TQ-XDDR-8XP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+7943291404508,44008779219164,"Diamante, Hoja Blanca - Guatemala",12oz Coffee Box,Torque Coffees,Coffee,ARCHIVED,TCDIB,1,285.0,GRAMS,285.0,12oz,340.2,variant,285.0,340.2,Y,1.0,SHIP,8x6x3,GRAMS_TITLE_CONFLICT
+7943291404508,44008779251932,"Diamante, Hoja Blanca - Guatemala",2Lb Bulk Bags,Torque Coffees,Coffee,ARCHIVED,TCDI-2lb,1,285.0,GRAMS,285.0,2Lb,907.2,variant,285.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+7943291797724,43983127085276,Cocoa Drop,12oz,Torque Coffees,Coffee,ACTIVE,TQ-XCDR-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+7943291797724,43983127118044,Cocoa Drop,2lb,Torque Coffees,Coffee,ACTIVE,TQ-XCDR-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+7943291797724,44572992897244,Cocoa Drop,5lb,Torque Coffees,Coffee,ACTIVE,TQ-XCDR-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+7943291797724,47514062684380,Cocoa Drop,8 xPods,Torque Coffees,Coffee,ACTIVE,TQ-XCDR-8XP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+7943292158172,43684958699740,"Garcilazo, Hybrid15 Honey - Costa Rica",Default Title,Torque Coffees,Coffee,ARCHIVED,TCGAB,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,
+7943292584156,43684959092956,"Malacara B, Orange Bourbon - El Salvador",Default Title,Torque Coffees,Coffee,ARCHIVED,TCOBB,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,
+7943293206748,43684959846620,Snow Drop - Holiday Blend,Default Title,Torque Coffees,Coffee,ARCHIVED,TCSDB,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,
+7945217638620,43689669230812,Nanelle's Drop - Origins,Default Title,Torque Coffees,Coffee,ARCHIVED,TCNDSB,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,
+7945391997148,43690237657308,Nanelle's Drop - Compositions,Default Title,Torque Coffees,Coffee,ARCHIVED,TCNDBC,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,
+7946823008476,43692685525212,"El Socorro, Red Bourbon - Guatemala - GREEN COFFEE -Unroasted",Default Title,Torque Coffees,,ARCHIVED,,1,500.0,GRAMS,500.0,,,none,500.0,500.0,N,1.47,SHIP,12x8x6,BLANK_SKU
+7952524050652,43983139471580,"Mapendo, Women's Co-op - Congo",10oz Coffee Box,Torque Coffees,Coffee,ARCHIVED,TC-MAWC,1,285.0,GRAMS,285.0,10oz,283.5,variant,285.0,285.0,N,0.84,SHIP,8x6x3,
+7952524050652,43983139504348,"Mapendo, Women's Co-op - Congo",2Lb Bulk Bags,Torque Coffees,Coffee,ARCHIVED,TC-MAWC-2lbs,1,908.0,GRAMS,908.0,2Lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+7952532373724,43714096627932,"Limmu Kossa, Heirloom - Ethiopia",Default Title,Torque Coffees,Coffee,ARCHIVED,TCLK,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,
+7972501979356,43983132983516,Honey Drop,12oz,Torque Coffees,Coffee,ACTIVE,TQ-XHDR-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+7972501979356,43983133016284,Honey Drop,2lb,Torque Coffees,Coffee,ACTIVE,TQ-XHDR-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+7972501979356,44573006627036,Honey Drop,5lb,Torque Coffees,Coffee,ACTIVE,TQ-XHDR-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+7972501979356,47514062553308,Honey Drop,8 xPods,Torque Coffees,Coffee,ACTIVE,TQ-XHDR-8XP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+7984176201948,43787343298780,Coffee Drop - Bulk 10lbs,Default Title,Torque Coffees,Coffee,ARCHIVED,TCCDBW,1,10.0,POUNDS,4535.9,10lbs,4535.9,product,4535.9,4535.9,N,13.33,SHIP,OVERSIZE_A4,
+7986780700892,43793465770204,Coffee Drop - Bulk 1lbs,Default Title,Torque Coffees,Coffee,ARCHIVED,TCCD1,1,454.0,GRAMS,454.0,1lbs,453.6,product,454.0,454.0,N,1.33,SHIP,12x8x6,
+8009893871836,43843759571164,Producer's Flight,Default Title,Torque Coffees,Coffee,ARCHIVED,TCPF,1,750.0,GRAMS,750.0,,,none,750.0,750.0,N,2.2,SHIP,12x8x6,
+8009896886492,43843777167580,Roaster's Flight,Default Title,Torque Coffees,Coffee,ARCHIVED,TCRF,1,295.0,GRAMS,295.0,,,none,295.0,295.0,N,0.87,SHIP,8x6x3,
+8015098970332,43859554533596,5 lb weight for shipping,Default Title,Torque Coffees,,UNLISTED,,1,5.0,POUNDS,2268.0,5 lb,2268.0,product,2268.0,2268.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8017850859740,43866801766620,"Mapendo, Women's Co-op, DR Congo - Bulk 2lbs",Default Title,Torque Coffees,Coffee,ARCHIVED,TCMA2B,1,900.0,GRAMS,900.0,2lbs,907.2,product,900.0,900.0,N,2.65,SHIP,12x8x6,
+8017852563676,43866811433180,"Limmu Kossa, Heirloom, Ethiopia - Bulk 2lbs",Default Title,Torque Coffees,Coffee,ARCHIVED,,1,900.0,GRAMS,900.0,2lbs,907.2,product,900.0,900.0,N,2.65,SHIP,12x8x6,BLANK_SKU
+8018335432924,43867995963612,"Mapendo, Women's Coop, Congo - GREEN COFFEE -Unroasted",Default Title,Torque Coffees,,ARCHIVED,,1,500.0,GRAMS,500.0,,,none,500.0,500.0,N,1.47,SHIP,12x8x6,BLANK_SKU
+8025322684636,43884124438748,"The Limmu Kossa, Heirloom - Ethiopia",Default Title,Torque Coffees,Coffee,ARCHIVED,,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,BLANK_SKU
+8029323002076,43983120859356,"Dark Mapendo, Women's Co-op - Congo",10oz Coffee Box,Torque Coffees,Coffee,ARCHIVED,TC-MADark,1,285.0,GRAMS,285.0,10oz,283.5,variant,285.0,285.0,N,0.84,SHIP,8x6x3,
+8029323002076,43983120892124,"Dark Mapendo, Women's Co-op - Congo",2Lb Bulk Bags,Torque Coffees,Coffee,ARCHIVED,TC-MADark-2,1,908.0,GRAMS,908.0,2Lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+8037184405724,43913711419612,"Once Upon A Time - Finca Sabana Redonda SL28 Boxed Set, Beneficio Las Lajas- Costa Rica",Default Title,Torque Coffees,Coffee,ARCHIVED,TCSR-LL2x,1,260.0,GRAMS,260.0,,,none,260.0,260.0,N,0.76,SHIP,8x6x3,
+8045889093852,43983127281884,"Gaitania - Emmanuel Enciso, Colombia",12oz Coffee Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCGCCC,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8045889093852,45249153073372,"Gaitania - Emmanuel Enciso, Colombia",12oz Coffee Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8045889093852,45249153106140,"Gaitania - Emmanuel Enciso, Colombia",12oz Coffee Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8045889093852,45249153138908,"Gaitania - Emmanuel Enciso, Colombia",12oz Coffee Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8045889093852,43983127314652,"Gaitania - Emmanuel Enciso, Colombia",2Lb Bulk Bags / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCGCCC-2,1,908.0,GRAMS,908.0,2Lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+8045889093852,45249153171676,"Gaitania - Emmanuel Enciso, Colombia",2Lb Bulk Bags / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2Lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8045889093852,45249153204444,"Gaitania - Emmanuel Enciso, Colombia",2Lb Bulk Bags / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2Lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8045889093852,45249153237212,"Gaitania - Emmanuel Enciso, Colombia",2Lb Bulk Bags / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2Lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8045889093852,44573043032284,"Gaitania - Emmanuel Enciso, Colombia",5Lb Bulk Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5Lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8045889093852,45249153269980,"Gaitania - Emmanuel Enciso, Colombia",5Lb Bulk Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8045889093852,45249153302748,"Gaitania - Emmanuel Enciso, Colombia",5Lb Bulk Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8045889093852,45249153335516,"Gaitania - Emmanuel Enciso, Colombia",5Lb Bulk Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8045891092700,43983128756444,"La Inteligencia, Catuai Bourbon - Guatemala",10oz Coffee Box,Torque Coffees,,ARCHIVED,TCIG,1,285.0,GRAMS,285.0,10oz,283.5,variant,285.0,285.0,N,0.84,SHIP,8x6x3,
+8045891092700,43983128789212,"La Inteligencia, Catuai Bourbon - Guatemala",2Lb Bulk Bags,Torque Coffees,,ARCHIVED,TCIG-2lb,1,908.0,GRAMS,908.0,2Lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+8048807215324,43947478450396,"Gaitania, Community - Colombia - BULK 2lbs",Default Title,Torque Coffees,Coffee,ARCHIVED,TCGCCC-Bulk,1,908.0,GRAMS,908.0,2lbs,907.2,product,908.0,908.0,N,2.67,SHIP,12x8x6,
+8064245596380,43983014822108,Decaf Drop,12oz,Torque Coffees,Coffee,ACTIVE,TQ-XDCF-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8064245596380,43983016820956,Decaf Drop,2lb,Torque Coffees,Coffee,ACTIVE,TQ-XDCF-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+8064245596380,44573013049564,Decaf Drop,5lb,Torque Coffees,Coffee,ACTIVE,TQ-XDCF-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+8072710324444,44003775119580,"Finca Sabana Redonda, Natural SL28 Black Diamond- Costa Rica",Default Title,Torque Coffees,Coffee,ARCHIVED,TCSRBD-10,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,DUPLICATE_SKU
+8072717140188,44003801825500,"Finca Sabana Redonda, Anaerobic SL28 Doble Diamond- Costa Rica",Default Title,Torque Coffees,Coffee,ARCHIVED,TCSRBD-10,1,285.0,GRAMS,285.0,,,none,285.0,285.0,N,0.84,SHIP,8x6x3,DUPLICATE_SKU
+8075664097500,44020626161884,"Villa Betulia, Caturron -  Colombia",12oz Coffee Box,Torque Coffees,Coffee,ARCHIVED,TCCA,1,285.0,GRAMS,285.0,12oz,340.2,variant,285.0,340.2,Y,1.0,SHIP,8x6x3,GRAMS_TITLE_CONFLICT
+8075664097500,44020626194652,"Villa Betulia, Caturron -  Colombia",2lb Bulk Bags,Torque Coffees,Coffee,ARCHIVED,TCCA-2,1,285.0,GRAMS,285.0,2lb,907.2,variant,285.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8139410800860,44064763445468,"Las Lajas, Perla Negra Honey - Costa Rica",12oz Coffee Bag,Torque Coffees,Coffee,ARCHIVED,TCPNB,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+8139410800860,45541797003484,"Las Lajas, Perla Negra Honey - Costa Rica",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,900.0,GRAMS,900.0,2lb,907.2,variant,900.0,900.0,N,2.65,SHIP,12x8x6,BLANK_SKU
+8139410800860,45541797036252,"Las Lajas, Perla Negra Honey - Costa Rica",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,5.0,POUNDS,2268.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8139416502492,44064784810204,"Las Lajas, Red Honey - Costa Rica",12oz Coffee Bag,Torque Coffees,Coffee,ARCHIVED,TCRHB,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8139416502492,44064784842972,"Las Lajas, Red Honey - Costa Rica",2lb Bulk Bags,Torque Coffees,Coffee,ARCHIVED,TCRH2,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+8139416502492,44573054140636,"Las Lajas, Red Honey - Costa Rica",5Lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5Lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8151958978780,44096753467612,"Edwin's Reserve - Edwin Martinez,  Guatemala",12oz Coffee Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCFVHR-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+8151958978780,45249151762652,"Edwin's Reserve - Edwin Martinez,  Guatemala",12oz Coffee Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8151958978780,45249151795420,"Edwin's Reserve - Edwin Martinez,  Guatemala",12oz Coffee Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8151958978780,45249151860956,"Edwin's Reserve - Edwin Martinez,  Guatemala",12oz Coffee Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8151958978780,44096753500380,"Edwin's Reserve - Edwin Martinez,  Guatemala",2lbs Bulk Bags / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCFVHR-2P,1,908.0,GRAMS,908.0,2lbs,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,DUPLICATE_SKU
+8151958978780,45249151893724,"Edwin's Reserve - Edwin Martinez,  Guatemala",2lbs Bulk Bags / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151958978780,45249151959260,"Edwin's Reserve - Edwin Martinez,  Guatemala",2lbs Bulk Bags / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151958978780,45249151992028,"Edwin's Reserve - Edwin Martinez,  Guatemala",2lbs Bulk Bags / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151958978780,44573035135196,"Edwin's Reserve - Edwin Martinez,  Guatemala",5Lb Bulk Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5Lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8151958978780,45249152024796,"Edwin's Reserve - Edwin Martinez,  Guatemala",5Lb Bulk Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151958978780,45249152057564,"Edwin's Reserve - Edwin Martinez,  Guatemala",5Lb Bulk Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151958978780,45249152090332,"Edwin's Reserve - Edwin Martinez,  Guatemala",5Lb Bulk Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151975985372,44096816185564,"Espresso Reserve - Edwin Martinez,  Guatemala",12oz Coffee Bag / Whole Bean,Torque Coffees,,ARCHIVED,TCFVHE-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8151975985372,45249152516316,"Espresso Reserve - Edwin Martinez,  Guatemala",12oz Coffee Bag / Course Ground,Torque Coffees,,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8151975985372,45249152549084,"Espresso Reserve - Edwin Martinez,  Guatemala",12oz Coffee Bag / Medium Ground,Torque Coffees,,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8151975985372,45249152581852,"Espresso Reserve - Edwin Martinez,  Guatemala",12oz Coffee Bag / Fine Ground,Torque Coffees,,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8151975985372,44096816218332,"Espresso Reserve - Edwin Martinez,  Guatemala",2lbs Bulk Bags / Whole Bean,Torque Coffees,,ARCHIVED,TCFVHE-2,1,908.0,GRAMS,908.0,2lbs,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+8151975985372,45249152614620,"Espresso Reserve - Edwin Martinez,  Guatemala",2lbs Bulk Bags / Course Ground,Torque Coffees,,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151975985372,45249152647388,"Espresso Reserve - Edwin Martinez,  Guatemala",2lbs Bulk Bags / Medium Ground,Torque Coffees,,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151975985372,45249152680156,"Espresso Reserve - Edwin Martinez,  Guatemala",2lbs Bulk Bags / Fine Ground,Torque Coffees,,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151975985372,44573038051548,"Espresso Reserve - Edwin Martinez,  Guatemala",5Lb Bulk Bag / Whole Bean,Torque Coffees,,ARCHIVED,,1,2270.0,GRAMS,2270.0,5Lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8151975985372,45249152712924,"Espresso Reserve - Edwin Martinez,  Guatemala",5Lb Bulk Bag / Course Ground,Torque Coffees,,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151975985372,45249152745692,"Espresso Reserve - Edwin Martinez,  Guatemala",5Lb Bulk Bag / Medium Ground,Torque Coffees,,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8151975985372,45249152778460,"Espresso Reserve - Edwin Martinez,  Guatemala",5Lb Bulk Bag / Fine Ground,Torque Coffees,,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8166006456540,44136694120668,"La Primavera, Pink Borbon Honey - Colombia",12oz Coffee Bag,Torque Coffees,Coffee,ARCHIVED,TCPI,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8166006456540,44136694153436,"La Primavera, Pink Borbon Honey - Colombia",2lbs Bulk Bags,Torque Coffees,Coffee,ARCHIVED,TCPI2,1,908.0,GRAMS,908.0,2lbs,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+8166006456540,44573048570076,"La Primavera, Pink Borbon Honey - Colombia",5Lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5Lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8182612132060,44170119545052,2lb weight for shipping,Default Title,Torque Coffees,,UNLISTED,,1,2.0,POUNDS,907.2,2lb,907.2,product,907.2,907.2,N,2.67,SHIP,12x8x6,BLANK_SKU
+8222296211676,44263668580572,Once Upon A Time- Edwin Martinez Reserve Lots,Default Title,Torque Coffees,Coffee,ARCHIVED,TCOUAT-FVH,1,250.0,GRAMS,250.0,,,none,250.0,250.0,N,0.73,SHIP,8x6x3,
+8235107680476,44300925632732,"El Socorro, Yellow Bourbon - Guatemala",12oz Bag,Torque Coffees,Coffee,ARCHIVED,TCESYB,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8235107680476,44300925665500,"El Socorro, Yellow Bourbon - Guatemala",2lb Bag (2x 1lb bags),Torque Coffees,Coffee,ARCHIVED,TCESYB-2,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+8235107680476,44573021929692,"El Socorro, Yellow Bourbon - Guatemala",5Lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8240003055836,44313904939228,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",12oz Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCESMA12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8240003055836,45249150058716,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",12oz Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8240003055836,45249150091484,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",12oz Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8240003055836,45249150124252,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",12oz Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8240003055836,44525457572060,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",2lb Bulk Bags / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCMA2,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8240003055836,45249150157020,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",2lb Bulk Bags / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8240003055836,45249150189788,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",2lb Bulk Bags / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8240003055836,45249150222556,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",2lb Bulk Bags / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8240003055836,44573018161372,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",5Lb Bulk Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8240003055836,45249150255324,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",5Lb Bulk Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8240003055836,45249150288092,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",5Lb Bulk Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8240003055836,45249150320860,"Maracaturra Anaerobic - Juan Diego De La Cerda, Guatemala",5Lb Bulk Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8250810073308,44346128466140,SD Drip Coffee Skull T-shirt,Medium,Torque Coffees,Merch,ARCHIVED,TCCSB-M,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8250810073308,44346128498908,SD Drip Coffee Skull T-shirt,Large,Torque Coffees,Merch,ARCHIVED,TCCSB-L,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8250810073308,44346128531676,SD Drip Coffee Skull T-shirt,XL,Torque Coffees,Merch,ARCHIVED,TCCSB-XL,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8250810073308,44346128564444,SD Drip Coffee Skull T-shirt,2XL,Torque Coffees,Merch,ARCHIVED,TCCSB-XXL,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8292046635228,44487257096412,"Betibiroti - Abayneh Yunna, Ethiopia",12oz Coffee Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCBE12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+8292046635228,45249149239516,"Betibiroti - Abayneh Yunna, Ethiopia",12oz Coffee Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8292046635228,45249149272284,"Betibiroti - Abayneh Yunna, Ethiopia",12oz Coffee Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8292046635228,45249149305052,"Betibiroti - Abayneh Yunna, Ethiopia",12oz Coffee Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8292046635228,44487257129180,"Betibiroti - Abayneh Yunna, Ethiopia",2lbs Bulk Bags / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCBE2B,1,908.0,GRAMS,908.0,2lbs,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,DUPLICATE_SKU
+8292046635228,45249149337820,"Betibiroti - Abayneh Yunna, Ethiopia",2lbs Bulk Bags / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8292046635228,45249149370588,"Betibiroti - Abayneh Yunna, Ethiopia",2lbs Bulk Bags / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8292046635228,45249149403356,"Betibiroti - Abayneh Yunna, Ethiopia",2lbs Bulk Bags / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8292046635228,44573010231516,"Betibiroti - Abayneh Yunna, Ethiopia",5Lb Bulk Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8292046635228,45249149436124,"Betibiroti - Abayneh Yunna, Ethiopia",5Lb Bulk Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8292046635228,45249149468892,"Betibiroti - Abayneh Yunna, Ethiopia",5Lb Bulk Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8292046635228,45249149501660,"Betibiroti - Abayneh Yunna, Ethiopia",5Lb Bulk Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8325750587612,44604587999452,"El Socorro, Red Bourbon - Guatemala",2lb Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+8325750587612,45249150779612,"El Socorro, Red Bourbon - Guatemala",2lb Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8325750587612,45249150812380,"El Socorro, Red Bourbon - Guatemala",2lb Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8325750587612,45249150845148,"El Socorro, Red Bourbon - Guatemala",2lb Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8325750587612,44604588032220,"El Socorro, Red Bourbon - Guatemala",5Lb Bulk Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8325750587612,45249150877916,"El Socorro, Red Bourbon - Guatemala",5Lb Bulk Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8325750587612,45249150910684,"El Socorro, Red Bourbon - Guatemala",5Lb Bulk Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8325750587612,45249150943452,"El Socorro, Red Bourbon - Guatemala",5Lb Bulk Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8337382932700,44634537394396,Airscape Coffee Canister,Chalk White,Planetary Design,Merch,ACTIVE,,1,454.0,GRAMS,454.0,,,none,454.0,454.0,N,1.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8337382932700,44634537459932,Airscape Coffee Canister,Charcoal Black,Planetary Design,Merch,ACTIVE,,1,454.0,GRAMS,454.0,,,none,454.0,454.0,N,1.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8337438081244,44634901709020,Steel Toe 3.0 Travel Coffee Press,Storm Gray,Planetary Design,Merch,ARCHIVED,,1,454.0,GRAMS,454.0,,,none,454.0,454.0,N,1.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8337438081244,44634901774556,Steel Toe 3.0 Travel Coffee Press,Charcoal Black,Planetary Design,Merch,ARCHIVED,,1,454.0,GRAMS,454.0,,,none,454.0,454.0,N,1.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8337438081244,44634901807324,Steel Toe 3.0 Travel Coffee Press,Red Rock,Planetary Design,Merch,ARCHIVED,,1,454.0,GRAMS,454.0,,,none,454.0,454.0,N,1.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8337438081244,44634901840092,Steel Toe 3.0 Travel Coffee Press,Chalk White,Planetary Design,Merch,ARCHIVED,,1,454.0,GRAMS,454.0,,,none,454.0,454.0,N,1.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8361838969052,44717853999324,"Mano Del Puma - Carlos Pola, El Salvador",12oz Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,45249149632732,"Mano Del Puma - Carlos Pola, El Salvador",12oz Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,45249149665500,"Mano Del Puma - Carlos Pola, El Salvador",12oz Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,45249149698268,"Mano Del Puma - Carlos Pola, El Salvador",12oz Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,44717854064860,"Mano Del Puma - Carlos Pola, El Salvador",2lb Bulk Bags / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,45249149731036,"Mano Del Puma - Carlos Pola, El Salvador",2lb Bulk Bags / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,45249149763804,"Mano Del Puma - Carlos Pola, El Salvador",2lb Bulk Bags / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,45249149796572,"Mano Del Puma - Carlos Pola, El Salvador",2lb Bulk Bags / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,44717854097628,"Mano Del Puma - Carlos Pola, El Salvador",5lb Bulk Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,45249149829340,"Mano Del Puma - Carlos Pola, El Salvador",5lb Bulk Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,45249149862108,"Mano Del Puma - Carlos Pola, El Salvador",5lb Bulk Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8361838969052,45249149894876,"Mano Del Puma - Carlos Pola, El Salvador",5lb Bulk Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,0.0,GRAMS,0.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8365584449756,44714597384412,"Finca Diamante, Guatemala - DECAF",12oz Coffee Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8365584449756,45249151205596,"Finca Diamante, Guatemala - DECAF",12oz Coffee Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8365584449756,45249151238364,"Finca Diamante, Guatemala - DECAF",12oz Coffee Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8365584449756,45249151271132,"Finca Diamante, Guatemala - DECAF",12oz Coffee Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8365584449756,44714597417180,"Finca Diamante, Guatemala - DECAF",2Lb Bulk / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2Lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+8365584449756,45249151303900,"Finca Diamante, Guatemala - DECAF",2Lb Bulk / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2Lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365584449756,45249151336668,"Finca Diamante, Guatemala - DECAF",2Lb Bulk / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2Lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365584449756,45249151369436,"Finca Diamante, Guatemala - DECAF",2Lb Bulk / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2Lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365584449756,44714597449948,"Finca Diamante, Guatemala - DECAF",5Lb Bulk Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5Lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8365584449756,45249151402204,"Finca Diamante, Guatemala - DECAF",5Lb Bulk Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365584449756,45249151434972,"Finca Diamante, Guatemala - DECAF",5Lb Bulk Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365584449756,45249151467740,"Finca Diamante, Guatemala - DECAF",5Lb Bulk Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365585694940,44714606559452,"Gaitania DECAF  - Emmanuel Enciso, Colombia",12oz Coffee Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8365585694940,45249153925340,"Gaitania DECAF  - Emmanuel Enciso, Colombia",12oz Coffee Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8365585694940,45249153958108,"Gaitania DECAF  - Emmanuel Enciso, Colombia",12oz Coffee Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8365585694940,45249153990876,"Gaitania DECAF  - Emmanuel Enciso, Colombia",12oz Coffee Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8365585694940,44714606624988,"Gaitania DECAF  - Emmanuel Enciso, Colombia",2Lb Bulk Bags / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2Lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+8365585694940,45249154023644,"Gaitania DECAF  - Emmanuel Enciso, Colombia",2Lb Bulk Bags / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2Lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365585694940,45249154056412,"Gaitania DECAF  - Emmanuel Enciso, Colombia",2Lb Bulk Bags / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2Lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365585694940,45249154089180,"Gaitania DECAF  - Emmanuel Enciso, Colombia",2Lb Bulk Bags / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2Lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365585694940,44714606723292,"Gaitania DECAF  - Emmanuel Enciso, Colombia",5Lb Bulk Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5Lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8365585694940,45249154121948,"Gaitania DECAF  - Emmanuel Enciso, Colombia",5Lb Bulk Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365585694940,45249154154716,"Gaitania DECAF  - Emmanuel Enciso, Colombia",5Lb Bulk Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365585694940,45249154187484,"Gaitania DECAF  - Emmanuel Enciso, Colombia",5Lb Bulk Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8365723418844,45249148649692,The Roasters Tour - Coffee Club - 2 Bags,Default Title,Torque Coffees,Coffee,ARCHIVED,TRC-212,1,680.0,GRAMS,680.0,,,none,680.0,680.0,N,2.0,SHIP,12x8x6,
+8551453851868,45139909902556,Espresso Explorer Subscription,Default Title,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8645939986652,45344364527836,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",12oz Coffee Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCBE12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+8645939986652,45344364560604,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",12oz Coffee Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8645939986652,45344364593372,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",12oz Coffee Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8645939986652,45344364626140,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",12oz Coffee Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8645939986652,45344364658908,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",2lbs Bulk Bags / Whole Bean,Torque Coffees,Coffee,ARCHIVED,TCBE2B,1,908.0,GRAMS,908.0,2lbs,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,DUPLICATE_SKU
+8645939986652,45344364691676,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",2lbs Bulk Bags / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8645939986652,45344364724444,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",2lbs Bulk Bags / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8645939986652,45344364757212,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",2lbs Bulk Bags / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lbs,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8645939986652,45344364789980,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",5Lb Bulk Bag / Whole Bean,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8645939986652,45344364822748,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",5Lb Bulk Bag / Course Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8645939986652,45344364855516,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",5Lb Bulk Bag / Medium Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8645939986652,45344364888284,"Craig Simon Hybrid Process - Abayneh Yunna, Ethiopia",5Lb Bulk Bag / Fine Ground,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8676709630172,45416542634204,"Rume Sudan Washed - Maria Pacas, El Salvador",12oz Coffee Bag,Torque Coffees,Coffee,ARCHIVED,TCBE12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+8676709630172,45416542765276,"Rume Sudan Washed - Maria Pacas, El Salvador",2lbs Bulk Bag,Torque Coffees,Coffee,ARCHIVED,TCBE2B,1,908.0,GRAMS,908.0,2lbs,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,DUPLICATE_SKU
+8676709630172,45416542896348,"Rume Sudan Washed - Maria Pacas, El Salvador",5Lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8682755031260,45438463148252,"Rume Sudan Natural - Maria Pacas, El Salvador",12oz Coffee Bag,Torque Coffees,Coffee,ARCHIVED,TCBE12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+8682755031260,45438463279324,"Rume Sudan Natural - Maria Pacas, El Salvador",2lbs Bulk Bag,Torque Coffees,Coffee,ARCHIVED,TCBE2B,1,908.0,GRAMS,908.0,2lbs,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,DUPLICATE_SKU
+8682755031260,45438463410396,"Rume Sudan Natural - Maria Pacas, El Salvador",5Lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5Lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8693113389276,45468462186716,"Marta Rubi - Martha Montenegro, Colombia",250g Retail Coffee Bag,Torque Coffees,Coffee,ARCHIVED,TCFVHR-12,1,250.0,GRAMS,250.0,250g,250.0,variant,250.0,250.0,N,0.73,SHIP,8x6x3,DUPLICATE_SKU
+8697881034972,45479933837532,Once Upon A Time- Rume Sudan Processing Set from Maria Pacas,Default Title,Torque Coffees,Coffee,ARCHIVED,TCRSSET,1,500.0,GRAMS,500.0,,,none,500.0,500.0,N,1.47,SHIP,12x8x6,
+8728041128156,45569447428316,"Black Diamond - Francisca Cubillo, Costa Rica",12oz Bag,Torque Coffees,Coffee,ARCHIVED,TCPNB,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+8728041128156,46315458789596,"Black Diamond - Francisca Cubillo, Costa Rica",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8744883486940,45733659050204,"Icónica, Carolina Ramirez - Colombia",12oz Bag,Torque Coffees,Coffee,ARCHIVED,TCCRI-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,
+8744883486940,45733659082972,"Icónica, Carolina Ramirez - Colombia",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,TCCRI-13,1,12.0,OUNCES,340.2,2lb,907.2,variant,340.2,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8744883486940,45733659115740,"Icónica, Carolina Ramirez - Colombia",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,TCCRI-14,1,12.0,OUNCES,340.2,5lb,2268.0,variant,340.2,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8756878049500,45645695615196,The Roasters Tour - Coffee Club - 1x 2lb bags,Default Title,Torque Coffees,Coffee,ARCHIVED,TRC-22lb,1,908.0,GRAMS,908.0,2lb,907.2,product,908.0,908.0,N,2.67,SHIP,12x8x6,
+8756906459356,45645785727196,Filter Coffee Explorer Subscription,Default Title,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8763472478428,45670090473692,"Obata Washed - Alejandro Martinez, Mexico",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+8763472478428,45670090506460,"Obata Washed - Alejandro Martinez, Mexico",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,BLANK_SKU
+8763472478428,45670090539228,"Obata Washed - Alejandro Martinez, Mexico",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,5.0,POUNDS,2268.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8763479490780,45670113902812,"Obata Natural - Alejandro Martinez, Mexico",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+8763479490780,45670113935580,"Obata Natural - Alejandro Martinez, Mexico",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,BLANK_SKU
+8763479490780,45670113968348,"Obata Natural - Alejandro Martinez, Mexico",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,5.0,POUNDS,2268.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8763958690012,45671776551132,"Marago-Pache Variety Garden - Edwin Martinez,  Guatemala",Default Title,Torque Coffees,Coffee,ARCHIVED,TCFVHR-MP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,
+8767529091292,46067032195292,Once Upon A Time- BERNADINA from Maria Pacas,250g Retail bag,Torque Coffees,Coffee,ARCHIVED,TCRBH,1,250.0,GRAMS,250.0,250g,250.0,variant,250.0,250.0,N,0.73,SHIP,8x6x3,
+8768523141340,45689119441116,Toasty Torque Long Sleeve Comfy Shirt,Medium,Torque Coffees,Merch,ARCHIVED,TCCSB-M,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768523141340,45689119473884,Toasty Torque Long Sleeve Comfy Shirt,Large,Torque Coffees,Merch,ARCHIVED,TCCSB-L,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768523141340,45689119506652,Toasty Torque Long Sleeve Comfy Shirt,XL,Torque Coffees,Merch,ARCHIVED,TCCSB-XL,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768523141340,45689119539420,Toasty Torque Long Sleeve Comfy Shirt,2XL,Torque Coffees,Merch,ARCHIVED,TCCSB-XXL,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768525992156,45689128059100,Women's Mustard Torque  T-Shirt,Medium,Torque Coffees,Merch,ARCHIVED,TCCSB-M,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768525992156,45689128091868,Women's Mustard Torque  T-Shirt,Large,Torque Coffees,Merch,ARCHIVED,TCCSB-L,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768525992156,45689128124636,Women's Mustard Torque  T-Shirt,XL,Torque Coffees,Merch,ARCHIVED,TCCSB-XL,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768525992156,45689128157404,Women's Mustard Torque  T-Shirt,2XL,Torque Coffees,Merch,ARCHIVED,TCCSB-XXL,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768569540828,45689282461916,Vintage Black Torque  T-Shirt,Medium,Torque Coffees,Merch,ARCHIVED,TCCSB-M,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768569540828,45689282494684,Vintage Black Torque  T-Shirt,Large,Torque Coffees,Merch,ARCHIVED,TCCSB-L,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768569540828,45689282527452,Vintage Black Torque  T-Shirt,XL,Torque Coffees,Merch,ARCHIVED,TCCSB-XL,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8768569540828,45689282560220,Vintage Black Torque  T-Shirt,2XL,Torque Coffees,Merch,ARCHIVED,TCCSB-XXL,1,100.0,GRAMS,100.0,,,none,100.0,100.0,N,0.29,SHIP,8x6x3,DUPLICATE_SKU
+8811358355676,45759938363612,"Centenario - Edwin Martinez,  Guatemala",12oz,Torque Coffees,Coffee,DRAFT,TCFVHR-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+8811358355676,45759938494684,"Centenario - Edwin Martinez,  Guatemala",2lb,Torque Coffees,Coffee,DRAFT,TCFVHR-2P,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,DUPLICATE_SKU
+8811358355676,45759938625756,"Centenario - Edwin Martinez,  Guatemala",5lb,Torque Coffees,Coffee,DRAFT,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8811358355676,47464839217372,"Centenario - Edwin Martinez,  Guatemala",8 xPods,Torque Coffees,Coffee,DRAFT,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+8815926313180,45774613184732,"Espresso Centenario - Edwin Martinez,  Guatemala",12oz Coffee Bag,Torque Coffees,Coffee,ARCHIVED,TCFVHR-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+8815926313180,45774613315804,"Espresso Centenario - Edwin Martinez,  Guatemala",2lbs Bulk Bags,Torque Coffees,Coffee,ARCHIVED,TCFVHR-2P,1,908.0,GRAMS,908.0,2lbs,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,DUPLICATE_SKU
+8815926313180,45774613446876,"Espresso Centenario - Edwin Martinez,  Guatemala",5Lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5Lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8832125042908,45847680778460,"Perla Negra - Francisca Cubillo, Costa Rica",12oz Bag,Torque Coffees,Coffee,ARCHIVED,TQ-RPNR-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8832125042908,45847699718364,"Perla Negra - Francisca Cubillo, Costa Rica",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,TQ-RPNR-2LB,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8838700204252,45908150878428,"Maracaturra - Juan Diego De La Cerda, Guatemala",12oz Bag,Torque Coffees,Coffee,ARCHIVED,TQ-GMRC-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8838700204252,47553097400540,"Maracaturra - Juan Diego De La Cerda, Guatemala",2lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,TQ-GMRC-2LB,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8838700204252,47553097433308,"Maracaturra - Juan Diego De La Cerda, Guatemala",5lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,TQ-GMRC-5LB,1,340.0,GRAMS,340.0,5lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8838700204252,47553097466076,"Maracaturra - Juan Diego De La Cerda, Guatemala",8 xPods,Torque Coffees,Coffee,ARCHIVED,TQ-GMRC-8XP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+8840233091292,45911798350044,Coffee Blossom Honey,Default Title,Torque Coffees,Merch,ARCHIVED,,1,12.0,OUNCES,340.2,,,none,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+8840238989532,45911809097948,"Cascara Perla Tea- Francisca Cubillo, Costa Rica",8oz Bag,Torque Coffees,Coffee,ARCHIVED,TCPNB,1,340.0,GRAMS,340.0,8oz,226.8,variant,340.0,340.0,Y,1.0,SHIP,8x6x3,GRAMS_TITLE_CONFLICT;DUPLICATE_SKU
+8840979120348,45913943015644,Sweet Bundle - Aeropress + a Bag of Coffee,Centenario,Torque Coffees,Merch,ARCHIVED,,1,1.2,POUNDS,544.3,,,none,544.3,544.3,N,1.6,SHIP,12x8x6,BLANK_SKU
+8840979120348,45913943048412,Sweet Bundle - Aeropress + a Bag of Coffee,Dark Drop,Torque Coffees,Merch,ARCHIVED,,1,1.2,POUNDS,544.3,,,none,544.3,544.3,N,1.6,SHIP,12x8x6,BLANK_SKU
+8840979120348,45913943081180,Sweet Bundle - Aeropress + a Bag of Coffee,Cocoa Drop,Torque Coffees,Merch,ARCHIVED,,1,1.2,POUNDS,544.3,,,none,544.3,544.3,N,1.6,SHIP,12x8x6,BLANK_SKU
+8840979120348,45913943113948,Sweet Bundle - Aeropress + a Bag of Coffee,Honey Drop,Torque Coffees,Merch,ARCHIVED,,1,1.2,POUNDS,544.3,,,none,544.3,544.3,N,1.6,SHIP,12x8x6,BLANK_SKU
+8840982528220,45913953861852,Sweet Bundle - 20th Anniversary with Edwin Martinez,Default Title,Torque Coffees,Coffee,ARCHIVED,,1,2.0,POUNDS,907.2,,,none,907.2,907.2,N,2.67,SHIP,12x8x6,BLANK_SKU
+8841105211612,45914417463516,Demi Drop - Half Caffeine Blend,12oz,Torque Coffees,Coffee,ACTIVE,TQ-XDMD-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+8841105211612,45914417594588,Demi Drop - Half Caffeine Blend,2lb,Torque Coffees,Coffee,ACTIVE,TQ-XDMD-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+8841105211612,45914417725660,Demi Drop - Half Caffeine Blend,5lb,Torque Coffees,Coffee,ACTIVE,TQ-XDMD-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+8843034329308,45922172469468,"Sunset DECAF- Martha Montenegro, Colombia",12oz Coffee Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8843034329308,45922172600540,"Sunset DECAF- Martha Montenegro, Colombia",2lbs Bulk Bags,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lbs,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+8843034329308,46315291443420,"Sunset DECAF- Martha Montenegro, Colombia",5lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8843043242204,45922196095196,Vacumn Coffee Canister,Default Title,Torque Coffees,Merch,ARCHIVED,,1,150.0,GRAMS,150.0,,,none,150.0,150.0,N,0.44,SHIP,8x6x3,BLANK_SKU
+8853804613852,46066964365532,Modernist - Coffee Subscription,12oz,Torque Coffees,Coffee,ACTIVE,TQ-SUBMOD-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,
+8853804613852,46066964398300,Modernist - Coffee Subscription,2lb,Torque Coffees,Coffee,ACTIVE,TQ-SUBMOD-2LB,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,
+8853804613852,51226582057180,Modernist - Coffee Subscription,5lb,Torque Coffees,Coffee,ACTIVE,TQ-SUBMOD-5LB,1,12.0,OUNCES,340.2,5lb,2268.0,variant,340.2,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8853805891804,46066958696668,Classicist - Coffee Subscription,12oz,Torque Coffees,Coffee,ACTIVE,TQ-SUBCLA-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,
+8853805891804,46066958729436,Classicist - Coffee Subscription,2lb,Torque Coffees,Coffee,ACTIVE,TQ-SUBCLA-2LB,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,
+8853805891804,51226590773468,Classicist - Coffee Subscription,5lb,Torque Coffees,Coffee,ACTIVE,TQ-SUBCLA-5LB,1,12.0,OUNCES,340.2,5lb,2268.0,variant,340.2,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8853808218332,46066959646940,Espressoist - Coffee Subscription,12oz,Torque Coffees,Coffee,ACTIVE,TQ-SUBESP-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,
+8853808218332,46066959679708,Espressoist - Coffee Subscription,2lb,Torque Coffees,Coffee,ACTIVE,TQ-SUBESP-2LB,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,
+8853808218332,51226597884124,Espressoist - Coffee Subscription,5lb,Torque Coffees,Coffee,ACTIVE,TQ-SUBESP-5LB,1,12.0,OUNCES,340.2,5lb,2268.0,variant,340.2,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+8870229541084,46174612193500,Baratza Encore™ ESP - Essential Coffee & Espresso Grinder,White,BARATZA,Merch,ACTIVE,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NON_TORQUE_VENDOR,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+8870229541084,46174612226268,Baratza Encore™ ESP - Essential Coffee & Espresso Grinder,Black,BARATZA,Merch,ACTIVE,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NON_TORQUE_VENDOR,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+8870275285212,46174785077468,Baratza Sette 270 - Espresso Grinder,Default Title,BARATZA,Merch,ACTIVE,,1,9.0,POUNDS,4082.3,,,none,4082.3,4082.3,N,12.0,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8883156254940,46214825378012,Cold Brew Concentrate - 1 Gallon,Default Title,Torque Coffees,,ARCHIVED,,0,0.0,OUNCES,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+8890250887388,46230015410396,"Gigesa Guji - Faysel Yonis, Ethiopia",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8890250887388,46230015443164,"Gigesa Guji - Faysel Yonis, Ethiopia",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,BLANK_SKU
+8890250887388,46230015475932,"Gigesa Guji - Faysel Yonis, Ethiopia",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,5.0,POUNDS,2268.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8890250887388,46825554182364,"Gigesa Guji - Faysel Yonis, Ethiopia",xBloom 8 xPods Pack,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+8891277148380,46236501410012,the Bambino® Plus,Default Title,Breville,Merch,ACTIVE,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NON_TORQUE_VENDOR,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+8893663183068,46244537499868,Solidarity Box - 100% of Proceeds to PCRF,Default Title,Torque Coffees,Coffee,ARCHIVED,,1,24.0,OUNCES,680.4,,,none,680.4,680.4,N,2.0,SHIP,12x8x6,BLANK_SKU
+8895202951388,46250641195228,Variety Garden Sampler Box! Edwin Martinez Variety Garden Coffees,Default Title,Torque Coffees,Coffee,ARCHIVED,,1,18.0,OUNCES,510.3,,,none,510.3,510.3,N,1.5,SHIP,12x8x6,BLANK_SKU
+8913658970332,46384558833884,"Red Harmony - Cecilia Camacho, Colombia",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+8913658970332,46384558866652,"Red Harmony - Cecilia Camacho, Colombia",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,0.0,OUNCES,0.0,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8913658970332,46384558899420,"Red Harmony - Cecilia Camacho, Colombia",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,0.0,OUNCES,0.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+8916933476572,46398932091100,ANSHUN JIN JUN MEI | BLACK - BULK PACK - LOOSE 200G,Default Title,Hugo Tea,tea,ARCHIVED,,1,200.0,GRAMS,200.0,200G,200.0,product,200.0,200.0,N,0.59,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916935377116,46398938644700,HUGO GREY | BLACK BLEND,RETAIL BOX - SACHETS 14 COUNT,Hugo Tea,tea,ARCHIVED,,1,75.0,GRAMS,75.0,,,none,75.0,75.0,N,0.22,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916935377116,46398938677468,HUGO GREY | BLACK BLEND,BULK PACK - SACHETS 100 COUNT,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,,,none,600.0,600.0,N,1.76,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916935377116,46398938710236,HUGO GREY | BLACK BLEND,BULK PACK - LOOSE LEAF 500G,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,500G,500.0,variant,600.0,600.0,Y,1.76,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8916937113820,46398948376796,SESSION LONGJING | GREEN,RETAIL BOX - SACHETS 14 COUNT,Hugo Tea,tea,ARCHIVED,,1,75.0,GRAMS,75.0,,,none,75.0,75.0,N,0.22,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916937113820,46398948409564,SESSION LONGJING | GREEN,BULK PACK - SACHETS 100 COUNT,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,,,none,600.0,600.0,N,1.76,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916937113820,46398948442332,SESSION LONGJING | GREEN,BULK PACK - LOOSE LEAF 500G,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,500G,500.0,variant,600.0,600.0,Y,1.76,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8916939014364,46398963187932,JASMINE BAI HAO | SCENTED GREEN,RETAIL BOX - SACHETS 14 COUNT,Hugo Tea,tea,ARCHIVED,,1,75.0,GRAMS,75.0,,,none,75.0,75.0,N,0.22,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916939014364,46398963220700,JASMINE BAI HAO | SCENTED GREEN,BULK PACK - SACHETS 100 COUNT,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,,,none,600.0,600.0,N,1.76,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916939014364,46398963253468,JASMINE BAI HAO | SCENTED GREEN,BULK PACK - LOOSE LEAF 300G,Hugo Tea,tea,ARCHIVED,,1,400.0,GRAMS,400.0,300G,300.0,variant,400.0,400.0,Y,1.18,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8916940292316,46398971773148,CURRANT | TISANE BLEND,RETAIL BOX - SACHETS 14 COUNT,Hugo Tea,tea,ARCHIVED,,1,75.0,GRAMS,75.0,,,none,75.0,75.0,N,0.22,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916940292316,46398971805916,CURRANT | TISANE BLEND,BULK PACK - SACHETS 100 COUNT,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,,,none,600.0,600.0,N,1.76,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916940292316,46398971838684,CURRANT | TISANE BLEND,BULK PACK - LOOSE LEAF 500G,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,500G,500.0,variant,600.0,600.0,Y,1.76,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8916946288860,46398986092764,CHAMPAGNE LONG KOU | OOLONG,RETAIL BOX - SACHETS 14 COUNT,Hugo Tea,tea,ARCHIVED,,1,75.0,GRAMS,75.0,,,none,75.0,75.0,N,0.22,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916946288860,46398986125532,CHAMPAGNE LONG KOU | OOLONG,BULK PACK - SACHETS 100 COUNT,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,,,none,600.0,600.0,N,1.76,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916946288860,46398986158300,CHAMPAGNE LONG KOU | OOLONG,BULK PACK - LOOSE LEAF 200G,Hugo Tea,tea,ARCHIVED,,1,300.0,GRAMS,300.0,200G,200.0,variant,300.0,300.0,Y,0.88,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8916948058332,46398992416988,BOUQUET | TISANE BLEND,BULK PACK - SACHETS 100 COUNT,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,,,none,600.0,600.0,N,1.76,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8916948058332,46398992449756,BOUQUET | TISANE BLEND,BULK PACK - LOOSE LEAF 200G,Hugo Tea,tea,ARCHIVED,,1,300.0,GRAMS,300.0,200G,200.0,variant,300.0,300.0,Y,0.88,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8916952613084,46399003033820,MASALA CHAI CONCENTRATE - 4 Pack - 96oz each Box,Default Title,Hugo Tea,tea,ARCHIVED,,1,24.0,POUNDS,10886.2,96oz,2721.6,product,10886.2,10886.2,Y,32.0,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8932860100828,46459394883804,Trump Tariff Tax Mexico 25%,Trump Tariff Tax Mexico 25%,Torque Coffees,,ARCHIVED,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NO_WEIGHT,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+8933935186140,46463594758364,MASALA CHAI CONCENTRATE - 1 Pack - 1x 96oz Box,Default Title,Hugo Tea,tea,ARCHIVED,,1,8.0,POUNDS,3628.7,96oz,2721.6,product,3628.7,3628.7,Y,10.67,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+8934901743836,46466754183388,MATCHA SONOGI | CEREMONIAL GRADE,Default Title,Hugo Tea,tea,ARCHIVED,,1,80.0,GRAMS,80.0,,,none,80.0,80.0,N,0.24,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8934918095068,46466822832348,"Bahire - Ngozi, Burundi",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8934918095068,46466822865116,"Bahire - Ngozi, Burundi",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+8934918095068,46466822897884,"Bahire - Ngozi, Burundi",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8938171990236,46477283229916,xBloom Premium Paper Filters,White,xBloom,Merch,ARCHIVED,FILTER01,1,4.5,OUNCES,127.6,,,none,127.6,127.6,N,0.38,HOLD_NON_TORQUE_VENDOR,,
+8939908989148,46483195035868,Cocoa Drops xBloom Bulk 40lb Box,Default Title,Torque Coffees,BULK,ACTIVE,TCCDS-40,1,40.0,POUNDS,18143.7,40lb,18143.7,product,18143.7,18143.7,N,53.33,SHIP,MANUAL_OVER_9KG,
+8957564879068,46556440887516,Bianca - Lelit Professional Home Espresso Machine,White,Breville,Machine,ACTIVE,,1,30.0,KILOGRAMS,30000.0,,,none,30000.0,30000.0,N,88.18,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8957564879068,46556440920284,Bianca - Lelit Professional Home Espresso Machine,Black,Breville,Machine,ACTIVE,,1,30.0,KILOGRAMS,30000.0,,,none,30000.0,30000.0,N,88.18,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8957564879068,46556440953052,Bianca - Lelit Professional Home Espresso Machine,Silver,Breville,Machine,ACTIVE,,1,30.0,KILOGRAMS,30000.0,,,none,30000.0,30000.0,N,88.18,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8957565173980,46556441411804,Mara X - Lelit Professional Home Espresso Machine,White,Breville,Machine,ACTIVE,,1,30.0,KILOGRAMS,30000.0,,,none,30000.0,30000.0,N,88.18,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8957565173980,46556441444572,Mara X - Lelit Professional Home Espresso Machine,Black,Breville,Machine,ACTIVE,,1,30.0,KILOGRAMS,30000.0,,,none,30000.0,30000.0,N,88.18,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8957565173980,46556441477340,Mara X - Lelit Professional Home Espresso Machine,Silver,Breville,Machine,ACTIVE,,1,30.0,KILOGRAMS,30000.0,,,none,30000.0,30000.0,N,88.18,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8963023143132,46576020947164,"Gigesa Fire - Faysel Yonis, Ethiopia",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8963023143132,46576020979932,"Gigesa Fire - Faysel Yonis, Ethiopia",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,BLANK_SKU
+8963023143132,46576021012700,"Gigesa Fire - Faysel Yonis, Ethiopia",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,5.0,POUNDS,2268.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8973428162780,46610899501276,Terrerito Green Bulk,Default Title,Torque Coffees,,ARCHIVED,,1,1.0,POUNDS,453.6,,,none,453.6,453.6,N,1.33,SHIP,12x8x6,BLANK_SKU
+8977025368284,46619914076380,"Gigesa Suke DECAF - Faysel Yonis, Ethiopia",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8977025368284,46619914109148,"Gigesa Suke DECAF - Faysel Yonis, Ethiopia",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,BLANK_SKU
+8977025368284,46619914141916,"Gigesa Suke DECAF - Faysel Yonis, Ethiopia",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,5.0,POUNDS,2268.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8980799029468,46632779219164,Baratza Sette 30 - Espresso Grinder,Default Title,BARATZA,Merch,ACTIVE,,1,5.0,POUNDS,2268.0,,,none,2268.0,2268.0,N,6.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8980801454300,46632787149020,the Barista Touch™ Impress,Default Title,Breville,Merch,ACTIVE,,1,20.0,POUNDS,9071.8,,,none,9071.8,9071.8,N,26.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+8981731999964,46638406205660,"H1 Centroamericano - Alejandro Martinez, Mexico",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+8981731999964,46638406238428,"H1 Centroamericano - Alejandro Martinez, Mexico",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,BLANK_SKU
+8981731999964,46638406271196,"H1 Centroamericano - Alejandro Martinez, Mexico",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,5.0,POUNDS,2268.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8981737111772,46638476460252,"Star Maya Plus - Alejandro Martinez, Mexico",12oz,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+8981737111772,46638476493020,"Star Maya Plus - Alejandro Martinez, Mexico",2lb,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+8981737111772,46638476525788,"Star Maya Plus - Alejandro Martinez, Mexico",5lb,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+8981737111772,47464838627548,"Star Maya Plus - Alejandro Martinez, Mexico",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+8988179595484,46664071774428,Torque Tote Bag - Canvas,Default Title,Torque Coffees,Merch,ARCHIVED,,1,2.0,OUNCES,56.7,,,none,56.7,56.7,N,0.17,SHIP,8x6x3,BLANK_SKU
+9015868653788,46766599635164,"H1 Centroamericano - Alejandro Martinez, Mexico",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+9015868653788,46766614642908,"H1 Centroamericano - Alejandro Martinez, Mexico",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,,,none,340.2,340.2,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9015910072540,46766718910684,"Gigesa Guji - Faysel Yonnis, Ethiopia",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9015910072540,46766724645084,"Gigesa Guji - Faysel Yonnis, Ethiopia",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9015928815836,46766775566556,Honey Drop,12oz Bag,Torque Coffees,Coffee,ARCHIVED,TCHD,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9015928815836,46766782283996,Honey Drop,8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9015936647388,48630645424348,Gum Drop,12oz / In Stock,Torque Coffees,Coffee,ACTIVE,TCCDB-1,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9015940710620,48630505963740,Dark Drop,12oz / In Stock,Torque Coffees,Coffee,ACTIVE,TCDDB-1,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9015945625820,46766813675740,"Black Diamond - Francisca Cubillo, Costa Rica",12oz Bag,Torque Coffees,Coffee,ARCHIVED,TCPNB,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+9015945625820,46766818984156,"Black Diamond - Francisca Cubillo, Costa Rica",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9015985832156,46766927544540,"Sunset DECAF- Martha Montenegro, Colombia",12oz Coffee Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9015985832156,46766932852956,"Sunset DECAF- Martha Montenegro, Colombia",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9015996121308,46766960214236,"Red Harmony - Cecilia Camacho, Colombia",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+9015996121308,46766964768988,"Red Harmony - Cecilia Camacho, Colombia",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,,,none,340.2,340.2,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9017746522332,48631120330972,"Perla Negra - Francisca Cubillo, Costa Rica",12 oz bag / In Stock,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12 oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9022973870300,46796905840860,GAO WEN | ORGANIC BLACK TEA,RETAIL BOX - SACHETS 14 COUNT,Hugo Tea,tea,ARCHIVED,,1,75.0,GRAMS,75.0,,,none,75.0,75.0,N,0.22,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9022973870300,46796905873628,GAO WEN | ORGANIC BLACK TEA,BULK PACK - SACHETS 100 COUNT,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,,,none,600.0,600.0,N,1.76,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9022973870300,46796905906396,GAO WEN | ORGANIC BLACK TEA,BULK PACK - LOOSE LEAF 500G,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,500G,500.0,variant,600.0,600.0,Y,1.76,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+9022974558428,46796907151580,MA WEI MOONLIGHT | WHITE,RETAIL BOX - SACHETS 14 COUNT,Hugo Tea,tea,ARCHIVED,,1,75.0,GRAMS,75.0,,,none,75.0,75.0,N,0.22,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9022974558428,46796907184348,MA WEI MOONLIGHT | WHITE,BULK PACK - SACHETS 100 COUNT,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,,,none,600.0,600.0,N,1.76,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9022974558428,46796907217116,MA WEI MOONLIGHT | WHITE,BULK PACK - LOOSE LEAF 500G,Hugo Tea,tea,ARCHIVED,,1,600.0,GRAMS,600.0,500G,500.0,variant,600.0,600.0,Y,1.76,HOLD_NON_TORQUE_VENDOR,,GRAMS_TITLE_CONFLICT;BLANK_SKU
+9024548765916,46802159534300,Traditional Matcha Tea - 250G Bulk,Default Title,Sante,tea,ARCHIVED,,1,250.0,GRAMS,250.0,250G,250.0,product,250.0,250.0,N,0.73,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9033499508956,46825682993372,"Bahire - Ngozi, Burundi",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,0.0,OUNCES,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+9033499508956,46825688891612,"Bahire - Ngozi, Burundi",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NO_WEIGHT,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9033951543516,46827235246300,"BomBón - Jhoan Vergara, Colombia",12oz,Torque Coffees,Coffee,ACTIVE,TQ-CBMB-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9033951543516,46827235279068,"BomBón - Jhoan Vergara, Colombia",2lb,Torque Coffees,Coffee,ACTIVE,TQ-CBMB-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+9033951543516,46827235311836,"BomBón - Jhoan Vergara, Colombia",5lb,Torque Coffees,Coffee,ACTIVE,TQ-CBMB-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+9033951543516,46827779719388,"BomBón - Jhoan Vergara, Colombia",8 xPods,Torque Coffees,Coffee,ACTIVE,TQ-CBMB-8XP,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9034106994908,46827836276956,Trump Tariff Tax,Trump Tariff Tax,Torque Coffees,,ARCHIVED,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NO_WEIGHT,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9042121982172,47092907213020,NO ICE - Torque Skeleton Shirt,Black / S,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042121982172,46850061861084,NO ICE - Torque Skeleton Shirt,Black / M,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042121982172,46850061893852,NO ICE - Torque Skeleton Shirt,Black / L,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042121982172,46850061926620,NO ICE - Torque Skeleton Shirt,Black / XL,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042121982172,46850061959388,NO ICE - Torque Skeleton Shirt,Black / 2XL,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042121982172,47564412715228,NO ICE - Torque Skeleton Shirt,White / S,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042121982172,47564412747996,NO ICE - Torque Skeleton Shirt,White / M,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042121982172,47564412780764,NO ICE - Torque Skeleton Shirt,White / L,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042121982172,47564412813532,NO ICE - Torque Skeleton Shirt,White / XL,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042121982172,47564412846300,NO ICE - Torque Skeleton Shirt,White / 2XL,Torque Coffees,Merch,DRAFT,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042174968028,46850157609180,Stay Hot - NO ICE - Torque Skeleton Totes,Black,Torque Coffees,Merch,ARCHIVED,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9042174968028,46850157641948,Stay Hot - NO ICE - Torque Skeleton Totes,Pink,Torque Coffees,Merch,ARCHIVED,,1,5.0,OUNCES,141.7,,,none,141.7,141.7,N,0.42,SHIP,8x6x3,BLANK_SKU
+9044794343644,48631251140828,"BomBón - Jhoan Vergara, Colombia",12oz / In stock,Torque Coffees,Coffee,ACTIVE,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9058521546972,46900549976284,Bombon Colombia  xBloom Bulk 45lb Box,Default Title,Torque Coffees,BULK,DRAFT,TCBCB-45,1,45.0,POUNDS,20411.7,45lb,20411.7,product,20411.7,20411.7,N,60.0,SHIP,MANUAL_OVER_9KG,
+9067164401884,46924336333020,"Star Maya H16 - Alejandro Martinez, Mexico",12oz,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9067164401884,46924336365788,"Star Maya H16 - Alejandro Martinez, Mexico",2lb,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9067164401884,46924336398556,"Star Maya H16 - Alejandro Martinez, Mexico",5lb,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9067164401884,47464837120220,"Star Maya H16 - Alejandro Martinez, Mexico",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9077262352604,46983814545628,"Aricha Adorsi - Faysel Yonis, Ethiopia",12 oz Retail Bag,Torque Coffees,Coffee,ARCHIVED,TQ-EARI-12,1,340.0,GRAMS,340.0,12 oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9077262352604,46983814578396,"Aricha Adorsi - Faysel Yonis, Ethiopia",2 lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,TQ-EARI-2LB,1,908.0,GRAMS,908.0,2 lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+9077262352604,46983814611164,"Aricha Adorsi - Faysel Yonis, Ethiopia",5 lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,TQ-EARI-5LB,1,2270.0,GRAMS,2270.0,5 lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+9077262352604,47464837087452,"Aricha Adorsi - Faysel Yonis, Ethiopia",8 xPods,Torque Coffees,Coffee,ARCHIVED,TQ-EARI-8XP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9088060915932,47418534887644,"Yellow Diamond- Francisca Cubillo, Costa Rica",12oz retail bag,Torque Coffees,Coffee,ARCHIVED,TQ-RYLD-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9088060915932,47418534920412,"Yellow Diamond- Francisca Cubillo, Costa Rica",2 lb Bulk bag,Torque Coffees,Coffee,ARCHIVED,TQ-RYLD-2LB,1,908.0,GRAMS,908.0,2 lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+9088060915932,47464836825308,"Yellow Diamond- Francisca Cubillo, Costa Rica",5lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,TQ-RYLD-5LB,1,340.0,GRAMS,340.0,5lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+9088060915932,47464836858076,"Yellow Diamond- Francisca Cubillo, Costa Rica",8 xPods,Torque Coffees,Coffee,ARCHIVED,TQ-RYLD-8XP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9088947323100,48631414587612,"Aricha Adorsi - Faysel Yonis, Ethiopia",12 oz bag / In stock,Torque Coffees,Coffee,ARCHIVED,TCAA12,1,340.0,GRAMS,340.0,12 oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+9088948732124,46993932091612,"Star Maya -Alejandro Martinez,  Mexico",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+9088948732124,46993936285916,"Star Maya -Alejandro Martinez,  Mexico",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,12.0,OUNCES,340.2,,,none,340.2,340.2,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9103476818140,47048920203484,GOLDEN TICKET BOX,Default Title,Torque Coffees,Coffee,ARCHIVED,,1,36.0,OUNCES,1020.6,,,none,1020.6,1020.6,N,3.0,SHIP,12x8x6,BLANK_SKU
+9129948217564,47154912887004,Bean & Bottle Society - Hobbyist,Default Title,Torque Coffees,Society,ACTIVE,,0,0.0,OUNCES,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9129950150876,47154917933276,Bean & Bottle Society - Leisurist,Default Title,Torque Coffees,Society,ACTIVE,,0,0.0,OUNCES,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9129950216412,47154918293724,Bean & Bottle Society -Hedonist,Default Title,Torque Coffees,Society,ACTIVE,,0,0.0,OUNCES,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9131165221084,47162095173852,"Marcelessa - Juan Diego De La Cerda, Guatemala",12oz,Torque Coffees,Coffee,DRAFT,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9131165221084,47162105430236,"Marcelessa - Juan Diego De La Cerda, Guatemala",2lb,Torque Coffees,Coffee,DRAFT,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9131165221084,47162105463004,"Marcelessa - Juan Diego De La Cerda, Guatemala",5lb,Torque Coffees,Coffee,DRAFT,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9131165221084,47464836792540,"Marcelessa - Juan Diego De La Cerda, Guatemala",8 xPods,Torque Coffees,Coffee,DRAFT,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9152742818012,47221949858012,"Rotheca Decaf - Kirundu, Burundi",12oz,Torque Coffees,Coffee,ARCHIVED,TQ-BRTH-12,1,0.0,OUNCES,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE
+9152742818012,47464836661468,"Rotheca Decaf - Kirundu, Burundi",2lb,Torque Coffees,Coffee,ARCHIVED,TQ-BRTH-2LB,1,0.0,OUNCES,0.0,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE
+9152742818012,47464836694236,"Rotheca Decaf - Kirundu, Burundi",5lb,Torque Coffees,Coffee,ARCHIVED,TQ-BRTH-5LB,1,0.0,OUNCES,0.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE
+9152742818012,47430136791260,"Rotheca Decaf - Kirundu, Burundi",8 xPods,Torque Coffees,Coffee,ARCHIVED,TQ-BRTH-8XP,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NO_WEIGHT,,NO_GRAMS_NO_TITLE_WEIGHT
+9174426550492,47317234712796,Compak E6 On Demand Espresso Grinder,Default Title,Compak,Machine,ACTIVE,,1,25.0,POUNDS,11339.8,,,none,11339.8,11339.8,N,33.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174428254428,47317312733404,Compak E8 On Demand Espresso Grinder,Default Title,Compak,Machine,ACTIVE,,1,25.0,POUNDS,11339.8,,,none,11339.8,11339.8,N,33.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174437495004,47317723676892,Compak i3Pro On Demand Espresso Grinder,Default Title,Compak,Machine,ACTIVE,,1,25.0,POUNDS,11339.8,,,none,11339.8,11339.8,N,33.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174443131100,47317904228572,Sanremo YOU Espresso Machine - Single,Default Title,Sanremo,Machine,ACTIVE,,1,100.0,POUNDS,45359.2,,,none,45359.2,45359.2,N,133.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174448832732,47317926150364,Sanremo Cafe Racer Espresso Machine - 2 Group,Default Title,Sanremo,Machine,DRAFT,,1,185.0,POUNDS,83914.6,,,none,83914.6,83914.6,N,246.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174449979612,47317930868956,Sanremo D8 PRO Espresso Machine - 2 Group,Default Title,Sanremo,Machine,DRAFT,,1,185.0,POUNDS,83914.6,,,none,83914.6,83914.6,N,246.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174460104924,47317989916892,Nuova Simonelli APPIA II Compact 2 group 110V - for coffee carts,Default Title,Nuova Simonelli,Machine,ACTIVE,,1,155.0,POUNDS,70306.8,,,none,70306.8,70306.8,N,206.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174460596444,47317990965468,Nuova Simonelli WAVE II Digit Espresso Machine,Default Title,Nuova Simonelli,Machine,ACTIVE,,1,165.0,POUNDS,74842.7,,,none,74842.7,74842.7,N,220.0,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174474195164,47318039429340,Synesso S200 – 2‑Group Volumetric Espresso Machine,Default Title,Synesso,Machine,ACTIVE,,1,175.0,POUNDS,79378.7,,,none,79378.7,79378.7,N,233.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174474359004,47318039625948,Synesso Hydra MVP – 2‑Group Volumetric Espresso Machine,Default Title,Synesso,Machine,ACTIVE,,1,185.0,POUNDS,83914.6,,,none,83914.6,83914.6,N,246.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174516039900,47318267789532,Baratza Encore Home Coffee Grinder,White,Breville,Machine,ACTIVE,,1,6.0,POUNDS,2721.6,,,none,2721.6,2721.6,N,8.0,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174516039900,47318267822300,Baratza Encore Home Coffee Grinder,Black,Breville,Machine,ACTIVE,,1,6.0,POUNDS,2721.6,,,none,2721.6,2721.6,N,8.0,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174804037852,47321976701148,Synesso ES.1 – 1‑Group Mobile Espresso Machine,Black,Synesso,Machine,ACTIVE,,1,90.0,POUNDS,40823.3,,,none,40823.3,40823.3,N,120.0,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174804037852,47321976733916,Synesso ES.1 – 1‑Group Mobile Espresso Machine,White,Synesso,Machine,ACTIVE,,1,90.0,POUNDS,40823.3,,,none,40823.3,40823.3,N,120.0,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174804037852,47321976766684,Synesso ES.1 – 1‑Group Mobile Espresso Machine,Blue,Synesso,Machine,ACTIVE,,1,90.0,POUNDS,40823.3,,,none,40823.3,40823.3,N,120.0,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174804037852,47321976799452,Synesso ES.1 – 1‑Group Mobile Espresso Machine,Red,Synesso,Machine,ACTIVE,,1,90.0,POUNDS,40823.3,,,none,40823.3,40823.3,N,120.0,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174817341660,47322606928092,Sanremo CUBE 1 group Espresso Machine - Mobile Coffee Bar,Black,Sanremo,Machine,ARCHIVED,,1,80.0,POUNDS,36287.4,,,none,36287.4,36287.4,N,106.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174817341660,47322606960860,Sanremo CUBE 1 group Espresso Machine - Mobile Coffee Bar,White,Sanremo,Machine,ARCHIVED,,1,80.0,POUNDS,36287.4,,,none,36287.4,36287.4,N,106.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174817341660,47322606993628,Sanremo CUBE 1 group Espresso Machine - Mobile Coffee Bar,Red,Sanremo,Machine,ARCHIVED,,1,80.0,POUNDS,36287.4,,,none,36287.4,36287.4,N,106.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174817341660,47322607026396,Sanremo CUBE 1 group Espresso Machine - Mobile Coffee Bar,Blue,Sanremo,Machine,ARCHIVED,,1,80.0,POUNDS,36287.4,,,none,36287.4,36287.4,N,106.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174817341660,47322607059164,Sanremo CUBE 1 group Espresso Machine - Mobile Coffee Bar,Pink,Sanremo,Machine,ARCHIVED,,1,80.0,POUNDS,36287.4,,,none,36287.4,36287.4,N,106.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9174817341660,47322607091932,Sanremo CUBE 1 group Espresso Machine - Mobile Coffee Bar,Green,Sanremo,Machine,ARCHIVED,,1,80.0,POUNDS,36287.4,,,none,36287.4,36287.4,N,106.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9175486267612,47327797641436,Wine Curious B&BS Tasting Ticket,Default Title,Torque Coffees,Merch,ARCHIVED,,0,0.0,OUNCES,0.0,,,none,0,0,N,0,NO_SHIP_NOT_PHYSICAL,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9178809106652,47337509945564,"Marcelessa - Juan Diego De La Cerda, Guatemala",12oz,Torque Coffees,Coffee,DRAFT,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9178809106652,47337519710428,"Marcelessa - Juan Diego De La Cerda, Guatemala",8 xPods,Torque Coffees,Coffee,DRAFT,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9184359514332,47373159989468,Sanremo Zoe Compact Espresso Machine - 2 Group,220V,Sanremo,Machine,ACTIVE,,1,155.0,POUNDS,70306.8,,,none,70306.8,70306.8,N,206.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9184359514332,47373160022236,Sanremo Zoe Compact Espresso Machine - 2 Group,110V,Sanremo,Machine,ACTIVE,,1,155.0,POUNDS,70306.8,,,none,70306.8,70306.8,N,206.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9194384654556,47464836038876,Risaralda - Decaf Colombia,12oz,Torque Coffees,Coffee,ACTIVE,TQ-CRIS-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,
+9194384654556,47464836071644,Risaralda - Decaf Colombia,2lb,Torque Coffees,Coffee,ACTIVE,TQ-CRIS-2LB,1,12.0,OUNCES,340.2,2lb,907.2,variant,340.2,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+9194384654556,47464836104412,Risaralda - Decaf Colombia,5lb,Torque Coffees,Coffee,ACTIVE,TQ-CRIS-5LB,1,12.0,OUNCES,340.2,5lb,2268.0,variant,340.2,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT
+9194384654556,47464836137180,Risaralda - Decaf Colombia,8 xPods,Torque Coffees,Coffee,ACTIVE,TQ-CRIS-8XP,1,12.0,OUNCES,340.2,,,none,340.2,340.2,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9207164829916,47424265093340,"Marcelessa plus - Juan Diego De La Cerda, Guatemala",12oz,Torque Coffees,Coffee,DRAFT,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9207164829916,47424265126108,"Marcelessa plus - Juan Diego De La Cerda, Guatemala",2lb,Torque Coffees,Coffee,DRAFT,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9207164829916,47424265158876,"Marcelessa plus - Juan Diego De La Cerda, Guatemala",5lb,Torque Coffees,Coffee,DRAFT,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9207164829916,47514065633500,"Marcelessa plus - Juan Diego De La Cerda, Guatemala",8 xPods,Torque Coffees,Coffee,DRAFT,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9208593350876,47429858754780,"Centenario - Edwin Martinez,  Guatemala",12oz,Torque Coffees,Coffee,DRAFT,TCFVHR-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+9208593350876,47429869109468,"Centenario - Edwin Martinez,  Guatemala",8 xPods,Torque Coffees,Coffee,DRAFT,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9208613929180,47429971935452,Rotheca Decaf - Burundi,12oz Retail bag,Torque Coffees,Coffee,ARCHIVED,,1,0.0,OUNCES,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+9208613929180,47429972590812,Rotheca Decaf - Burundi,8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NO_WEIGHT,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9208616059100,48631414816988,Decaf Drop,12oz / In Stock,Torque Coffees,Coffee,DRAFT,TCDD-decaf-1,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9212410134748,47458588819676,Baratza Encore™ ESP PRO - Coffee & Espresso Grinder,White,BARATZA,Merch,ACTIVE,,1,5.0,POUNDS,2268.0,,,none,2268.0,2268.0,N,6.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9212410134748,47458588852444,Baratza Encore™ ESP PRO - Coffee & Espresso Grinder,Black,BARATZA,Merch,ACTIVE,,1,5.0,POUNDS,2268.0,,,none,2268.0,2268.0,N,6.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9213799727324,47470142849244,"Aricha Woreda - Faysel Yonis, Ethiopia",12 oz Retail Bag,Torque Coffees,Coffee,ARCHIVED,TCAA12,1,340.0,GRAMS,340.0,12 oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+9213799727324,47470142882012,"Aricha Woreda - Faysel Yonis, Ethiopia",2 lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2 lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9213799727324,47470142914780,"Aricha Woreda - Faysel Yonis, Ethiopia",5 lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5 lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9213799727324,47470142947548,"Aricha Woreda - Faysel Yonis, Ethiopia",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9222667436252,47500063441116,Pinon Grinder by Pinecone,Default Title,Pinecone,Machine,UNLISTED,,1,5.0,POUNDS,2268.0,,,none,2268.0,2268.0,N,6.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9223475724508,47507123175644,"Catigua - Kenny Vidurrizaga, Peru",12oz,Torque Coffees,Coffee,DRAFT,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+9223475724508,47507123208412,"Catigua - Kenny Vidurrizaga, Peru",2lb,Torque Coffees,Coffee,DRAFT,,1,12.0,OUNCES,340.2,2lb,907.2,variant,340.2,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+9223475724508,47507123241180,"Catigua - Kenny Vidurrizaga, Peru",5lb,Torque Coffees,Coffee,DRAFT,,1,12.0,OUNCES,340.2,5lb,2268.0,variant,340.2,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+9225969828060,47524183113948,"Fantástico - BASILIO, Mexico",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9225969828060,47524183146716,"Fantástico - BASILIO, Mexico",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9225969828060,47524183179484,"Fantástico - BASILIO, Mexico",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9225969828060,47524183212252,"Fantástico - BASILIO, Mexico",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9230283407580,47535837085916,"Fantástico plus - BASILIO, Mexico",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9230283407580,47535837118684,"Fantástico plus - BASILIO, Mexico",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9230283407580,47535837151452,"Fantástico plus - BASILIO, Mexico",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9230283407580,47535837184220,"Fantástico plus - BASILIO, Mexico",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9252991008988,47596979224796,Dark Drop Plus,5lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9271585079516,47681474625756,Baratza Sette 270Wi - Espresso Grinder Grind By Weight,Default Title,BARATZA,Merch,ACTIVE,,1,10.0,POUNDS,4535.9,,,none,4535.9,4535.9,N,13.33,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9299459637468,48324858740956,"BomBón plus - Jhoan Vergara, Colombia",12oz,Torque Coffees,Coffee,ACTIVE,TQ-CBMP-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9299459637468,48324858773724,"BomBón plus - Jhoan Vergara, Colombia",2lb,Torque Coffees,Coffee,ACTIVE,TQ-CBMP-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+9299459637468,48324858806492,"BomBón plus - Jhoan Vergara, Colombia",5lb,Torque Coffees,Coffee,ACTIVE,TQ-CBMP-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+9299459637468,48324858839260,"BomBón plus - Jhoan Vergara, Colombia",8 xPods,Torque Coffees,Coffee,ACTIVE,TQ-CBMP-8XP,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9302330573020,48332890243292,"Bolivar Cauca - Auction Lot, Colombia",12oz Bag,Torque Coffees,Coffee,ARCHIVED,TQ-CBOL-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9302330573020,48332890276060,"Bolivar Cauca - Auction Lot, Colombia",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,TQ-CBOL-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+9302330573020,48332890308828,"Bolivar Cauca - Auction Lot, Colombia",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,TQ-CBOL-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+9302330573020,48332890341596,"Bolivar Cauca - Auction Lot, Colombia",8 xPods,Torque Coffees,Coffee,ARCHIVED,TQ-CBOL-8XP,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9303566155996,48695063019740,Gum Drop xPods,8 xPods / In Stock,Torque Coffees,Coffee,ACTIVE,TCCDB,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9303581032668,48695021797596,Dark Drop xPods,8 xPods / In Stock,Torque Coffees,Coffee,ACTIVE,TCDDB,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9303593844956,48694922543324,"Perla Negra - Francisca Cubillo, Costa Rica - xPods",8 xPods / In Stock,Torque Coffees,Coffee,ARCHIVED,,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9303614423260,48694773612764,"Aricha Adorsi - Faysel Yonnis, Ethiopia - xPods",8 xPods / In Stock,Torque Coffees,Coffee,ARCHIVED,TCAA12,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;DUPLICATE_SKU
+9304820678876,48694724362460,"BomBón - Jhoan Vergara, Colombia - xPods",8 xPods / In Stock,Torque Coffees,Coffee,ACTIVE,,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9332269056220,50025397027036,Victoria Arduino E1 Prima 1 Group Espresso Machine,Black,Nuova Simonelli,Machine,ACTIVE,,1,155.0,POUNDS,70306.8,,,none,70306.8,70306.8,N,206.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9332269056220,50025397059804,Victoria Arduino E1 Prima 1 Group Espresso Machine,Silver,Nuova Simonelli,Machine,ACTIVE,,1,155.0,POUNDS,70306.8,,,none,70306.8,70306.8,N,206.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9332269056220,50025397092572,Victoria Arduino E1 Prima 1 Group Espresso Machine,White,Nuova Simonelli,Machine,ACTIVE,,1,155.0,POUNDS,70306.8,,,none,70306.8,70306.8,N,206.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9332277346524,50025413345500,Victoria Arduino Black Eagle Maverick Gravimetric 2 Group Espresso Machine,Black,Nuova Simonelli,Machine,ACTIVE,,1,155.0,POUNDS,70306.8,,,none,70306.8,70306.8,N,206.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9332277346524,50025413411036,Victoria Arduino Black Eagle Maverick Gravimetric 2 Group Espresso Machine,White,Nuova Simonelli,Machine,ACTIVE,,1,155.0,POUNDS,70306.8,,,none,70306.8,70306.8,N,206.67,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9332427587804,50025850077404,DRNX by Brood Cold Brew Coffee System - Commercial Nitro Cold Brew Dispenser,Single,fetco,Machine,UNLISTED,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NON_TORQUE_VENDOR,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9332427587804,50025850110172,DRNX by Brood Cold Brew Coffee System - Commercial Nitro Cold Brew Dispenser,Duo,fetco,Machine,UNLISTED,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NON_TORQUE_VENDOR,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9332428931292,50025857515740,Fetco CBS-2231 Extractor Series Commercial Batch Brewer - Dual Station Coffee System,Default Title,fetco,Machine,UNLISTED,,1,75.0,POUNDS,34019.4,,,none,34019.4,34019.4,N,100.0,HOLD_NON_TORQUE_VENDOR,,BLANK_SKU
+9353007169756,50227214287068,"Balboa Cauca - Auction Lot, Colombia",12oz,Torque Coffees,Coffee,ARCHIVED,TQ-CBAL-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9353007169756,50227214319836,"Balboa Cauca - Auction Lot, Colombia",2lb,Torque Coffees,Coffee,ARCHIVED,TQ-CBAL-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+9353007169756,50227214352604,"Balboa Cauca - Auction Lot, Colombia",5lb,Torque Coffees,Coffee,ARCHIVED,TQ-CBAL-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+9353007169756,50227214385372,"Balboa Cauca - Auction Lot, Colombia",8 xPods,Torque Coffees,Coffee,ARCHIVED,TQ-CBAL-8XP,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9362724782300,50259128647900,"Nayarit Natural - El Cuarenteño, Mexico",12oz,Torque Coffees,Coffee,DRAFT,TQ-MNAY-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9362724782300,50259128680668,"Nayarit Natural - El Cuarenteño, Mexico",2lb,Torque Coffees,Coffee,DRAFT,TQ-MNAY-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+9362724782300,50259128713436,"Nayarit Natural - El Cuarenteño, Mexico",5lb,Torque Coffees,Coffee,DRAFT,TQ-MNAY-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+9362724782300,50259128746204,"Nayarit Natural - El Cuarenteño, Mexico",8 xPods,Torque Coffees,Coffee,DRAFT,TQ-MNAY-8XP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9362735497436,50259147686108,"Nayarit Natural plus - El Cuarenteño, Mexico",12oz,Torque Coffees,Coffee,DRAFT,TQ-MNAP-12,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,
+9362735497436,50259147718876,"Nayarit Natural plus - El Cuarenteño, Mexico",2lb,Torque Coffees,Coffee,DRAFT,TQ-MNAP-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,
+9362735497436,50259147751644,"Nayarit Natural plus - El Cuarenteño, Mexico",5lb,Torque Coffees,Coffee,DRAFT,TQ-MNAP-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,
+9362735497436,50259147784412,"Nayarit Natural plus - El Cuarenteño, Mexico",8 xPods,Torque Coffees,Coffee,DRAFT,TQ-MNAP-8XP,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED
+9367267672284,50274268348636,"Perla Negra Plus - Francisca Cubillo, Costa Rica",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9367267672284,50274268381404,"Perla Negra Plus - Francisca Cubillo, Costa Rica",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+9367267672284,50274268414172,"Perla Negra Plus - Francisca Cubillo, Costa Rica",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,5lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+9367267672284,50274268446940,"Perla Negra Plus - Francisca Cubillo, Costa Rica",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9367267803356,50274268578012,"Balboa Cauca Plus - Auction Lot, Colombia",12oz,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9367267803356,50274268610780,"Balboa Cauca Plus - Auction Lot, Colombia",2lb,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9367267803356,50274268643548,"Balboa Cauca Plus - Auction Lot, Colombia",5lb,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9367267803356,50274268676316,"Balboa Cauca Plus - Auction Lot, Colombia",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9371303870684,50303852445916,"Bolivar Cauca Plus - Auction Lot, Colombia",12oz Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9371303870684,50303852478684,"Bolivar Cauca Plus - Auction Lot, Colombia",2lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9371303870684,50303852511452,"Bolivar Cauca Plus - Auction Lot, Colombia",5lb Bulk,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9371303870684,50303852544220,"Bolivar Cauca Plus - Auction Lot, Colombia",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9371306426588,50303854969052,"Aricha Adorsi Plus - Faysel Yonis, Ethiopia",12 oz Retail Bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12 oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9371306426588,50303855001820,"Aricha Adorsi Plus - Faysel Yonis, Ethiopia",2 lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2 lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9371306426588,50303855034588,"Aricha Adorsi Plus - Faysel Yonis, Ethiopia",5 lb Bulk Bag,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5 lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9371306426588,50303855067356,"Aricha Adorsi Plus - Faysel Yonis, Ethiopia",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,,,none,340.0,340.0,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9379715580124,51064503107804,"Jorge Zuniga- Auction Winner, Colombia",250g Coffee Box,Torque Coffees,Coffee,DRAFT,TC-CZUN-08,1,250.0,GRAMS,250.0,250g,250.0,variant,250.0,250.0,N,0.73,SHIP,8x6x3,
+9418383884508,51064542331100,"Lulada - Jhoan Vergara, Colombia",12oz,Torque Coffees,Coffee,ARCHIVED,TQ-CLUL-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+9418383884508,51064542363868,"Lulada - Jhoan Vergara, Colombia",2lb,Torque Coffees,Coffee,ARCHIVED,TQ-CLUL-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,DUPLICATE_SKU
+9418383884508,51064542396636,"Lulada - Jhoan Vergara, Colombia",5lb,Torque Coffees,Coffee,ARCHIVED,TQ-CLUL-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,DUPLICATE_SKU
+9418383884508,51064542429404,"Lulada - Jhoan Vergara, Colombia",8 xPods,Torque Coffees,Coffee,ARCHIVED,TQ-CLUL-8XP,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;DUPLICATE_SKU
+9432001773788,51225485934812,"Malacara Rojo - Dumont-Alvarez Family, El Salvador",12oz Box,Torque Coffees,Coffee,DRAFT,TQ-SMRO-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,
+9432001773788,51225485967580,"Malacara Rojo - Dumont-Alvarez Family, El Salvador",2lb Bulk Bag,Torque Coffees,Coffee,DRAFT,TQ-SMRO-2LB,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,
+9432001773788,51225486000348,"Malacara Rojo - Dumont-Alvarez Family, El Salvador",5lb Bulk Bag,Torque Coffees,Coffee,DRAFT,TQ-SMRO-5LB,1,5.0,POUNDS,2268.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,
+9432002724060,51225486164188,"Malacara Seca - Dumont-Alvarez Family, El Salvador",12oz Box,Torque Coffees,Coffee,DRAFT,TQ-SMSE-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,
+9432002724060,51225486196956,"Malacara Seca - Dumont-Alvarez Family, El Salvador",2lb,Torque Coffees,Coffee,DRAFT,TQ-SMSE-2LB,1,0.0,OUNCES,0.0,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE
+9432002724060,51225486229724,"Malacara Seca - Dumont-Alvarez Family, El Salvador",5lb,Torque Coffees,Coffee,DRAFT,TQ-SMSE-5LB,1,0.0,OUNCES,0.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE
+9452212191452,51501180485852,"Lulada plus - Jhoan Vergara, Colombia",12oz,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9452212191452,51501180518620,"Lulada plus - Jhoan Vergara, Colombia",2lb,Torque Coffees,Coffee,ARCHIVED,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9452212191452,51501180551388,"Lulada plus - Jhoan Vergara, Colombia",5lb,Torque Coffees,Coffee,ARCHIVED,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9452212191452,51501180584156,"Lulada plus - Jhoan Vergara, Colombia",8 xPods,Torque Coffees,Coffee,ARCHIVED,,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9495057891548,51978434773212,"Worka Chelbessa - Negusse Debela, Ethiopia",12oz Box,Torque Coffees,Coffee,ACTIVE,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+9495057891548,51978434805980,"Worka Chelbessa - Negusse Debela, Ethiopia",2lb,Torque Coffees,Coffee,ACTIVE,,1,2.0,POUNDS,907.2,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,BLANK_SKU
+9495057891548,51978434838748,"Worka Chelbessa - Negusse Debela, Ethiopia",5lb,Torque Coffees,Coffee,ACTIVE,,1,5.0,POUNDS,2268.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9519950692572,52075174920412,"Worka Chelbessa - Negusse Debela, Ethiopia xBloom",12oz / In stock,Torque Coffees,Coffee,ACTIVE,,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,BLANK_SKU
+9519963013340,52075201167580,"Worka Chelbessa - Negusse Debela, Ethiopia xPods",8 xPods / in stock,Torque Coffees,Coffee,ACTIVE,,1,12.0,OUNCES,340.2,,,none,340.2,340.2,N,1.0,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;BLANK_SKU
+9529192743132,52096386171100,Bridge Blend - Grondin Community Bridge Composition,12oz,Torque Coffees,Coffee,ACTIVE,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9529192743132,52096386203868,Bridge Blend - Grondin Community Bridge Composition,2lb,Torque Coffees,Coffee,ACTIVE,,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,BLANK_SKU
+9529192743132,52096386236636,Bridge Blend - Grondin Community Bridge Composition,5lb,Torque Coffees,Coffee,ACTIVE,,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,BLANK_SKU
+9534414029020,52143152070876,"Ntwari Natural - Buhumuza, Burundi",12oz Box,Torque Coffees,Coffee,ACTIVE,,1,0.0,OUNCES,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+9534414029020,52143152103644,"Ntwari Natural - Buhumuza, Burundi",2lb,Torque Coffees,Coffee,ACTIVE,,1,0.0,OUNCES,0.0,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+9534414029020,52143152136412,"Ntwari Natural - Buhumuza, Burundi",5lb,Torque Coffees,Coffee,ACTIVE,,1,0.0,OUNCES,0.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+9555570786524,52199797194972,"Ntwari Natural - Buhumuza, Burundi xBloom",12oz / In Stock,Torque Coffees,Coffee,ACTIVE,,1,0.0,OUNCES,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+9573315281116,52273749623004,"La Mora - Francisca Cubillo, Costa Rica",12oz,Torque Coffees,Coffee,ACTIVE,,1,340.0,GRAMS,340.0,12oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9573315281116,52273750835420,"La Mora - Francisca Cubillo, Costa Rica",2lb,Torque Coffees,Coffee,ACTIVE,,1,340.0,GRAMS,340.0,2lb,907.2,variant,340.0,907.2,Y,2.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+9573315281116,52273750868188,"La Mora - Francisca Cubillo, Costa Rica",5lb,Torque Coffees,Coffee,ACTIVE,,1,340.0,GRAMS,340.0,5lb,2268.0,variant,340.0,2268.0,Y,6.67,SHIP,12x8x6,GRAMS_TITLE_CONFLICT;BLANK_SKU
+9573321048284,52273793990876,"San Augustine - Jhoan Vergara, Colombia",12oz,Torque Coffees,Coffee,ACTIVE,TQ-CLUL-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+9573321048284,52273794023644,"San Augustine - Jhoan Vergara, Colombia",2lb,Torque Coffees,Coffee,ACTIVE,TQ-CLUL-2LB,1,908.0,GRAMS,908.0,2lb,907.2,variant,908.0,908.0,N,2.67,SHIP,12x8x6,DUPLICATE_SKU
+9573321048284,52273794056412,"San Augustine - Jhoan Vergara, Colombia",5lb,Torque Coffees,Coffee,ACTIVE,TQ-CLUL-5LB,1,2270.0,GRAMS,2270.0,5lb,2268.0,variant,2270.0,2270.0,N,6.67,SHIP,12x8x6,DUPLICATE_SKU
+9573321048284,52273794089180,"San Augustine - Jhoan Vergara, Colombia",8 xPods,Torque Coffees,Coffee,ACTIVE,TQ-CLUL-8XP,1,120.0,GRAMS,120.0,,,none,120.0,120.0,N,0.35,SHIP,8x6x3,XPODS_FIT_UNVERIFIED;DUPLICATE_SKU
+9579402952924,52300456132828,"La Mora - Francisca Cubillo, Costa Rica -Nectarous",12 oz bag,Torque Coffees,Coffee,ARCHIVED,,1,340.0,GRAMS,340.0,12 oz,340.2,variant,340.0,340.0,N,1.0,SHIP,8x6x3,BLANK_SKU
+9591208313052,52387102261468,"Ntwari Natural - Buhumuza, Burundi xBloom xPods",8 xPods / In Stock,Torque Coffees,Coffee,ACTIVE,,1,0.0,OUNCES,0.0,,,none,0,0,N,0,HOLD_NO_WEIGHT,,NO_GRAMS_NO_TITLE_WEIGHT;BLANK_SKU
+9614082146524,52490098639068,"San Augustine - Jhoan Vergara, Colombia-  Fellow",12oz,Torque Coffees,Coffee,ARCHIVED,TQ-CLUL-12,1,12.0,OUNCES,340.2,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,DUPLICATE_SKU
+9636934090972,52556242518236,"Obata Cruz - Alejandro Martinez, Mexico",12oz,Torque Coffees,Coffee,ACTIVE,,1,0.0,OUNCES,0.0,12oz,340.2,variant,340.2,340.2,N,1.0,SHIP,8x6x3,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+9636934090972,52556242551004,"Obata Cruz - Alejandro Martinez, Mexico",2lb,Torque Coffees,Coffee,ACTIVE,,1,0.0,OUNCES,0.0,2lb,907.2,variant,907.2,907.2,N,2.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
+9636934090972,52556242583772,"Obata Cruz - Alejandro Martinez, Mexico",5lb,Torque Coffees,Coffee,ACTIVE,,1,0.0,OUNCES,0.0,5lb,2268.0,variant,2268.0,2268.0,N,6.67,SHIP,12x8x6,ZERO_GRAMS_TITLE_USABLE;BLANK_SKU
