@@ -62,7 +62,7 @@ This reverses two decisions Andy marked RESOLVED on 2026-06-29 in [`b2b-cubic-sh
 **Negative:**
 - B2B costs more per box. The plan's +$127 a month comes from its 2026-10-16 quotes, from 92105 and at net weight. With tare, full boxes bill 22 lb, so expect somewhat more. The first invoices will say.
 - The portal can no longer buy a USPS label. A USPS label bought before the deploy and not yet fulfilled must be fulfilled by hand in Shopify.
-- xPods now pack and declare at 0.75 lb each (R3). In B2B that over-declares: 26 xPods boxes declare 21 lb against about 9 lb real, so a large xPods order uses more boxes and pays for weight it doesn't have. Pending Andy's confirmation that R3 applies to B2B.
+- xPods now pack and declare at 0.75 lb each (R3). In B2B that over-declares: 26 xPods boxes declare 21 lb against about 9 lb real, so a large xPods order uses more boxes and pays for weight it doesn't have. Confirmed by Andy, 2026-10-18: R3 applies to B2B, and the 14x10x10 tare stays 0.83.
 - A3's packed box (21.27 lb) is 0.11 lb heavier than the model (20.28 + 0.83 + 0.05 = 21.16). Boxes near a pound line may still bill 1 lb over the declared weight, for example a single 5 lb bag (5.95 declared as 6, about 6.06 packed).
 
 **When to revisit:**

@@ -72,7 +72,8 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
   - one customer email
 - [ ] **G6 cutover step 1:** the first 5 B2B UPS shipments. For each: tracking, Shopify email, cost row, and UPS billed weight against declared (A3's tare gap, ADR 0020). Logged in the run log below.
 - [ ] **G7 merge (in this order):**
-  1. Andy approves the merge and signs off on two open questions: the 14x10x10 tare (0.83 per R3, or the 0.99 that A3's packed box implies), and whether xPods count as 12 oz (0.75 lb) for B2B billed weight.
+  1. ✓ 2026-10-18: Andy approved the merge and signed off on both open questions. The 14x10x10 tare stays 0.83 (not A3's 0.99), and xPods count as 12 oz (0.75 lb) in B2B.
+  - ✓ 2026-10-18 step 2: allowlist pushed alone (07d002d); `/docs/RUNBOOK.md`, `/docs/JOURNAL.md`, `/db/…sql` and `/.vercelignore` return 404, and the app and `/api/shopify-token?type=products` return 200.
   2. **The allowlist ships alone, first.** Local `main` (fc0f43c, the Phase A docs) must not reach origin before it.
      - On a fresh branch from `origin/main`, commit only `.vercelignore` (its final form from `b0-b2b-ups`) and push it to `main`.
      - Verify: `/docs/RUNBOOK.md` and `/db/2026-07-25-ship-label-recovery.sql` return 404, `/api/shopify-token?type=products` returns 200, and the app loads.

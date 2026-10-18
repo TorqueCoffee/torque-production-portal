@@ -79,7 +79,7 @@
   - Also: one 409 now re-rates every unbought box, not one per round; the no-rate bar no longer always blames the address; the Re-rate button has a busy state; `getRates`/`buyLabels` reset their phase in `finally`; titles are clipped to 255 before regex matching; tracking URLs are no longer sent; more P.O. box spellings; ADRs 0002/0003 marked superseded; plan row B2a made concrete; the RUNBOOK rollback advice was backwards (reloading loads the old page that sends USPS) and is rewritten.
   - **The allowlist ships after the docs it hides** (Architect, Blocks ship). It can't be fixed without rewriting unpushed `main`, which this session must not do. G7.2 now ships `.vercelignore` alone, first, and verifies the 404 before anything else is pushed.
 - **Rejected or deferred from the reviews:**
-  - The 0.83 tare stays, because R3 is locked. A3's packed box implies 0.99; that question goes to Andy.
+  - The 0.83 tare stays (R3). A3's packed box implies 0.99. Andy, 2026-10-18: keep 0.83, and keep xPods at 0.75 lb in B2B; the G6 watch on UPS billed weight checks the gap.
   - Unknown bag sizes still count at nominal weight rather than blocking the rate.
   - The server does not recompute the weight. That needs the rules in a file shared with the page: plan row B2a.
   - `net_weight_lb` waits for B5 (a migration).
