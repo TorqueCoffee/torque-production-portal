@@ -125,6 +125,9 @@ Rollout order (RUNBOOK "First rollout"):
   - 0 Blocks ship, 18 Should fix (all fixed), 30 Worth noting.
   - Andy ended the review loop after round 2.
   - L1–L3 PASS, 92/92. L4 PASS, 16/16.
+- 2026-10-18: step 1 deployed (bcc505e).
+  - L5 partial PASS, publishable key only: without a token, `/api/shippo-label?action=label`, `/api/shopify-fulfill`, `/api/ship-doc` and `/api/shopify-token?type=b2b` / `b2b-ship` → 401; `/api/_auth` → 404; `?type=products` → 200 (as planned until 3a).
+  - The REST and RPC checks wait for step 3b.
 
 ## UPS Ground (Phase B, plan: [`Retail-USPS-UPS.md`](./Retail-USPS-UPS.md))
 

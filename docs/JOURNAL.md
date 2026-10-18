@@ -43,6 +43,17 @@
   - `tests/b0-ups.test.js` now runs every API test with enforcement on, and `call()` sends headers (the B0 round 3 follow-up).
   - `npm run test:db` runs on PGlite 0.5.8, a new dev dependency (ADR 0024).
 - ADR 0023, RUNBOOK (sign-in and accounts, `PORTAL_AUTH_ENFORCE`, the access model, rollback order, supabase-js upgrade) and TESTS (L1–L7) written.
+- **Rollout, 2026-10-18:**
+  - **Step 0 done:**
+    - Andy applied `login-prep` and `label-claims`; checked read-only.
+    - Sign-ups and anonymous sign-ins are off, and the password minimum is 12.
+    - 4 accounts: andy@, nanelle@, elias@, info@ (the floor iPad). All are confirmed, have a password and carry `portal_staff`.
+    - Two accounts first created with "Invite user" had no password; they were deleted and recreated with "Create new user". Recreating dropped the staff marker, which had to be set again.
+    - Supabase is on the free plan: no leaked-password protection and no daily backups. A backup, or the Pro upgrade, is wanted before step 3b.
+  - **Step 1 deployed:** Andy pushed `main` (bcc505e), live by 19:54 UTC.
+    - Checked: the sign-in form and supabase-js 2.117.2 are served.
+    - Without a token, label, fulfill, ship-doc, `b2b` and `b2b-ship` return 401; `/api/_auth` returns 404; products returns 200 (until 3a); `/docs`, `/db` and `/.npmrc` return 404.
+    - Next: every device signs in, then the observation day (step 2).
 
 ### Detours & fixes
 
