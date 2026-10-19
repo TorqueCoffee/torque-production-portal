@@ -221,6 +221,24 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
 - 2026-10-17: adversarial review round 2. Accepted fixes landed (see JOURNAL). G1–G3 PASS, 38/38 (`npm test`).
 - 2026-10-18: adversarial review round 3 (the cap). Accepted fixes landed (see JOURNAL). G1–G3 PASS, 47/47 (`npm test`).
 
+### B3 (server) — retail label buying, and B6 — void (ADR [`0026`](./decisions/0026-retail-label-kind-and-void.md))
+`tests/b3-retail-label.test.js`, fetch stubbed (nothing is bought or voided); `tests/db/label-void.test.js` on PGlite (`npm run test:db`). The B3 screen itself is Andy's design and has its own gates.
+- [x] **K1 retail buys:** `kind: 'retail'` for #8333 with the server's own pack (`12x8x6@2`) passes the check and buys one UPS Ground label; the order is read through GraphQL (2025-10), never REST. Order kept: lookup → pack check → rate → claim → buy → cost row. #8331, #8289, #7388 and #8291 buy at Phase A's carton and pounds.
+- [x] **K2 wrong pack:** lighter, another carton, another sig, two boxes, the B2B pack, or an order edited since it was listed → 409 `pack_changed`; nothing rated, claimed or bought.
+- [x] **K3 not listed:** HOLD (HI, non-Torque vendor), EXCLUDE (company, pickup) and orders that changed since they were listed (cancelled, fulfilled by hand, refunded, partly shipped) → 409 `not_listed` with the class; nothing rated.
+- [x] **K4 fail closed:** no such order 409; GraphQL errors, Shopify 500 or a failed token exchange 503; a non-order id 400 without calling Shopify; `kind` other than `b2b`/`retail` 400. An already-bought retail box is handed back, not rebought.
+- [x] **K5 batch:** three labels make one token exchange and three order reads; a 401 drops the token and retries once; a token without `expires_in`, or one expiring within 5 minutes, is not kept.
+- [x] **K6 B2B unchanged:** a request without `kind` is B2B (REST order, B2B packer); all B0/B2a tests pass unchanged.
+- [x] **V1 void:** an unused label is refunded (`POST /refunds/ { transaction, async: false }`) and its row marked through `mark_ship_label_voided` with the caller's token. Order: row → Shopify → Shippo confirms → refund → mark.
+- [x] **V2 staff only:** no token or a bad one → 401 even with `PORTAL_AUTH_ENFORCE` unset.
+- [x] **V3 never a shipped order:** a fulfilled row, an order fulfilled or partly fulfilled in Shopify, or any fulfilled line → 409, no refund. A cancelled unfulfilled order voids.
+- [x] **V4 fail closed:** no row or an already-voided row 404; the lookup or Shopify down 503; no such order 409; a row Shippo doesn't confirm 409; a bad body 400 with no call made. A refused refund (502) leaves the row; a refund whose row can't be marked returns `row_marked: false` and says so.
+- [x] **V5 migration:** staff void one `purchased` row by order, box and Shippo id; the box's claim is freed; a wrong id, another box or a fulfilled row is never voided; anon and `green_planner_app` denied, a stranger changes nothing; still no SELECT on `shipping_labels`; fulfilling an order leaves its voided label voided; refused without `label_claims`; the rollback drops the function and column and keeps the rows.
+- [ ] **V6 live (Andy, Phase B step 3):** a real test label is voided from the portal; Shippo shows the refund; the row reads `voided`.
+
+**Run log:**
+- 2026-10-19: K1–K6, V1–V4 PASS, 128/128 (`npm test`); V5 PASS, 21/21 (`npm run test:db`). Migration not applied; not deployed.
+
 ### B2 — retail packer (`packRetail`)
 `tests/b2-retail-pack.test.js`, pure:
 - [x] **P1 acceptance:** all 16 LIST orders in `acceptance_fixtures.json` get Phase A's carton and billed pounds.
