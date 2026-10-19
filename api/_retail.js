@@ -47,7 +47,15 @@ function grams(weight) {
 const money = set => (set && set.shopMoney ? set.shopMoney.amount : '0')
 
 // One GraphQL order node -> the shape classifyRetailOrder reads. Quantity is what is left to
-// ship (unfulfilledQuantity; currentQuantity when the node has no unfulfilledQuantity).
+// ship: the smaller of unfulfilledQuantity and currentQuantity. A NO_RESTOCK refund can leave
+// unfulfilledQuantity at 1 with currentQuantity 0 (#3341, #3074, checked 2026-10-19), and an
+// order edit lowers currentQuantity. Either one alone when the node has only that one.
+function lineQty(l) {
+  const u = Number.isInteger(l.unfulfilledQuantity) ? l.unfulfilledQuantity : null
+  const c = Number.isInteger(l.currentQuantity) ? l.currentQuantity : null
+  if (u != null && c != null) return Math.min(u, c)
+  return u != null ? u : c
+}
 function normalizeRetailOrder(n) {
   const a = n.shippingAddress
   const items = (n.lineItems && n.lineItems.nodes) || []
@@ -73,7 +81,7 @@ function normalizeRetailOrder(n) {
     lines: items.map(l => ({
       title: l.title,
       variant_title: l.variantTitle || '',
-      qty: Number.isInteger(l.unfulfilledQuantity) ? l.unfulfilledQuantity : l.currentQuantity,
+      qty: lineQty(l),
       requires_shipping: !!l.requiresShipping,
       is_gift_card: !!l.isGiftCard,
       sku: l.sku || null,

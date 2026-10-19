@@ -83,10 +83,23 @@ test('B1: the GraphQL node is read as Shopify sends it', () => {
   const n = RAW.find(o => o.name === '#8301')
   const o = normalizeRetailOrder({ ...n, id: 'gid://shopify/Order/9', lineItems: { pageInfo: { hasNextPage: true }, nodes: n.lineItems.nodes.map(l => ({ ...l, unfulfilledQuantity: 3 })) } })
   assert.equal(o.order_id, 'gid://shopify/Order/9')
-  assert.equal(o.lines[0].qty, 3)                     // unfulfilledQuantity beats currentQuantity
+  assert.equal(o.lines[0].qty, 3)                     // unfulfilled 3 < current 4: what is left to ship
   assert.equal(o.lines_truncated, true)
   assert.equal(o.lines[0].grams, 340.2)               // 12 OUNCES
   assert.equal(o.address.province, 'FL')
+})
+
+test('B3a R0: quantity is the smaller of unfulfilledQuantity and currentQuantity', () => {
+  const n = RAW.find(o => o.name === '#8301')
+  const q = (fields) => normalizeRetailOrder({ ...n, lineItems: { pageInfo: { hasNextPage: false }, nodes: [{ ...n.lineItems.nodes[0], unfulfilledQuantity: undefined, currentQuantity: undefined, ...fields }] } }).lines[0].qty
+  assert.equal(q({ unfulfilledQuantity: 1, currentQuantity: 0 }), 0)    // #3341: NO_RESTOCK refund, unfulfilled stays 1
+  assert.equal(q({ unfulfilledQuantity: 4, currentQuantity: 2 }), 2)    // order edited down
+  assert.equal(q({ unfulfilledQuantity: 1, currentQuantity: 3 }), 1)    // two of three already shipped
+  assert.equal(q({ currentQuantity: 2 }), 2)
+  assert.equal(q({ unfulfilledQuantity: 2 }), 2)
+  // A refunded line with nothing left drops out: a one-line order like #3341 is NO_SHIPPING, never packed.
+  const o = normalizeRetailOrder({ ...asListed(n), lineItems: { pageInfo: { hasNextPage: false }, nodes: [{ ...n.lineItems.nodes[0], unfulfilledQuantity: 1, currentQuantity: 0 }] } })
+  assert.equal(classifyRetailOrder(o).class, 'NO_SHIPPING')
 })
 
 const shopifyToken = require('../api/shopify-token.js')
@@ -115,7 +128,18 @@ test('B1: ?type=retail-ship returns LIST and HOLD orders across pages and counts
   assert.equal(o.shipping_address.province, 'NY')
   assert.equal(r.payload.orders.find(x => x.order_name === '#7297').class, 'HI_AK_PR_APO')
   assert.deepEqual(o.parcel, { length: 12, width: 8, height: 6, weight: 2 })         // B2: 2 x 12 oz
+  assert.equal(o.pack_sig, '12x8x6@2')                                                  // B3a: sent back with the label request
   assert.equal(r.payload.orders.find(x => x.order_name === '#7297').parcel, null)   // HOLD: no carton
+  assert.equal(r.payload.orders.find(x => x.order_name === '#7297').pack_sig, null)
+})
+
+test('B3a: the list says which subscription box the slip prints (FIRST, RECURRING or none)', async () => {
+  pages = [page(RAW.map(asListed))]
+  const r = await call()
+  const by = Object.fromEntries(r.payload.orders.map(o => [o.order_name, o.subscription]))
+  assert.equal(by['#8331'], 'RECURRING')
+  assert.equal(by['#7349'], 'FIRST')                // a HOLD order carries it too
+  assert.equal(by['#8333'], null)
 })
 
 test('B1: a failed page fails the whole list (never a partial list)', async () => {

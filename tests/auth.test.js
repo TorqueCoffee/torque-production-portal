@@ -266,7 +266,8 @@ test('L3: supabase-js is pinned to an exact version with an integrity hash', () 
 })
 
 test('L3: every /api call goes through apiFetch', () => {
-  assert.equal((page.match(/apiFetch\('\/api\//g) || []).length, 11)   // 11th: the Retail queue (B1 UI)
+  // 11th: the Retail queue (B1 UI); 12th and 13th: the Retail batch PDF and rate/label (B3a).
+  assert.equal((page.match(/apiFetch\(['`]\/api\//g) || []).length, 13)
   assert.equal((page.match(/(?<![\w.])fetch\(\s*['"`]\/api/g) || []).length, 0)
   // The bare fetches left are apiFetch's own and sbFetch's (the wrapper supabase-js uses).
   assert.equal((page.match(/(?<![\w.])fetch\(/g) || []).length, 3)
@@ -352,7 +353,7 @@ function authSandbox(extra = {}) {
   const counts = { init: 0, subscribe: 0, reload: 0 }
   const P = loadFromIndex(['showSignIn', 'startApp', 'onAuthChange'], {
     document: dom.document,
-    appStarted: false, shipBuyInFlight: false,
+    appStarted: false, shipBuyInFlight: false, retailBuyInFlight: false,
     init: () => { counts.init++ }, subscribeRealtime: () => { counts.subscribe++ },
     location: { reload: () => { counts.reload++ } },
     ...extra
@@ -406,6 +407,10 @@ test('L3: signing out after the app ran reloads (no data left in memory), except
   assert.equal(b.counts.reload, 0)
   assert.ok(b.dom.classes.has('tq-locked'))
   assert.match(b.dom.el('signInErr').textContent, /Sign in again/)
+  const c = authSandbox({ appStarted: true, retailBuyInFlight: true })      // a retail batch is buying (B3a)
+  c.P.onAuthChange('SIGNED_OUT', null)
+  assert.equal(c.counts.reload, 0)
+  assert.ok(c.dom.classes.has('tq-locked'))
 })
 
 test('L3: realtime subscribes only from startApp; init() is not called at load', () => {
@@ -665,10 +670,10 @@ test('L2: ship-doc fetches labels from Shippo\'s own domain only', async () => {
 })
 
 test('L3: sign out is refused mid-buy and mid-fulfill, and signs out this device only', async () => {
-  for (const [shipBuyInFlight, shipState, refused] of [[true, null, true], [false, { phase: 'fulfilling' }, true], [false, { phase: 'bought' }, false], [false, null, false]]) {
+  for (const [shipBuyInFlight, shipState, refused, retailBuyInFlight = false] of [[true, null, true], [false, { phase: 'fulfilling' }, true], [false, { phase: 'bought' }, false], [false, null, false], [false, null, true, true]]) {
     let alerted = false, scope = null
     const F = loadFromIndex(['signOut'], {
-      shipBuyInFlight, shipState, alert: () => { alerted = true }, confirm: () => true,
+      shipBuyInFlight, shipState, retailBuyInFlight, retailBatch: null, alert: () => { alerted = true }, confirm: () => true,
       sb: { auth: { signOut: async (o) => { scope = o.scope } } }
     })
     await F.signOut()

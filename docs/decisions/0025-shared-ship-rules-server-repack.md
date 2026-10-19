@@ -1,6 +1,6 @@
 # 0025 — One copy of the ship rules; the server repacks before buying
 
-- **Status**: Accepted
+- **Status**: Accepted (amended by [0028](./0028-retail-buy-and-print.md): retail orders are rated and bought at the address Shopify has now, not the page's)
 - **Date**: 2026-10-19
 
 ## Context

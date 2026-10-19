@@ -603,6 +603,7 @@ test('G3: label buys the chosen rate and logs a ups_ground cost row at the decla
   assert.equal(row.service, 'ups_ground')
   assert.equal(row.is_cubic, false)
   assert.equal(row.weight_lb, 22)
+  assert.equal('channel' in row, false)   // B2B takes the column default (ADR 0028), so it works before the migration too
   assert.equal(row.cost, '16.43')
   assert.equal(row.dest_zip, '93117')
   assert.equal(r.payload.cost_logged, true)

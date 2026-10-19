@@ -1,6 +1,6 @@
 # 0026 — The label request names its packer; voids go through Shippo first, then an RPC
 
-- **Status**: Accepted
+- **Status**: Accepted (amended by [0028](./0028-retail-buy-and-print.md): retail takes Shopify's address and order name; every label and void call uses the `gid://shopify/Order/<n>` spelling; a retail quote needs a signed-in user)
 - **Date**: 2026-10-19
 
 ## Context

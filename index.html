@@ -319,6 +319,15 @@ td select{padding:6px 8px;border:2px solid var(--black);border-radius:6px;font-s
 .rt-hold-row{display:grid;grid-template-columns:76px 96px 1fr auto;gap:12px;align-items:center;padding:10px 18px;border-top:1px solid var(--hairline);font-size:13px}
 .rt-hold-why{color:var(--red-ink)}
 @media(max-width:640px){.rt-hold-row{grid-template-columns:70px 1fr}}
+.rt-chip-ok{background:var(--green-light);color:#0F5A29;border-color:#0F5A29}
+/* B3a Buying screen (docs/design/retail-ui/Buying.dc.html) */
+.rt-progress{height:12px;border:2px solid var(--black);border-radius:var(--r-pill);background:var(--cream);overflow:hidden;margin-bottom:6px}
+.rt-progress span{display:block;height:100%;background:var(--orange);transition:width .3s}
+/* 70+84+150+68+92+170 + gaps + padding = 708: fits an iPad in portrait (724 inside the card), as the queue does. */
+.rt-buyrow{grid-template-columns:70px 84px minmax(150px,1fr) 68px 92px minmax(170px,240px)}
+.rt-buyrow.bad{background:var(--red-light)}
+.rt-why{font-size:12px;flex-basis:100%}
+.rt-pdf .btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* SHIP */
 .ship-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -1914,7 +1923,9 @@ async function loadShipPending() {
   try {
     const { data, error } = await sb.rpc('ship_labels_pending')
     if (error) throw error
-    for (const row of data || []) shipPending[row.order_id] = row
+    // Retail labels are the Retail tab's (db/2026-10-19-label-channel.sql). Rows from before the
+    // migration carry no channel and are B2B.
+    for (const row of data || []) if (row.channel !== 'retail') shipPending[row.order_id] = row
   } catch (e) {
     console.warn('ship_labels_pending unavailable:', e.message || e)
   }
@@ -3097,7 +3108,12 @@ function applySubscriptionSubstitution(items) {
 // Buy button stays off (RETAIL_BUY_ENABLED). The server classifies and packs; this only shows.
 // ---------------------------------------------------------------------------------------
 const RETAIL_MAX_BATCH = 25
+// Off until B3b (Pack, Fulfill) is merged, db/2026-10-19-label-channel.sql and
+// db/2026-10-19-label-void.sql are applied, and Andy says go. The first push with it on is the
+// supervised 3-label live test (ADR 0028, RUNBOOK "Retail Buy and print").
 const RETAIL_BUY_ENABLED = false
+const RETAIL_BUY_PARALLEL = 3            // label calls at once; drops to 1 if the server says "too many"
+const RETAIL_BUSY_WAIT_MS = 1500         // after "too many": wait this, twice this, three times this
 // Show an "N days old" chip from this many days. null = no chip; Andy has not set N yet.
 const RETAIL_AGE_CHIP_DAYS = null
 const RETAIL_STALE_MS = 10 * 60 * 1000   // reopening the tab after this reloads the list
@@ -3136,6 +3152,18 @@ let retailError = ''
 let retailSel = new Set()    // order_id of ticked rows (ready rows only)
 let retailMsg = ''
 let retailShowHold = false
+let retailPending = {}       // order_id -> retail labels bought and not fulfilled (ship_labels_pending, channel retail)
+let retailPendingError = ''
+let retailBatch = null       // the Buying screen (B3a), or null for the queue
+let retailBuyInFlight = false
+let retailReprinting = false
+// Orders bought this week whose cost row couldn't be written (cost_logged: false). The DB has no
+// row, so after Back or a reload they would look unbought, and once the claim goes stale the
+// server could buy them again. Kept on this device (localStorage) and merged into
+// retailPending on every load until the DB has the row. order_id -> { order_name, at }
+const RETAIL_UNRECORDED_KEY = 'tq.retail.unrecorded'
+const RETAIL_UNRECORDED_DAYS = 7
+let retailUnrecorded = retailReadUnrecorded()
 
 // The carton the server packed this order into ("8x6x3"), or null.
 function retailCartonLabel(o) {
@@ -3163,9 +3191,12 @@ function retailAgeDays(o, nowMs) {
 }
 // Sort the server's orders into the queue's groups. An order with a fix, or one the server
 // could not size, is never ready: it cannot be ticked, so it can never reach a purchase.
+// An order with a retail label bought and not fulfilled is never ready either: it goes in
+// Bought (B3a), whatever the list says now. Its label is reprinted, never bought again.
 function retailGroups(orders) {
-  const g = { fix: [], ready: { '8x6x3': [], '12x8x6': [], '14x10x10': [] }, hold: [] }
+  const g = { bought: [], fix: [], ready: { '8x6x3': [], '12x8x6': [], '14x10x10': [] }, hold: [] }
   for (const o of orders || []) {
+    if (retailPending[o.order_id]) { g.bought.push(o); continue }
     if (o.decision === 'HOLD') { g.hold.push(o); continue }
     if (o.decision !== 'LIST') continue
     const carton = retailCartonLabel(o)
@@ -3223,6 +3254,7 @@ function initRetailTab() {
   else renderRetail()
 }
 async function loadRetailOrders() {
+  if (retailBuyInFlight) return
   const seq = ++retailLoadSeq
   retailLoading = true
   retailError = ''
@@ -3232,8 +3264,11 @@ async function loadRetailOrders() {
     const res = await apiFetch('/api/shopify-token?type=retail-ship')
     const data = await res.json()
     if (!res.ok || data.error) throw new Error(data.error || `status ${res.status}`)
-    await ensureScheduleData()
+    const [, pend] = await Promise.all([ensureScheduleData(), loadRetailPending()])
     if (seq !== retailLoadSeq) return
+    // A failed read keeps the last set, and this device's notes are laid over it either way.
+    if (pend.ok) { retailPending = retailMergeUnrecorded(pend.pending, true); retailPendingError = '' }
+    else { retailPending = retailMergeUnrecorded(retailPending, false); retailPendingError = pend.why }
     retailOrders = retailApplySubscriptions(data.orders || [])
     retailExcluded = data.excluded || {}
     retailLoadedAt = Date.now()
@@ -3249,7 +3284,66 @@ async function loadRetailOrders() {
   renderRetail()
 }
 
+function retailReadUnrecorded() {
+  try {
+    const v = JSON.parse(localStorage.getItem(RETAIL_UNRECORDED_KEY) || '{}')
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {}
+  } catch (e) { return {} }
+}
+function retailSaveUnrecorded() {
+  try { localStorage.setItem(RETAIL_UNRECORDED_KEY, JSON.stringify(retailUnrecorded)) } catch (e) { /* this session still has it */ }
+}
+// Note an order whose label may be bought with no record (or forget it once it is recorded).
+function retailRemember(o, why) {
+  retailUnrecorded[o.order_id] = { order_name: o.order_name, at: Date.now(), why }
+  retailSaveUnrecorded()
+}
+function retailForget(id) {
+  if (!retailUnrecorded[id]) return
+  delete retailUnrecorded[id]
+  retailSaveUnrecorded()
+}
+// "Shippo shows no label for it": the operator checked, so the order may be bought again.
+function retailClearUnrecorded(id) {
+  if (retailBuyInFlight || !retailUnrecorded[id]) return
+  if (!confirm(`Only if Shippo shows no label for ${retailUnrecorded[id].order_name || 'this order'}: put it back in the queue to buy?`)) return
+  retailForget(id)
+  delete retailPending[id]
+  renderRetail()
+}
+
+// The DB's set plus this device's unrecorded orders (dropped once the DB has them, or after a week).
+// fromDb: `pending` is a fresh DB read, so an order it already has is recorded and its note goes.
+function retailMergeUnrecorded(pending, fromDb) {
+  const out = { ...pending }
+  const cutoff = Date.now() - RETAIL_UNRECORDED_DAYS * 86400000
+  let changed = false
+  for (const [id, u] of Object.entries(retailUnrecorded)) {
+    if ((fromDb && out[id] && !out[id].unrecorded) || !u || typeof u !== 'object' || !(Number(u.at) > cutoff)) { delete retailUnrecorded[id]; changed = true; continue }
+    out[id] = { order_id: id, order_name: String(u.order_name || ''), labels_bought: 1, box_count: 1, channel: 'retail', unrecorded: true }
+  }
+  if (changed) retailSaveUnrecorded()
+  return out
+}
+
+// Retail labels already bought and not fulfilled (the DB, so a reload or another device sees them).
+// -> { ok, pending } or { ok: false, why }. The caller applies it only if its load is still the
+// newest; a failed read keeps the last known set and says so (the label endpoint's own lookup
+// still refuses to buy a box twice).
+async function loadRetailPending() {
+  try {
+    const { data, error } = await sb.rpc('ship_labels_pending')
+    if (error) throw error
+    const pending = {}
+    for (const row of data || []) if (row.channel === 'retail') pending[row.order_id] = row
+    return { ok: true, pending }
+  } catch (e) {
+    return { ok: false, why: e.message || String(e) }
+  }
+}
+
 function retailToggle(id) {
+  if (retailBuyInFlight) return
   const ready = new Set(retailReadyOrders(retailGroups(retailOrders)).map(o => o.order_id))
   if (!ready.has(id)) return
   if (retailSel.has(id)) { retailSel.delete(id); retailMsg = '' }
@@ -3258,6 +3352,7 @@ function retailToggle(id) {
   renderRetail()
 }
 function retailToggleAll() {
+  if (retailBuyInFlight) return
   const g = retailGroups(retailOrders)
   const ids = retailSelectAllIds(g)
   if (ids.length && ids.every(id => retailSel.has(id)) && retailSel.size === ids.length) {
@@ -3316,9 +3411,445 @@ function retailRow(o, opts) {
   </div>`
 }
 
+// ---- B3a: Buy and print (docs/RETAIL_UI_HANDOFF.md 3.2, 3.3; ADR 0028) ----------------------
+// One tap quotes every ticked order and buys each one that has a UPS Ground rate, three at a
+// time. One failure never stops the rest. Orders with no rate, a price that rose, or a refusal
+// stay on the screen with their reason and a per-row action; anything not bought returns to the
+// queue. The money side is the server's: it quotes and buys at the address Shopify has now,
+// re-rates, refuses a higher price, repacks the order, and hands back a label already bought
+// instead of charging again.
+
+const RETAIL_ROW_TEXT = { waiting: 'Waiting', quoting: 'Quoting', quoted: 'Quoted', buying: 'Buying', bought: 'Bought', norate: 'No rate', price: 'Price changed', failed: 'Not bought' }
+const RETAIL_ROW_CHIP = { bought: 'ok', quoting: 'warn', buying: 'warn', norate: 'bad', price: 'bad', failed: 'bad' }
+const RETAIL_ROW_BAD = ['norate', 'price', 'failed', 'quoted']   // done, and not bought
+
+function retailMoney(n) { return '$' + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2) }
+// Shippo's address shape from the retail list's address. No email, ever (R6). The server quotes
+// and buys at Shopify's current address instead; this only fills the required field.
+function retailShippoAddress(a) {
+  a = a || {}
+  return { name: a.name || '', company: '', street1: a.address1 || '', street2: a.address2 || '', city: a.city || '',
+    state: a.province || '', zip: a.zip || '', country: a.country || 'US', phone: a.phone || '' }
+}
+// The order's date for the slip, as a Pacific day (cost_report_spec.md uses Pacific dates).
+function retailPacificDate(iso) {
+  const t = Date.parse(iso)
+  return Number.isFinite(t) ? new Date(t).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }) : ''
+}
+// One retail packing slip (B4, docs/retail_slip_spec.md) for api/ship-doc.js. Subscription lines
+// carry this week's coffee, as on the queue, or say that none is set.
+function retailSlip(o) {
+  const a = o.shipping_address || {}
+  const isRepl = (o.flags || []).includes('REPLACEMENT')
+  return {
+    order_name: o.order_name, date: retailPacificDate(o.created_at),
+    subscription: o.subscription === 'FIRST' || o.subscription === 'RECURRING' ? o.subscription : null,
+    replacement: isRepl ? ((o.discount_codes || []).join(', ') || '') : null,
+    name: a.name || '', city_line: `${a.city || ''}${a.city ? ', ' : ''}${[a.province, a.zip].filter(Boolean).join(' ')}`,
+    lines: (o.items || []).map(it => ({ qty: it.qty, size: retailSizeLabel(it), name: (it.product_name || '') + (it.note ? ' (NO COFFEE SET)' : '') })),
+    note: o.note || '', carton: retailCartonLabel(o), billed_lb: o.parcel ? o.parcel.weight : null
+  }
+}
+
+// Bought, not fulfilled: a row on the queue with Reprint (label and slip, never a purchase).
+function retailBoughtRow(o) {
+  const id = escHtml(o.order_id)
+  return `<div class="rt-row dis">
+    <span class="rt-cell-check" aria-hidden="true">✓</span>
+    <b>${escHtml(o.order_name)}</b>
+    <span>${escHtml(retailShipTo(o))}</span>
+    <span class="rt-lines">${retailLines(o)}</span>
+    <span>${escHtml(retailCartonLabel(o) || '—')}</span>
+    <span class="rt-chips">${retailPending[o.order_id] && retailPending[o.order_id].unrecorded ? retailChip('bad', 'Bought, not recorded. Do not buy again. Tell Andy') + `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailClearUnrecorded(this.dataset.id)" ${retailBuyInFlight ? 'disabled' : ''}>Shippo shows none</button>` : retailChip('ok', 'Label bought')}${retailPending[o.order_id] && retailPending[o.order_id].unrecorded ? '' : `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailReprintBought(this.dataset.id)" ${retailBuyInFlight || retailReprinting ? 'disabled' : ''}>Reprint</button>`}</span>
+  </div>`
+}
+// A bought order Shopify no longer lists as open (fulfilled by hand, cancelled, edited onto
+// hold). Clear and Void for these come with B3b and B6.
+function retailGoneRow(p) {
+  return `<div class="rt-row dis">
+    <span class="rt-cell-check" aria-hidden="true">✓</span>
+    <b>${escHtml(p.order_name || '—')}</b>
+    <span></span>
+    <span class="mut">Not open in Shopify any more. Check this order in Shopify.</span>
+    <span></span>
+    <span class="rt-chips">${p.unrecorded ? retailChip('bad', 'Bought, not recorded. Tell Andy') : retailChip('warn', 'Label bought')}</span>
+  </div>`
+}
+
+// Buy and print: the second of the two taps. The PDF tab is opened here, inside the tap, or
+// Safari blocks it; it shows a "buying" note until the labels are ready.
+async function retailBuyAndPrint() {
+  if (!RETAIL_BUY_ENABLED || retailBuyInFlight || retailBatch || retailLoading) return   // a load still running would replace the bought set
+  const g = retailGroups(retailOrders)
+  const orders = retailReadyOrders(g).filter(o => retailSel.has(o.order_id))
+  if (!orders.length || orders.length > RETAIL_MAX_BATCH) return
+  const win = retailPdfTab(`Buying ${orders.length} label${orders.length !== 1 ? 's' : ''}. This tab fills in with the labels and slips when buying finishes. Go back to the portal tab to watch.`)
+  // Packing order: by carton (8x6x3, 12x8x6, 14x10x10), oldest first within a carton. The
+  // screen and the PDF use it.
+  const rank = c => RETAIL_CARTONS.indexOf(retailCartonLabel(c))
+  const sorted = orders.slice().sort((a, b) => rank(a) - rank(b) || String(a.created_at || '').localeCompare(String(b.created_at || '')))
+  const b = retailBatch = { rows: sorted.map(o => ({ order: o, status: 'waiting', quote: null, why: '', warn: '', final: false, label: null, tries: 0 })),
+    limit: RETAIL_BUY_PARALLEL, pdfError: '', pdfUrl: null, pdfFor: '', printing: false }
+  retailSel = new Set()
+  await retailRun(b.rows)
+  // The PDF is built with the screen still locked (printing): Back, Open PDF and Reprint wait.
+  b.printing = true
+  renderRetail()
+  try {
+    if (b.rows.some(r => r.label)) await retailOpenPdf(win, b)
+    else if (win) { try { win.close() } catch (e) {} }
+  } finally {
+    b.printing = false
+  }
+  renderRetail()
+}
+
+// A new tab with a short message, opened synchronously in a tap. null when Safari blocked it.
+function retailPdfTab(message) {
+  let win = null
+  try { win = window.open('', '_blank') } catch (e) { win = null }
+  if (win) {
+    try {
+      win.document.title = 'Torque labels'
+      win.document.body.innerHTML = `<p style="font:16px Helvetica,Arial,sans-serif;margin:2rem">${escHtml(message)}</p>`
+    } catch (e) { /* the tab still works for the PDF */ }
+  }
+  return win
+}
+
+// Run rows through quote -> buy, `limit` at a time. Ticking, Refresh, Back, Sign out and every
+// row action check retailBuyInFlight while it runs.
+async function retailRun(rows) {
+  const b = retailBatch
+  retailBuyInFlight = true
+  renderRetail()
+  try {
+    const queue = rows.slice()
+    let next = 0
+    const worker = async k => {
+      while (next < queue.length) {
+        if (k >= b.limit) return            // dropped to one at a time after a "too many" answer
+        const row = queue[next++]
+        // Put back after "too many requests": wait 1.5 s, 3 s, 4.5 s (RETAIL_BUSY_WAIT_MS) first.
+        const wait = (row.waitUntil || 0) - Date.now()
+        if (wait > 0) await new Promise(r => setTimeout(r, wait))
+        if (await retailBuyOne(row, b)) queue.push(row)
+        renderRetail()
+      }
+    }
+    // A row put back after a "too many" answer can land after every worker has left; go round
+    // again until the queue is empty.
+    while (next < queue.length) await Promise.all(Array.from({ length: Math.max(1, Math.min(b.limit, queue.length - next)) }, (_, k) => worker(k)))
+  } finally {
+    retailBuyInFlight = false              // never left locked
+  }
+  renderRetail()
+}
+
+async function retailPost(action, payload) {
+  const res = await apiFetch(`/api/shippo-label?action=${action}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+  })
+  let data = {}
+  try { data = await res.json() } catch (e) { data = {} }
+  return { res, data: data || {} }
+}
+// The server quotes and buys at the ship-to Shopify has now and says which (no street): the
+// screen and the slip show that one, not the one from when the list loaded.
+function retailApplyShipTo(row, t) {
+  if (!t || typeof t !== 'object') return
+  const a = row.order.shipping_address || {}
+  row.order = { ...row.order, shipping_address: { ...a, name: String(t.name || ''), city: String(t.city || ''), province: String(t.province || ''), zip: String(t.zip || '') } }
+}
+function retailRequest(o) {
+  return { kind: 'retail', order_id: o.order_id, address_to: retailShippoAddress(o.shipping_address), parcel: o.parcel, carrier: SHIP_CARRIER, weight_basis: SHIP_WEIGHT_BASIS }
+}
+// "Too many requests": one at a time from now on, and this row goes round again (3 times at most).
+function retailTooMany(row, b) {
+  b.limit = 1
+  row.tries++
+  if (row.tries <= 3) { row.status = 'waiting'; row.waitUntil = Date.now() + RETAIL_BUSY_WAIT_MS * row.tries; return true }
+  row.status = 'failed'; row.why = 'Shippo is busy. Try again in a minute.'
+  return false
+}
+// A UPS Ground quote for one row. -> 'ok', 'again' (too many requests) or 'stop' (row says why).
+async function retailQuote(row, b) {
+  row.status = 'quoting'; row.why = ''; row.final = false
+  renderRetail()
+  const { res, data } = await retailPost('rate', retailRequest(row.order))
+  if (res.status === 429) return retailTooMany(row, b) ? 'again' : 'stop'
+  if (res.ok && data.ok) { row.quote = data.amount; retailApplyShipTo(row, data.ship_to); return 'ok' }
+  const why = (data.messages || []).map(m => m && m.text).filter(Boolean).join('; ')
+  // No rate, or an address UPS won't take: the fix is in Shopify, then Re-rate. Anything else
+  // (Shippo or Shopify down) is "try again".
+  row.status = res.status === 422 || data.code === 'address' ? 'norate' : 'failed'
+  row.why = (data.error || `No UPS Ground quote (${res.status})`) + (why ? ' · ' + why : '')
+  if (data.code === 'not_listed') { row.final = true; row.why += ' Refresh orders after this batch.' }
+  return 'stop'
+}
+
+// One order: quote it (unless it has a quote to buy at), then buy it. -> true to try it again
+// later (the server said "too many requests"), else false. Never throws.
+async function retailBuyOne(row, b) {
+  const o = row.order
+  try {
+    if (!row.quote) {
+      const q = await retailQuote(row, b)
+      if (q !== 'ok') return q === 'again'
+    }
+    row.status = 'buying'; row.why = ''
+    renderRetail()
+    const { res, data } = await retailPost('label', { ...retailRequest(o),
+      expected_amount: Number(row.quote).toFixed(2),   // nothing is bought if UPS now charges more
+      order_name: o.order_name, box_index: 1, box_count: 1, pack_sig: o.pack_sig })
+    if (res.status === 429) return retailTooMany(row, b)
+    if (res.status === 409 && data.error === 'Already bought') {
+      // Bought before (a lost answer, another device): the server hands that label back.
+      row.label = { tracking_number: data.tracking_number, label_url: data.label_url || null, cost: null, recovered: true }
+      row.status = 'bought'
+    } else if (res.status === 409 && data.error === 'Price changed') {
+      retailForget(o.order_id)
+      row.status = 'price'; row.quote = null
+      row.why = `UPS now charges ${retailMoney(data.amount)}, quoted ${retailMoney(data.quoted)}. Not bought. Re-rate this row.`
+    } else if (res.ok && data.ok && data.tracking_number) {
+      row.label = { tracking_number: data.tracking_number, label_url: data.label_url || null, cost: data.cost, recovered: false }
+      row.status = 'bought'
+      retailApplyShipTo(row, data.ship_to)
+      // Bought, but the portal has no record of it: after a reload it would look unbought, and
+      // once its claim goes stale the server could buy it again.
+      if (data.cost_logged === false) {
+        row.warn = 'Bought, but not recorded in the portal. Do not buy this order again. Tell Andy.'
+        retailRemember(o, 'not recorded')
+      } else retailForget(o.order_id)
+    } else {
+      row.status = data.code === 'address' ? 'norate' : 'failed'
+      row.why = data.error || `Label purchase failed (${res.status})`
+      // The order changed in Shopify: trying again fails the same way until the list is refreshed.
+      if (data.code === 'pack_changed' || data.code === 'not_listed') { row.final = true; row.why += ' Refresh orders after this batch.' }
+      // Shippo may have bought it (still working, or the server failed after asking): never Try
+      // again here, and remember it so it can't come back as ready after Back or a reload.
+      if (data.code === 'label_pending' || res.status >= 500 && res.status !== 502 && res.status !== 503) {
+        row.final = true
+        row.warn = 'Shippo may have bought this label. Do not buy it again: check Shippo. Tell Andy.'
+        retailRemember(o, 'maybe bought')
+      } else retailForget(o.order_id)          // a plain refusal: nothing was bought (a retry after "no answer" clears its note)
+    }
+  } catch (e) {
+    // No answer: the label may or may not be bought. Trying again is safe; the server hands
+    // back a label it already bought.
+    // Within 10 minutes the server's claim stops a second purchase; after that only this note
+    // does. Trying again here is safe: a label it did buy comes back as "Already bought".
+    row.status = 'failed'
+    row.why = `No answer from the server (${e.message || 'network'}). Try again now; if it still fails, check Shippo before buying it again.`
+    retailRemember(o, 'no answer')
+  }
+  if (row.status === 'bought') retailPending[o.order_id] = { order_id: o.order_id, order_name: o.order_name, labels_bought: 1, box_count: 1, channel: 'retail', unrecorded: !!row.warn }
+  return false
+}
+
+// Per-row actions once the batch has run: Re-rate (no rate, or a price that rose), Buy at the
+// new quote, Try again.
+async function retailRowAction(id, what) {
+  const b = retailBatch
+  if (!b || retailBuyInFlight || b.printing) return
+  const row = b.rows.find(r => r.order.order_id === id)
+  if (!row || row.label || row.final) return
+  if (what === 'rerate') {
+    retailBuyInFlight = true
+    row.quote = null
+    try {
+      if (await retailQuote(row, b) === 'ok') row.status = 'quoted'
+      else if (row.status === 'waiting') { row.status = 'failed'; row.why = 'Shippo is busy. Try again in a minute.' }
+    } catch (e) {
+      row.status = 'failed'; row.why = `No answer from the server (${e.message || 'network'}).`
+    } finally {
+      retailBuyInFlight = false
+    }
+    renderRetail()
+    return
+  }
+  if (what === 'buy' || what === 'retry') {
+    b.limit = 1
+    row.tries = 0
+    await retailRun([row])
+  }
+}
+
+// The bought rows the PDF can hold, in packing order, and a key for "which labels are in it".
+function retailPdfRows(b) {
+  return b.rows.filter(r => r.label && r.label.label_url)
+}
+// Build the batch PDF (per order: its label then its slip) into `win`, a tab opened in the tap.
+// Without one (blocked or already closed), the screen says to use Open PDF.
+async function retailOpenPdf(win, b, rows) {
+  rows = rows || retailPdfRows(b)
+  const noFile = b ? b.rows.filter(r => r.label && !r.label.label_url).map(r => r.order.order_name) : []
+  if (!rows.length) {
+    if (win) { try { win.close() } catch (e) {} }
+    if (b) b.pdfError = noFile.length ? `No label file to print for ${noFile.join(', ')}. Reprint ${noFile.length !== 1 ? 'them' : 'it'} from Shippo.` : ''
+    return
+  }
+  try {
+    const res = await apiFetch('/api/ship-doc', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'retail', include_labels: true, include_slips: true,
+        orders: rows.map(r => ({ label_url: r.label.label_url, slip: retailSlip(r.order) })) })
+    })
+    if (!res.ok) {
+      let why = `status ${res.status}`
+      try { const d = await res.json(); if (d && d.error) why = d.error + (d.detail ? ` (${d.detail})` : '') } catch (e) {}
+      throw new Error(why)
+    }
+    const blob = await res.blob()
+    if (!/pdf/i.test(blob.type || '')) throw new Error('the server did not send a PDF')
+    const url = URL.createObjectURL(blob)
+    setTimeout(() => {
+      URL.revokeObjectURL(url)
+      if (b && b.pdfUrl === url) b.pdfUrl = null          // Open PDF then makes a new one
+    }, 10 * 60 * 1000)
+    if (b) {
+      if (b.pdfUrl) { try { URL.revokeObjectURL(b.pdfUrl) } catch (e) {} }
+      b.pdfUrl = url
+      b.pdfFor = rows.map(r => r.order.order_id).join(',')
+      b.pdfError = noFile.length ? `No label file to print for ${noFile.join(', ')}. Reprint ${noFile.length !== 1 ? 'them' : 'it'} from Shippo.` : ''
+    }
+    if (win && !win.closed) win.location.href = url
+    else if (b) b.pdfError = (win ? 'The PDF tab was closed.' : 'The PDF tab was blocked.') + ' Tap Open PDF.'
+  } catch (e) {
+    if (win) { try { win.close() } catch (x) {} }
+    if (b) b.pdfError = `Couldn't build the PDF: ${e.message || 'network'}. Nothing was bought again. Tap Reprint to try again.`
+    else alert(`Couldn't build the PDF: ${e.message || 'network'}. Nothing was bought. Try again.`)
+  }
+}
+// The PDF made last still holds every bought label (none was bought after it).
+function retailPdfFresh(b) {
+  return !!b.pdfUrl && b.pdfFor === retailPdfRows(b).map(r => r.order.order_id).join(',')
+}
+
+// Open PDF: the PDF already made, or a new one if labels were bought since. Reprint: always a new
+// one from the server. Neither one buys.
+async function retailPdfButton(fresh) {
+  const b = retailBatch
+  if (!b || retailBuyInFlight || b.printing || !b.rows.some(r => r.label)) return
+  if (!fresh && retailPdfFresh(b)) {
+    const w = window.open(b.pdfUrl, '_blank')
+    if (!w) b.pdfError = 'The PDF tab was blocked. Allow pop-ups for the portal, then tap Open PDF.'
+    renderRetail()
+    return
+  }
+  const win = retailPdfTab('Building the labels and slips…')
+  b.printing = true
+  renderRetail()
+  try { await retailOpenPdf(win, b) } finally { b.printing = false }
+  renderRetail()
+}
+
+// Reprint from the queue: the order's one saved label (ship_labels_for_order) and the slip from
+// the listed order. Never buys. More than one live label on record is a problem to look at, not
+// a choice to make here.
+async function retailReprintBought(orderId) {
+  if (retailBuyInFlight || retailReprinting) return
+  const o = retailOrders.find(x => x.order_id === orderId)
+  if (!o) return
+  const win = retailPdfTab('Building the label and slip…')
+  retailReprinting = true
+  try {
+    const { data, error } = await sb.rpc('ship_labels_for_order', { p_order_id: orderId })
+    if (error) throw error
+    const live = (data || []).filter(r => r.status === 'purchased' && Number(r.box_index) === 1)
+    if (live.length !== 1) throw new Error(live.length ? `${live.length} labels on record for this order. Tell Andy` : 'no label on record for this order')
+    if (!live[0].label_url) throw new Error('no saved label file for this order. Reprint it from Shippo')
+    await retailOpenPdf(win, null, [{ order: o, label: { label_url: live[0].label_url } }])
+  } catch (e) {
+    if (win) { try { win.close() } catch (x) {} }
+    alert(`Couldn't reprint: ${e.message || e}. Nothing was bought.`)
+  } finally {
+    retailReprinting = false
+  }
+}
+
+function retailBackToQueue() {
+  const b = retailBatch
+  if (retailBuyInFlight || (b && b.printing)) return
+  // Freed a minute later: the PDF tab may still be loading it in the background.
+  if (b && b.pdfUrl) { const u = b.pdfUrl; setTimeout(() => { try { URL.revokeObjectURL(u) } catch (e) {} }, 60 * 1000) }
+  retailBatch = null
+  loadRetailOrders()                       // bought orders come back in Bought, the rest as ready
+}
+
+function renderRetailBatch() {
+  const b = retailBatch
+  const rows = b.rows
+  const bought = rows.filter(r => r.status === 'bought').length
+  const notBought = rows.filter(r => RETAIL_ROW_BAD.includes(r.status)).length
+  const working = rows.length - bought - notBought
+  const spent = rows.reduce((t, r) => t + (r.label && r.label.cost != null ? Number(r.label.cost) || 0 : 0), 0)
+  const recovered = rows.filter(r => r.label && r.label.recovered).length
+  const unrecorded = rows.filter(r => r.warn)
+  const pct = Math.round(((bought + notBought) / rows.length) * 100)
+  const busy = retailBuyInFlight
+  const locked = busy || b.printing
+  const title = busy ? `Buying and printing ${rows.length} label${rows.length !== 1 ? 's' : ''}` : `Bought ${bought} of ${rows.length} label${rows.length !== 1 ? 's' : ''}`
+
+  const head = `<div class="rt-title">
+    <h2>${escHtml(title)}</h2>
+    <span class="rt-chip rt-chip-ok">${bought} bought</span>
+    <span class="rt-chip${working ? ' rt-chip-warn' : ''}">${working} in progress</span>
+    <span class="rt-chip${notBought ? ' rt-chip-bad' : ''}">${notBought} not bought</span>
+    <span class="rt-chip">Spent ${retailMoney(spent)}${recovered ? ` · ${recovered} bought earlier` : ''}</span>
+    ${locked ? '' : '<button class="btn btn-secondary btn-sm rt-tap" onclick="retailBackToQueue()">Back to queue</button>'}
+  </div>
+  <div class="rt-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
+  <div class="mut rt-small" style="margin-bottom:12px">${bought + notBought} of ${rows.length} done${busy ? ' · Nothing to click while this runs' : b.printing ? ' · Making the PDF' : ''}</div>`
+
+  const stale = !locked && bought && b.pdfUrl && !retailPdfFresh(b)
+  const pdf = `<div class="rt-bar rt-pdf">
+    <div class="rt-bar-text">Labels and slips open in a new tab when buying finishes: one PDF, label then slip for each order, sorted by carton. Print it from that tab. If the tab was blocked, use Open PDF. Reprint never buys again.
+      ${b.pdfError ? `<div class="rt-msg">${escHtml(b.pdfError)}</div>` : ''}
+      ${stale ? '<div class="rt-msg">Labels were bought after the PDF was made. Open PDF makes a new one with all of them.</div>' : ''}</div>
+    <button class="btn btn-primary rt-tap" onclick="retailPdfButton(false)" ${locked || !bought ? 'disabled' : ''}>${b.printing ? 'Making the PDF…' : 'Open PDF'}</button>
+    <button class="btn btn-secondary rt-tap" onclick="retailPdfButton(true)" ${locked || !bought ? 'disabled' : ''}>Reprint</button>
+  </div>`
+
+  const warn = unrecorded.length ? `<div class="alert alert-red">${escHtml(unrecorded.map(r => r.order.order_name).join(', '))}: bought, but not recorded in the portal. Do not buy ${unrecorded.length !== 1 ? 'them' : 'it'} again, even if ${unrecorded.length !== 1 ? 'they show' : 'it shows'} as ready after a reload. Tell Andy.</div>` : ''
+  const noRate = rows.filter(r => r.status === 'norate')
+  const review = !busy && noRate.length ? `<div class="alert alert-red">${noRate.length} order${noRate.length !== 1 ? 's have' : ' has'} no UPS Ground rate, so ${noRate.length !== 1 ? 'they were' : 'it was'} not bought. Fix the address in Shopify, then Re-rate. Nothing is ever bought on another service or carrier. Anything not bought goes back to the queue.</div>` : ''
+
+  const act = r => {
+    if (locked || r.label || r.final) return ''
+    const id = escHtml(r.order.order_id)
+    const btn = (what, text, cls = 'btn-secondary') => `<button class="btn ${cls} btn-sm rt-tap" data-id="${id}" data-what="${what}" onclick="retailRowAction(this.dataset.id, this.dataset.what)">${escHtml(text)}</button>`
+    if (r.status === 'norate') return retailShopifyLink(r.order) + btn('rerate', 'Re-rate')
+    if (r.status === 'price') return btn('rerate', 'Re-rate')
+    if (r.status === 'quoted') return btn('buy', `Buy ${retailMoney(r.quote)}`, 'btn-primary')
+    if (r.status === 'failed') return btn('retry', 'Try again')
+    return ''
+  }
+  const line = r => {
+    const kind = RETAIL_ROW_CHIP[r.status]
+    const bad = ['norate', 'price', 'failed'].includes(r.status) || !!r.warn
+    const note = r.warn ? `<b class="rt-msg">${escHtml(r.warn)}</b>`
+      : r.label ? (r.label.recovered ? 'Bought earlier; not charged again' : `${retailMoney(r.label.cost)} · ${escHtml(r.label.tracking_number || '')}`) : escHtml(r.why)
+    return `<div class="rt-row rt-buyrow${bad ? ' bad' : ''}">
+      <b>${escHtml(r.order.order_name)}</b>
+      <span>${escHtml(retailShipTo(r.order))}</span>
+      <span class="rt-lines">${retailLines(r.order)}</span>
+      <span>${escHtml(retailCartonLabel(r.order) || '—')}</span>
+      <span>${kind ? retailChip(kind, RETAIL_ROW_TEXT[r.status]) : `<span class="rt-chip">${escHtml(RETAIL_ROW_TEXT[r.status])}</span>`}</span>
+      <span class="rt-chips"><span class="rt-why">${note}</span>${act(r)}</span>
+    </div>`
+  }
+  // Once the run is over, the rows that need a decision come first; the PDF keeps packing order.
+  const shown = busy ? rows : [...rows.filter(r => RETAIL_ROW_BAD.includes(r.status) || r.warn), ...rows.filter(r => !RETAIL_ROW_BAD.includes(r.status) && !r.warn)]
+  const th = `<div class="rt-row rt-buyrow rt-th"><span>Order</span><span>Ship to</span><span>Coffees</span><span>Carton</span><span>Status</span><span>Note</span></div>`
+  const foot = `<div class="mut rt-small">One failure does not stop the rest. A row UPS now prices above its quote is not bought: Re-rate it, then buy it alone. Tracking is saved with the label; nothing is written to Shopify until Fulfill.</div>`
+  return head + warn + pdf + review + `<div class="table-wrap"><div class="rt-table">${th}${shown.map(line).join('')}</div></div>` + foot
+}
+
 function renderRetail() {
   const body = document.getElementById('retailBody')
   if (!body) return
+  if (retailBatch) { body.innerHTML = renderRetailBatch(); return }
   if (retailError) {
     body.innerHTML = `<div class="alert alert-red">Couldn't load retail orders: ${escHtml(retailError)} <button class="btn btn-secondary btn-sm rt-tap" onclick="loadRetailOrders()">Try again</button></div>`
     return
@@ -3349,11 +3880,16 @@ function renderRetail() {
       ${retailMsg ? `<div class="rt-msg">${escHtml(retailMsg)}</div>` : ''}
       ${RETAIL_BUY_ENABLED ? '' : '<div class="mut rt-small">Buying turns on in the next release. This screen only lists and selects.</div>'}
     </div>
-    <button class="btn btn-primary rt-buy" ${RETAIL_BUY_ENABLED && sel.length ? '' : 'disabled'}>${buyLabel}</button>
+    <button class="btn btn-primary rt-buy" onclick="retailBuyAndPrint()" ${RETAIL_BUY_ENABLED && sel.length && !retailLoading ? '' : 'disabled'}>${buyLabel}</button>
   </div>`
 
   const groupRow = (t, d) => `<div class="rt-grp"><span>${escHtml(t)}</span><span class="mut" style="font-weight:400">${escHtml(d)}</span></div>`
   let rows = ''
+  const gone = Object.keys(retailPending).filter(id => !retailOrders.some(o => o.order_id === id))
+  if (g.bought.length || gone.length) {
+    rows += groupRow(`Bought, not fulfilled · ${g.bought.length + gone.length}`, 'Labels are paid for. Reprint here; never bought again') +
+      g.bought.map(o => retailBoughtRow(o)).join('') + gone.map(id => retailGoneRow(retailPending[id])).join('')
+  }
   if (g.fix.length) rows += groupRow(`Needs a fix · ${g.fix.length}`, 'Cannot be selected until corrected in Shopify') + g.fix.map(f => retailRow(f.order, { fix: f.why })).join('')
   for (const c of RETAIL_CARTONS) {
     const list = g.ready[c]
@@ -3364,7 +3900,7 @@ function renderRetail() {
     <label class="rt-cell-check"><input type="checkbox" id="retailAll" ${allOn ? 'checked' : ''} ${ready.length ? '' : 'disabled'} onchange="retailToggleAll()" aria-label="Select all ready orders"></label>
     <span>Order</span><span>Ship to</span><span>Coffees</span><span>Carton</span><span>Check</span>
   </div>`
-  const table = ready.length || g.fix.length
+  const table = ready.length || g.fix.length || g.bought.length || gone.length
     ? `<div class="table-wrap"><div class="rt-table">${head}${rows}</div></div>`
     : '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">No retail orders are waiting to ship.</div>'
 
@@ -3386,7 +3922,8 @@ function renderRetail() {
   const f = document.activeElement
   const key = el => [el.tagName, el.getAttribute('data-id'), el.getAttribute('onclick') || el.getAttribute('onchange')].join('|')
   const focused = f && f !== document.body && body.contains && body.contains(f) ? key(f) : null
-  body.innerHTML = title + bar + table + hold + foot
+  const pendWarn = retailPendingError ? `<div class="alert alert-red">Couldn't check which orders already have a label (${escHtml(retailPendingError)}). Orders this device knows are bought still show in Bought; check Shippo before buying an order again.</div>` : ''
+  body.innerHTML = title + pendWarn + bar + table + hold + foot
   const all = document.getElementById('retailAll')
   if (all) all.indeterminate = retailSel.size > 0 && !allOn
   if (focused) { const el = [...body.querySelectorAll('input,button,a')].find(e => key(e) === focused); if (el) el.focus() }
@@ -3691,7 +4228,7 @@ async function signIn(e) {
 }
 
 async function signOut() {
-  if (shipBuyInFlight || (shipState && shipState.phase === 'fulfilling')) {
+  if (shipBuyInFlight || retailBuyInFlight || (retailBatch && retailBatch.printing) || (shipState && shipState.phase === 'fulfilling')) {
     alert('An order is being shipped. Wait until it finishes, then sign out.'); return
   }
   if (!confirm('Sign out of this device?')) return
@@ -3709,7 +4246,7 @@ function onAuthChange(event, session) {
   if (!appStarted) return showSignIn()
   // Signed out after the app ran: reload so nothing from the session stays in memory, unless
   // a label buy is mid-loop (its labels are recoverable from the DB either way, ADR 0011).
-  if (shipBuyInFlight) return showSignIn('Signed out. Sign in again to finish.')
+  if (shipBuyInFlight || retailBuyInFlight) return showSignIn('Signed out. Sign in again to finish.')
   location.reload()
 }
 // Deferred: awaiting supabase calls inside this callback can deadlock supabase-js's auth lock.

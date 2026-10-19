@@ -1,7 +1,7 @@
 const fetch = globalThis.fetch || require('node-fetch');
 const { requireUser } = require('./_auth')
 const { API_VERSION, getToken } = require('./_shopify')
-const { b2bShipItems, classifyRetailOrder, retailShipItems, shippingCharged, packRetail, boxParcel, addressProblem } = require('../lib/ship-rules.js')
+const { b2bShipItems, classifyRetailOrder, retailShipItems, shippingCharged, packRetail, boxParcel, addressProblem, packSignature } = require('../lib/ship-rules.js')
 const { fetchOpenRetailOrders } = require('./_retail')
 
 const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle']
@@ -113,6 +113,10 @@ module.exports = async function handler(req, res) {
           order_id: o.order_id, order_name: o.order_name, created_at: o.created_at,
           decision: c.decision, class: c.class, detail: c.detail || null, flags: c.flags || [],
           note: o.note, discount_codes: o.discount_codes,
+          // The slip's subscription box (retail_slip_spec.md field 2): FIRST from Appstle's
+          // first-order tag, otherwise any subscription order is RECURRING.
+          subscription: (o.tags || []).some(t => String(t).toLowerCase() === 'appstle_subscription_first_order') ? 'FIRST'
+            : (c.flags || []).includes('SUBSCRIPTION') ? 'RECURRING' : null,
           // Shopify admin link for the hold list; the handle is server config, not in the page.
           admin_url: /(\d+)$/.test(o.order_id || '') ? `https://admin.shopify.com/store/${SHOPIFY_STORE_HANDLE}/orders/${o.order_id.match(/(\d+)$/)[1]}` : null,
           // D5: an address purchase would refuse (P.O. box, a line over 35) -> the queue's
@@ -124,7 +128,9 @@ module.exports = async function handler(req, res) {
           shipping_address: o.address,
           items: retailShipItems(o),
           // B2: the one carton and the declared (billed) pounds; null for a HOLD order.
-          parcel: c.decision === 'LIST' ? boxParcel(packRetail(retailShipItems(o)).boxes[0]) : null
+          parcel: c.decision === 'LIST' ? boxParcel(packRetail(retailShipItems(o)).boxes[0]) : null,
+          // B3a: the whole pack as the label endpoint compares it (packSignature), sent back unchanged.
+          pack_sig: c.decision === 'LIST' ? packSignature(packRetail(retailShipItems(o)).boxes) : null
         })
       }
       return res.status(200).json({ orders: out, excluded })

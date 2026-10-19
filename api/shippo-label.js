@@ -20,6 +20,9 @@
 //           packer the server repacks with. Retail: the order is read through GraphQL, must
 //           classify LIST (else 409 { code: 'not_listed', class }), and packs to one carton
 //           (packRetail), so box_index = box_count = 1. Anything else is refused (400).
+//           Retail rates (when order_id is sent) and buys at the address Shopify has now, not the
+//           page's address_to (B3a, ADR 0028): a fix made in Shopify after the list loaded is the
+//           one that gets the label. A P.O. box or a line over 35 there is refused (409 code 'address').
 //   carrier: optional; anything other than 'ups' is refused (400). Every shipment is UPS
 //   Ground (ups_ground) on Torque's US UPS account. Never Ground Saver, never USPS, no fallback.
 //
@@ -195,7 +198,7 @@ async function serverPack(kind, orderId) {
     if (c.decision !== 'LIST') {
       return { ok: false, status: 409, code: 'not_listed', class: c.class, error: `This order is no longer shippable here (${c.decision} ${c.class}${c.detail ? ' ' + c.detail : ''}). Nothing was bought. Refresh the list.` }
     }
-    return { ok: true, pack: packRetail(retailShipItems(got.order)) }
+    return { ok: true, pack: packRetail(retailShipItems(got.order)), order: got.order }
   }
   if (got.order.cancelled_at) return { ok: false, status: 409, code: 'pack_changed', error: 'This order is cancelled in Shopify. Nothing was bought.' }
   return { ok: true, pack: packB2BItems(b2bShipItems(got.order.line_items)) }
@@ -206,6 +209,7 @@ async function serverPack(kind, orderId) {
 // tampered with. The whole pack is compared, not only this box: an order that changed buys
 // nothing, rather than some boxes of a packing that no longer exists.
 //   { ok: true }   { ok: false, status, error, code?, class? }
+//   (retail: also `order`, the order as Shopify has it now, for its address)
 async function checkPackedBox(kind, orderId, boxIndex, boxCount, parcel, pageSig) {
   const got = await serverPack(kind, orderId)
   if (!got.ok) return got
@@ -221,7 +225,23 @@ async function checkPackedBox(kind, orderId, boxIndex, boxCount, parcel, pageSig
     console.warn(`checkPackedBox: ${kind} ${orderId} box ${boxIndex}: page ${pageSig} ${JSON.stringify(parcel)}, server ${sig} ${JSON.stringify(want)}`)
     return { ok: false, status: 409, code: 'pack_changed', error: `This order changed since the list was loaded (Shopify now packs it as ${sig || 'nothing to ship'}). Nothing was bought. Go back to the orders, refresh, and open it again.` }
   }
-  return { ok: true }
+  return { ok: true, order: got.order || null }
+}
+
+// A retail order's ship-to as Shopify has it now (B3a, ADR 0028), checked like a page address.
+// Retail rates and buys at this address, never the page's: an address fixed in Shopify after the
+// list loaded is the one that gets the label, and Re-rate quotes it.
+//   { address } or { status, error }
+function retailRecipient(order) {
+  const a = (order && order.address) || {}
+  const got = recipientAddress({ name: a.name, company: '', street1: a.address1, street2: a.address2, city: a.city,
+    state: a.province, zip: a.zip, country: a.country || '', phone: a.phone })
+  if (got.error) return { status: 409, error: got.error }
+  if (isPoBox(got.address.street1) || isPoBox(got.address.street2)) return { status: 409, error: 'UPS does not deliver to P.O. boxes. Get a street address for this order.' }
+  if (!got.address.street1 || !got.address.city || !got.address.zip) return { status: 409, error: 'The ship-to address in Shopify has no street, city or ZIP. Fix it in Shopify.' }
+  // What the page shows and prints on the slip (the street is on the label only).
+  const shown = { name: got.address.name, city: got.address.city, province: got.address.state, zip: got.address.zip }
+  return { address: got.address, shown }
 }
 
 // mark_ship_label_voided (db/2026-10-19-label-void.sql), as the caller. -> the row count it
@@ -246,6 +266,14 @@ async function markLabelVoided(orderId, boxIndex, shippoId, userToken) {
   }
 }
 
+// Every label row is stored under "gid://shopify/Order/<n>" (all 231 live rows, 2026-10-19).
+// The lookup and the claim compare the id as a string, so "8333" or "08333" would miss the row
+// for the same order and buy its box again: every label and void call uses this one spelling.
+function canonicalOrderId(orderId) {
+  const n = orderNumericId(orderId)
+  return n ? `gid://shopify/Order/${String(BigInt(n))}` : null
+}
+
 // B6: void one box's unused label. Order: the row (must be 'purchased') -> Shopify (no
 // fulfillment of any part) -> Shippo confirms the transaction -> refund -> mark the row. Any
 // check that can't be made stops before Shippo is asked for anything.
@@ -258,7 +286,7 @@ async function voidLabel(req, res, session, auth) {
   if (!orderNumericId(body.order_id) || !(Number.isInteger(boxIndex) && boxIndex >= 1)) {
     return res.status(400).json({ error: 'order_id (a Shopify order id) and box_index are required to void a label' })
   }
-  const orderId = String(body.order_id)
+  const orderId = canonicalOrderId(body.order_id)   // the one spelling the rows are stored under
   try {
     const lookup = await existingLabel(orderId, boxIndex, session.token)
     if (!lookup.ok) {
@@ -314,7 +342,12 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   // A purchase needs a signed-in staff user from the first deploy on (ADR 0023); rating is
   // only enforced once PORTAL_AUTH_ENFORCE=1.
-  const session = await requireUser(req, res, { always: req.query.action === 'label' || req.query.action === 'void' })
+  // A retail quote reads the customer's order from Shopify (B3a), so it is signed-in only too.
+  // Decided on the parsed body: a text/plain body arrives as a string and must not slip past.
+  let parsed = req.body
+  if (typeof parsed === 'string') { try { parsed = JSON.parse(parsed || '{}') } catch { parsed = {} } }
+  const readsOrder = !!(parsed && typeof parsed === 'object' && parsed.kind === 'retail')
+  const session = await requireUser(req, res, { always: req.query.action === 'label' || req.query.action === 'void' || readsOrder })
   if (!session) return
 
   const token = process.env.SHIPPO_TOKEN
@@ -326,9 +359,7 @@ module.exports = async function handler(req, res) {
   if (action !== 'rate' && action !== 'label' && action !== 'void') return res.status(400).json({ error: "action must be 'rate', 'label' or 'void'" })
   if (action === 'void') return voidLabel(req, res, session, { 'Authorization': `ShippoToken ${token}`, 'Content-Type': 'application/json' })
 
-  let body = req.body
-  if (typeof body === 'string') { try { body = JSON.parse(body || '{}') } catch { body = {} } }
-  body = body || {}
+  const body = parsed || {}
   if (body.carrier != null && String(body.carrier).toLowerCase() !== 'ups') {
     return res.status(400).json({ error: 'Only UPS Ground is allowed. Reload the page and rate again.' })
   }
@@ -340,7 +371,9 @@ module.exports = async function handler(req, res) {
   }
   const addr = recipientAddress(body.address_to)
   if (addr.error) return res.status(400).json({ error: addr.error })
-  const address_to = addr.address
+  let address_to = addr.address
+  let shipTo = null               // retail: the ship-to the label goes to (no street), for the slip
+  let orderName = typeof body.order_name === 'string' ? body.order_name.slice(0, 40) : null
   if (isPoBox(address_to.street1) || isPoBox(address_to.street2)) {
     return res.status(400).json({ error: 'UPS does not deliver to P.O. boxes. Get a street address for this order.' })
   }
@@ -359,6 +392,8 @@ module.exports = async function handler(req, res) {
       Number.isInteger(boxCount) && boxCount >= boxIndex)) {
     return res.status(400).json({ error: 'order_id, box_index and box_count are required to buy a label' })
   }
+  const orderId = body.order_id == null ? null : canonicalOrderId(body.order_id)
+  if (body.order_id != null && !orderId) return res.status(400).json({ error: 'order_id is not a Shopify order id' })
   if (action === 'label' && !(typeof body.pack_sig === 'string' && body.pack_sig.length <= 2000)) {
     return res.status(400).json({ error: 'This page is out of date (it sends no pack). Reload the page and open the order again.' })
   }
@@ -377,7 +412,7 @@ module.exports = async function handler(req, res) {
       if (tokenSecondsLeft(session.token) < MIN_TOKEN_LIFE_S) {
         return res.status(401).json({ error: 'Your session is about to expire. Try again.' })
       }
-      const lookup = await existingLabel(body.order_id, boxIndex, session.token)
+      const lookup = await existingLabel(orderId, boxIndex, session.token)
       if (!lookup.ok) {
         console.warn(`existingLabel: lookup failed (${lookup.why}); nothing bought`)
         return res.status(503).json({ error: "Couldn't check whether this box already has a label, so nothing was bought. Try again in a minute; if it repeats, tell Andy." })
@@ -389,14 +424,32 @@ module.exports = async function handler(req, res) {
         // number. Hand back only what Shippo itself confirms for that transaction.
         const confirmed = await confirmWithShippo(prior, auth)
         if (!confirmed) {
-          console.warn(`existingLabel: row for ${body.order_id} box ${boxIndex} not confirmed by Shippo; nothing bought`)
+          console.warn(`existingLabel: row for ${orderId} box ${boxIndex} not confirmed by Shippo; nothing bought`)
           return res.status(409).json({ error: "This box has a label record that Shippo doesn't confirm. Nothing was bought. Tell Andy." })
         }
         return res.status(409).json({ error: 'Already bought', ...confirmed })
       }
       // The parcel must be the one the server packs for this box (B2a).
-      const check = await checkPackedBox(kind, body.order_id, boxIndex, boxCount, parcel, body.pack_sig)
+      const check = await checkPackedBox(kind, orderId, boxIndex, boxCount, parcel, body.pack_sig)
       if (!check.ok) return res.status(check.status).json({ error: check.error, ...(check.code ? { code: check.code } : {}), ...(check.class ? { class: check.class } : {}) })
+      if (kind === 'retail') {
+        const to = retailRecipient(check.order)
+        if (to.error) return res.status(to.status).json({ error: to.error, code: 'address' })
+        address_to = to.address
+        shipTo = to.shown
+        orderName = check.order.order_name || orderName
+      }
+    } else if (kind === 'retail' && orderId) {
+      // A retail quote is for the address Shopify has now (see retailRecipient).
+      const got = await fetchRetailOrder(orderId)
+      if (!got.ok) {
+        if (got.status === 404) return res.status(409).json({ error: 'Shopify has no such order. Refresh the orders.', code: 'not_listed' })
+        return res.status(503).json({ error: "Couldn't read the order from Shopify, so there is no quote. Try again in a minute." })
+      }
+      const to = retailRecipient(got.order)
+      if (to.error) return res.status(to.status).json({ error: to.error, code: 'address' })
+      address_to = to.address
+      shipTo = to.shown
     }
 
     // 1) Rate the shipment.
@@ -413,6 +466,10 @@ module.exports = async function handler(req, res) {
         async: false
       })
     })
+    // A throttle or an outage is not "no rate": saying so would send the operator to fix an
+    // address that is fine. Nothing has been bought at this point.
+    if (shipmentRes.status === 429) return res.status(429).json({ error: 'Shippo is busy (too many requests). Nothing was bought. Try again in a minute.' })
+    if (shipmentRes.status >= 500) return res.status(502).json({ error: `Shippo didn't answer the rate request (status ${shipmentRes.status}). Nothing was bought. Try again.` })
     const shipment = await shipmentRes.json()
     const rates = shipment.rates || []
     const upsRate = rates.find(r => r.servicelevel && r.servicelevel.token === SERVICE_TOKEN && r.carrier_account === UPS_ACCOUNT)
@@ -443,7 +500,7 @@ module.exports = async function handler(req, res) {
       rate_id: upsRate.object_id
     }
 
-    if (action === 'rate') return res.status(200).json({ ok: true, action: 'rate', ...rateOut })
+    if (action === 'rate') return res.status(200).json({ ok: true, action: 'rate', ...rateOut, ...(shipTo ? { ship_to: shipTo } : {}) })
 
     // The label step re-rates. UPS prices move (address reclassified to commercial, delivery
     // area surcharge), so a price above the confirmed one buys nothing. Same or lower buys.
@@ -454,7 +511,7 @@ module.exports = async function handler(req, res) {
 
     // 2) Claim the box. The lookup above can't stop two devices that both passed it a moment
     // ago; the claim is one row per (order, box), so only one of them buys (ADR 0023).
-    const claim = await labelClaim('claim_label_box', body.order_id, boxIndex, session.token)
+    const claim = await labelClaim('claim_label_box', orderId, boxIndex, session.token)
     if (claim !== true) {
       if (claim === false) return res.status(409).json({ error: 'This box is being bought on another device right now. Wait a minute, then reopen the order.' })
       console.warn(`claim_label_box failed (${claim}); nothing bought`)
@@ -469,12 +526,24 @@ module.exports = async function handler(req, res) {
       method: 'POST', headers: auth,
       body: JSON.stringify({ rate: upsRate.object_id, label_file_type: 'PDF_4x6', async: false })
     })
-    const txn = await txnRes.json()
+    let txn = null
+    try { txn = await txnRes.json() } catch (e) { txn = null }
+    // The box is freed only when Shippo says plainly that nothing was bought: status ERROR, or a
+    // 4xx refusal. Anything else (QUEUED, WAITING, SUCCESS with no tracking number, a 5xx, an
+    // unreadable answer) may yet be a bought label: keep the claim so nothing buys the box again.
+    const refused = (txn && txn.status === 'ERROR') || (txnRes.status >= 400 && txnRes.status < 500)
+    if (!refused && !(txn && txn.status === 'SUCCESS' && txn.tracking_number)) {
+      txn = txn || {}
+      console.warn(`label: Shippo transaction ${txn.object_id || '?'} for ${orderId} box ${boxIndex} is ${txn.status}; claim kept`)
+      return res.status(502).json({ error: `Shippo hasn't finished this label (${String(txn.status || 'no status').slice(0, 20)}). Don't buy it again: check Shippo in a few minutes and tell Andy.`, code: 'label_pending' })
+    }
     if (txn.status !== 'SUCCESS' || !txn.tracking_number) {
       // Label purchase failed — caller must NOT mark the order fulfilled or notify. Nothing
       // was bought, so the box can be tried again at once. (A thrown error above keeps the
       // claim: Shippo may have bought it, and the claim blocks a re-buy until it goes stale.)
-      await labelClaim('release_label_box', body.order_id, boxIndex, session.token)
+      await labelClaim('release_label_box', orderId, boxIndex, session.token)
+      txn = txn || {}
+      if (txnRes.status === 429) return res.status(429).json({ error: 'Shippo is busy (too many requests). Nothing was bought. Try again in a minute.' })
       return res.status(502).json({ error: 'Label purchase failed', status: txn.status, messages: txn.messages || [] })
     }
 
@@ -487,10 +556,11 @@ module.exports = async function handler(req, res) {
         cost_log_error = 'SUPABASE_URL/SUPABASE_ANON_KEY not configured'
       } else {
         const row = {
-          order_id: body.order_id || null,
-          order_name: body.order_name || null,
-          box_index: body.box_index != null ? body.box_index : null,
-          box_count: body.box_count != null ? body.box_count : null,
+          order_id: orderId,
+          order_name: orderName,       // retail: Shopify's own name for the order
+          box_index: boxIndex,      // the validated numbers: a raw "1e0" would fail the integer column
+          box_count: boxCount,      // and leave a bought label recorded nowhere
+
           cost: upsRate.amount,
           currency: upsRate.currency,
           service: upsRate.servicelevel.token,
@@ -506,17 +576,37 @@ module.exports = async function handler(req, res) {
           shippo_object_id: txn.object_id,
           status: 'purchased'
         }
-        const sbRes = await fetch(`${SB_URL}/rest/v1/shipping_labels`, {
+        // Which tab the label belongs to (db/2026-10-19-label-channel.sql, ADR 0028). B2B rows
+        // take the column's default and never send it, so B2B is unaffected by the migration.
+        if (kind === 'retail') row.channel = 'retail'
+        const insert = r => fetch(`${SB_URL}/rest/v1/shipping_labels`, {
           method: 'POST',
           // Plain insert (not upsert): upsert's conflict-read needs a SELECT policy we
           // intentionally don't grant. The unique(shippo_object_id) constraint dedupes;
           // a rare retry 409s and is swallowed by this non-blocking guard.
           // As the signed-in user (ADR 0023): the insert policy is `to authenticated`.
           headers: supabaseHeaders(session.token, { Prefer: 'return=minimal' }),
-          body: JSON.stringify(row)
+          body: JSON.stringify(r)
         })
-        if (sbRes.ok) cost_logged = true
-        else cost_log_error = `supabase ${sbRes.status}: ${(await sbRes.text()).slice(0, 200)}`
+        // A label is bought: try hard to record it. One more try after a network error or a 5xx.
+        let sbRes, retried = false
+        try { sbRes = await insert(row) } catch (e) { sbRes = null }
+        if (!sbRes || sbRes.status >= 500) { retried = true; sbRes = await insert(row) }
+        // The column isn't there (migration not applied, or rolled back): the label is bought, so
+        // record it without the channel rather than not at all. A missing row would let the box
+        // be bought again once its claim goes stale. Only PostgREST's "no such column" (PGRST204).
+        let errText = sbRes.ok ? '' : await sbRes.text()
+        if (!sbRes.ok && row.channel && /PGRST204/.test(errText) && /'channel'/.test(errText)) {
+          const { channel, ...plain } = row
+          sbRes = await insert(plain)
+          errText = sbRes.ok ? '' : await sbRes.text()
+          console.warn('cost row: shipping_labels has no channel column; written without it (apply db/2026-10-19-label-channel.sql)')
+        }
+        // The retry found the row already there (unique shippo_object_id, 23505): the first try
+        // did write it; only its answer was lost.
+        if (!sbRes.ok && retried && sbRes.status === 409 && /23505/.test(errText)) cost_logged = true
+        else if (sbRes.ok) cost_logged = true
+        else cost_log_error = `supabase ${sbRes.status}: ${errText.slice(0, 200)}`
       }
     } catch (e) { cost_log_error = e.message }
 
@@ -529,6 +619,7 @@ module.exports = async function handler(req, res) {
       label_url: txn.label_url,
       label_file_type: 'PDF_4x6',
       shippo_object_id: txn.object_id,
+      ...(shipTo ? { ship_to: shipTo } : {}),
       test: txn.test === true,
       cost_logged, cost_log_error
     })

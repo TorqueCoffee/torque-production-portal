@@ -33,7 +33,8 @@ function queue(extraGlobals = {}) {
     'RETAIL_HOLD_TEXT', 'RETAIL_HOLD_DETAIL_TEXT', 'RETAIL_EXCLUDED_TEXT', 'retailOrders', 'retailExcluded', 'retailLoadedAt', 'retailLoading', 'retailError', 'retailSel',
     'retailMsg', 'retailShowHold', 'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders',
     'retailSelectAllIds', 'retailBilledLb', 'retailApplySubscriptions', 'retailToggle', 'retailToggleAll', 'retailToggleHold', 'retailChip',
-    'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail']
+    'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail',
+    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailBoughtRow', 'retailGoneRow']
   const el = { innerHTML: '' }
   const all = { checked: false, indeterminate: false }
   const { elements = {}, ...globals } = extraGlobals
@@ -92,7 +93,7 @@ test('B1 UI: a fresh load has nothing ticked and Buy off; ticking, Select all an
   let html = q.html()
   assert.equal((html.match(/type="checkbox"[^>]* checked/g) || []).length, 0)
   assert.match(html, /<b>0 selected<\/b>/)
-  assert.match(html, /class="btn btn-primary rt-buy" disabled>Buy and print 0 labels/)
+  assert.match(html, /class="btn btn-primary rt-buy" onclick="retailBuyAndPrint\(\)" disabled>Buy and print 0 labels/)
   assert.match(html, /Pack in 8x6x3 · 14 orders/)
   assert.match(html, /Pack in 12x8x6 · 13 orders/)
   assert.doesNotMatch(html, /\$\d/)                                                       // no dollar estimate on the queue
@@ -218,14 +219,14 @@ test('B1 UI: subscription lines get this week\'s coffee through the existing fun
   assert.ok(!('_o' in out[0].items[0]) && !('_i' in out[0].items[0]))
 })
 
-test('B1 UI: the Retail tab is wired in and calls only the read-only list', () => {
+test('B1 UI: the Retail tab is wired in; loading it only reads', () => {
   const html = fs.readFileSync(require('./helpers/index-html').INDEX, 'utf8')
   assert.match(html, /data-tab="retail" onclick="switchTab\('retail',this\)">Retail</)
   assert.match(html, /<div id="retail" class="view">/)
   assert.match(html, /if \(tab === 'retail'\) initRetailTab\(\)/)
   const code = declarationSource(inlineScripts().join('\n'), 'loadRetailOrders')
   assert.match(code, /apiFetch\('\/api\/shopify-token\?type=retail-ship'\)/)
-  assert.doesNotMatch(code, /shippo|label|fulfill|POST/i)                                 // B1 buys and writes nothing
+  assert.doesNotMatch(code, /shippo|fulfill|POST/i)                                       // loading the list buys and writes nothing
   assert.match(html, /const RETAIL_BUY_ENABLED = false/)
 })
 
@@ -263,7 +264,8 @@ test('B1 UI: ticking a box keeps keyboard focus on it, and the sticky bar sits u
   const names = ['escHtml', 'safeUrl', 'RETAIL_MAX_BATCH', 'RETAIL_BUY_ENABLED', 'RETAIL_AGE_CHIP_DAYS', 'RETAIL_CARTONS', 'RETAIL_CARTON_DESC', 'RETAIL_HOLD_TEXT',
     'RETAIL_HOLD_DETAIL_TEXT', 'RETAIL_EXCLUDED_TEXT', 'retailOrders', 'retailExcluded', 'retailLoadedAt', 'retailLoading', 'retailError', 'retailSel', 'retailMsg',
     'retailShowHold', 'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders', 'retailSelectAllIds', 'retailBilledLb',
-    'retailToggle', 'retailToggleHold', 'retailChip', 'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail']
+    'retailToggle', 'retailToggleHold', 'retailChip', 'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail',
+    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting']
   const rows = [order(), order(), order()]
   const api = vm.runInNewContext(names.map(n => declarationSource(src, n)).join('\n') +
     `\n;({ init(o) { retailOrders = o; retailLoadedAt = Date.now() }, render: renderRetail, toggle: retailToggle })`, { document: doc, Date, URL, console })
@@ -297,14 +299,17 @@ test('B1 UI: every control is at least 44px to tap, and the table fits an iPad i
   assert.ok(need <= minWidth && minWidth <= 768 - 2 * 20 - 2 * 2, `grid needs ${need}px, table min ${minWidth}px`)
 })
 
-test('B1 UI: the whole Retail block is read-only (no purchase, no Shopify or Supabase write)', () => {
+// B1 was read-only. B3a (ADR 0028) adds buying; this pins exactly what the block may call.
+test('B3a: the Retail block calls only the list, rate/label (never void), the batch PDF and two label lookups', () => {
   const html = fs.readFileSync(require('./helpers/index-html').INDEX, 'utf8')
   const block = html.slice(html.indexOf('// RETAIL tab (B1): the queue'), html.indexOf('// MIX GUIDE'))
   assert.ok(block.length > 5000)
-  assert.deepEqual(block.match(/apiFetch\([^)]*\)/g), ["apiFetch('/api/shopify-token?type=retail-ship')"])
-  assert.deepEqual([...new Set(block.match(/\/api\/[\w?=.\/-]+/g))], ['/api/shopify-token?type=retail-ship'])   // no other endpoint, even in a string
-  assert.doesNotMatch(block, /shippo|method:\s*['"]POST|\.(insert|update|upsert|rpc)\(/i)
-  assert.equal((block.match(/\bsb\./g) || []).length, 1)                                    // one Supabase call, the read below
+  assert.deepEqual([...new Set(block.match(/\/api\/[\w-]+/g))].sort(), ['/api/ship-doc', '/api/shippo-label', '/api/shopify-token'])
+  assert.doesNotMatch(block, /shopify-fulfill|action=void|'void'/)                         // no Shopify write, no void (B3b, B6)
+  assert.match(block, /\/api\/shippo-label\?action=\$\{action\}/)
+  assert.deepEqual([...new Set(block.match(/retailPost\('(\w+)'/g))].sort(), ["retailPost('label'", "retailPost('rate'"])
+  assert.doesNotMatch(block, /\)\.(insert|update|upsert|delete)\(/)                          // no table write (retailSel.delete is a Set)
+  assert.deepEqual([...new Set(block.match(/sb\.rpc\('(\w+)'/g))].sort(), ["sb.rpc('ship_labels_for_order'", "sb.rpc('ship_labels_pending'"])
   assert.deepEqual(block.match(/sb\.from\('[^']+'\)\.\w+/g), ["sb.from('subscription_schedule').select"])
 })
 

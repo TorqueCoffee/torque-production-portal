@@ -13,10 +13,14 @@
 //
 //   POST /api/ship-doc   { order_name, company_name, boxes: [...], include_labels, include_slips }
 //     -> application/pdf, one page per label and/or slip, in packing order.
+//   POST /api/ship-doc   { kind: 'retail', orders: [{ label_url, slip }], include_labels, include_slips }
+//     -> the Retail tab's batch PDF (B3a/B4): per order, its label then its retail slip
+//        (api/_retail-slip.js), in the order given (the page sorts by carton). At most 30 orders.
 
 const fetch = globalThis.fetch || require('node-fetch')
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib')
 const { requireUser } = require('./_auth')
+const { cleanSlip, drawRetailSlip } = require('./_retail-slip')
 
 const PT = 72
 const PAGE_W = 4 * PT   // 288
@@ -123,6 +127,93 @@ async function drawSlipPage(out, box, opts, fonts, logoImage) {
   })
 }
 
+// Fetch Shippo label files with at most `limit` in flight. -> [{ bytes, contentType }]
+// in input order; throws (naming the order) when one can't be read. Only a PDF, only from the
+// URL given (no redirects: a redirect could leave Shippo), at most LIMITS.maxBytes.
+const LIMITS = { fetchMs: 10000, maxBytes: 2 * 1024 * 1024 }   // an object so the tests can shorten the wait
+async function fetchLabels(urls, names, limit) {
+  const out = new Array(urls.length)
+  let next = 0
+  async function worker() {
+    while (next < urls.length) {
+      const i = next++
+      if (!urls[i]) continue
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), LIMITS.fetchMs)
+      try {
+        const r = await fetch(urls[i], { signal: ctrl.signal, redirect: 'error' })
+        if (!r.ok) throw new Error(`label for ${names[i]}: status ${r.status}`)
+        const contentType = r.headers.get('content-type') || ''
+        if (!/pdf/i.test(contentType)) throw new Error(`label for ${names[i]}: not a PDF`)
+        if (Number(r.headers.get('content-length')) > LIMITS.maxBytes) throw new Error(`label for ${names[i]}: file too large`)
+        const bytes = Buffer.from(await r.arrayBuffer())
+        if (bytes.length > LIMITS.maxBytes) throw new Error(`label for ${names[i]}: file too large`)
+        out[i] = { bytes, contentType }
+      } catch (e) {
+        throw new Error(e.name === 'AbortError' ? `label for ${names[i]}: timed out` : e.message.startsWith('label for') ? e.message : `label for ${names[i]}: ${e.message}`)
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, urls.length) }, worker))
+  return out
+}
+
+async function addLabelPage(out, label) {
+  if (/pdf/i.test(label.contentType)) {
+    const labelDoc = await PDFDocument.load(label.bytes)
+    const [copiedPage] = await out.copyPages(labelDoc, [0])
+    out.addPage(copiedPage)
+  } else {
+    let img
+    try { img = await out.embedPng(label.bytes) } catch { img = await out.embedJpg(label.bytes) }
+    const page = out.addPage([PAGE_W, PAGE_H])
+    page.drawImage(img, { x: 0, y: 0, width: PAGE_W, height: PAGE_H })
+  }
+}
+
+// The Retail tab's batch PDF: per order, the label then the retail slip.
+const RETAIL_MAX_ORDERS = 30
+async function retailDoc(body, res) {
+  const orders = Array.isArray(body.orders) ? body.orders : []
+  const includeLabels = !!body.include_labels
+  const includeSlips = !!body.include_slips
+  if (!orders.length || orders.length > RETAIL_MAX_ORDERS) return res.status(400).json({ error: `orders: 1 to ${RETAIL_MAX_ORDERS}` })
+  if (!includeLabels && !includeSlips) return res.status(400).json({ error: 'nothing to print' })
+  const slips = [], urls = []
+  for (const o of orders) {
+    const c = cleanSlip(o && o.slip)
+    if (c.error) {
+      const name = o && o.slip && typeof o.slip.order_name === 'string' ? ` (${o.slip.order_name.slice(0, 40)})` : ''
+      return res.status(400).json({ error: c.error + name })
+    }
+    slips.push(c.slip)
+    let url = null
+    if (includeLabels) {
+      if (typeof o.label_url !== 'string' || !o.label_url) return res.status(400).json({ error: `no label for ${c.slip.order_name}` })
+      // Retail labels are all bought here, on deliver.goshippo.com over https: nothing else.
+      let u
+      try { u = new URL(o.label_url) } catch { return res.status(400).json({ error: 'invalid label_url' }) }
+      if (u.protocol !== 'https:' || u.hostname !== 'deliver.goshippo.com' || u.port || u.username || u.password) {
+        return res.status(400).json({ error: 'label_url host not allowed: ' + u.host })
+      }
+      url = u.href
+    }
+    urls.push(url)
+  }
+  const labels = includeLabels ? await fetchLabels(urls, slips.map(s => s.order_name), 5) : []
+  const out = await PDFDocument.create()
+  const fonts = { bold: await out.embedFont(StandardFonts.HelveticaBold), regular: await out.embedFont(StandardFonts.Helvetica) }
+  for (let i = 0; i < slips.length; i++) {
+    if (includeLabels) await addLabelPage(out, labels[i])
+    if (includeSlips) drawRetailSlip(out, slips[i], fonts)
+  }
+  const pdfBytes = await out.save()
+  res.setHeader('Content-Type', 'application/pdf')
+  return res.status(200).send(Buffer.from(pdfBytes))
+}
+
 module.exports = async function handler(req, res) {
   // Same-origin only: no CORS headers (the page is the only caller).
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
@@ -130,6 +221,8 @@ module.exports = async function handler(req, res) {
 
   try {
     const body = await readJsonBody(req)
+    if (body.kind === 'retail') return await retailDoc(body, res)
+    if (body.kind != null) return res.status(400).json({ error: "kind must be 'retail' or absent" })
     const boxes = Array.isArray(body.boxes) ? body.boxes : []
     const includeLabels = !!body.include_labels
     const includeSlips = !!body.include_slips
@@ -193,3 +286,4 @@ module.exports = async function handler(req, res) {
     return res.status(502).json({ error: 'Could not build ship document', detail: err.message })
   }
 }
+module.exports.LIMITS = LIMITS

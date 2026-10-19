@@ -17,6 +17,7 @@ globalThis.fetch = async (url, opts = {}) => {
   const body = typeof opts.body === 'string' && opts.body.startsWith('{') ? JSON.parse(opts.body) : opts.body
   calls.push({ url, body, headers })
   const out = respond(url, body, headers)
+  if (out.throw) throw new Error(out.throw)
   const status = out.status || 200
   return { ok: status < 400, status, json: async () => out.json, text: async () => JSON.stringify(out.json) }
 }
@@ -31,7 +32,12 @@ const RAW = require('./fixtures/retail-orders.json').orders
 const UPS_ACCOUNT = '21db4cf80df74a2cb27fc20948862003'
 const OID = 'gid://shopify/Order/8333'
 // A fixture order as Shopify returned it, open again (the fixtures are past orders).
-const node = (name, over = {}) => ({ ...RAW.find(n => n.name === name), id: OID, displayFulfillmentStatus: 'UNFULFILLED', ...over })
+// The fixtures keep only state and ZIP (privacy); a street and city stand in, since the server
+// refuses an address without them (B3a).
+const node = (name, over = {}) => {
+  const n = RAW.find(x => x.name === name)
+  return { ...n, id: OID, displayFulfillmentStatus: 'UNFULFILLED', shippingAddress: { name: 'Pat Doe', address1: '1 Main St', city: 'Town', ...n.shippingAddress }, ...over }
+}
 const ADDR = { name: 'Pat Doe', street1: '1 Main St', city: 'Queens', state: 'NY', zip: '11418', country: 'US' }
 // #8333: 2 x 12 oz -> one 12x8x6 at 2 lb (B2, Phase A).
 const BODY = { kind: 'retail', address_to: ADDR, parcel: { length: 12, width: 8, height: 6, weight: 2 }, carrier: 'ups', weight_basis: 'packed',
@@ -288,5 +294,210 @@ test('B6: a refused refund leaves the row alone; a refund whose row can\'t be ma
     assert.equal(r.code, 200)
     assert.deepEqual([r.payload.voided, r.payload.row_marked], [true, false])
     assert.match(r.payload.error, /record wasn't updated/)
+  }
+})
+
+// ── B3a: the cost row says which tab the label belongs to (ADR 0028) ──────────────────────
+test('B3a K7: a retail cost row carries channel retail (B2B rows send none: tests/b0-ups.test.js)', async () => {
+  dropToken(); reset(world())
+  const r = await label(BODY)
+  assert.equal(r.code, 200)
+  assert.equal(r.payload.cost_logged, true)
+  const rows = calls.filter(c => c.url.includes('/rest/v1/shipping_labels'))
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].body.channel, 'retail')
+  assert.equal(rows[0].body.order_id, OID)
+})
+
+test('B3a K7: before the channel migration the retail row is written without it, never lost', async () => {
+  dropToken()
+  const base = world()
+  reset((url, body) => url.includes('/rest/v1/shipping_labels') && body && body.channel
+    ? { status: 400, json: { code: 'PGRST204', message: "Could not find the 'channel' column of 'shipping_labels' in the schema cache" } }
+    : base(url, body))
+  const r = await label(BODY)
+  assert.equal(r.code, 200)
+  assert.equal(r.payload.cost_logged, true)
+  const rows = calls.filter(c => c.url.includes('/rest/v1/shipping_labels'))
+  assert.deepEqual(rows.map(c => 'channel' in c.body), [true, false])
+  assert.equal(rows[1].body.tracking_number, '1ZRETAIL')
+  // Any other refusal is not retried and is reported.
+  reset((url, body) => url.includes('/rest/v1/shipping_labels') ? { status: 403, json: { message: 'new row violates row-level security policy' } } : base(url, body))
+  const r2 = await label(BODY)
+  assert.equal(r2.code, 200)
+  assert.equal(r2.payload.cost_logged, false)
+  assert.equal(n('/rest/v1/shipping_labels'), 1)
+})
+
+// ── B3a review fixes (ADR 0028) ───────────────────────────────────────────────────────────
+const SHOPIFY_ADDR = { name: 'Pat Doe', company: null, address1: '9 New Street', address2: 'Apt 4', city: 'Queens', provinceCode: 'NY', zip: '11419', countryCodeV2: 'US', phone: '7185550100' }
+test('B3a: retail buys at the address Shopify has now, not the page\'s', async () => {
+  dropToken(); reset(world({ order: node('#8333', { shippingAddress: SHOPIFY_ADDR }) }))
+  const r = await label({ ...BODY, address_to: { ...ADDR, street1: '1 Old Street' } })
+  assert.equal(r.code, 200, JSON.stringify(r.payload))
+  const to = calls.find(c => c.url.endsWith('/shipments/')).body.address_to
+  assert.deepEqual([to.street1, to.street2, to.zip, to.phone, to.company], ['9 New Street', 'Apt 4', '11419', '7185550100', ''])
+  assert.equal(calls.find(c => c.url.includes('/rest/v1/shipping_labels')).body.dest_zip, '11419')
+})
+
+test('B3a: a retail quote with order_id is for Shopify\'s address; a P.O. box or a long line there is refused, nothing rated', async () => {
+  dropToken(); reset(world({ order: node('#8333', { shippingAddress: SHOPIFY_ADDR }) }))
+  const r = await call({ action: 'rate' }, { ...BODY, address_to: { ...ADDR, street1: '1 Old Street' } })
+  assert.equal(r.code, 200)
+  assert.equal(calls.find(c => c.url.endsWith('/shipments/')).body.address_to.street1, '9 New Street')
+  for (const bad of [{ address1: 'PO Box 12' }, { address1: 'x'.repeat(36) }]) {
+    for (const action of ['rate', 'label']) {
+      reset(world({ order: node('#8333', { shippingAddress: { ...SHOPIFY_ADDR, ...bad } }) }))
+      const b = await call({ action }, BODY)
+      assert.equal(b.code, 409, `${action} ${JSON.stringify(bad)}`)
+      assert.equal(b.payload.code, 'address')
+      assert.equal(n('/shipments/') + bought(), 0)
+    }
+  }
+  // No order_id on a rate (an older page): the page's address, as before.
+  reset(world())
+  const { order_id, ...noId } = BODY
+  assert.equal((await call({ action: 'rate' }, noId)).code, 200)
+  assert.equal(n('/graphql.json'), 0)
+})
+
+test('B3a: a Shippo throttle is 429 and an outage 502, never "No UPS Ground rate"; nothing bought', async () => {
+  for (const [status, want] of [[429, 429], [503, 502], [500, 502]]) {
+    for (const action of ['rate', 'label']) {
+      dropToken()
+      const base = world()
+      reset(url => (url.endsWith('/shipments/') ? { status, json: { detail: 'x' } } : base(url)))
+      const r = await call({ action }, BODY)
+      assert.equal(r.code, want, `${status} ${action}`)
+      assert.doesNotMatch(r.payload.error, /No UPS Ground rate/)
+      assert.equal(bought() + n('claim_label_box'), 0)
+    }
+  }
+})
+
+test('B3a: the cost row gets the validated box numbers, and one retry after a 5xx', async () => {
+  dropToken(); reset(world())
+  const r = await label({ ...BODY, box_index: '1e0', box_count: '1' })
+  assert.equal(r.code, 200, JSON.stringify(r.payload))
+  const row = calls.find(c => c.url.includes('/rest/v1/shipping_labels')).body
+  assert.deepEqual([row.box_index, row.box_count], [1, 1])
+  let tries = 0
+  const base = world()
+  reset((url, body) => (url.includes('/rest/v1/shipping_labels') && tries++ === 0 ? { status: 503, json: { message: 'upstream' } } : base(url, body)))
+  const r2 = await label(BODY)
+  assert.equal(r2.payload.cost_logged, true)
+  assert.equal(n('/rest/v1/shipping_labels'), 2)
+  // A 400 that only mentions "channel" (not PGRST204) is not retried without it.
+  reset((url, body) => (url.includes('/rest/v1/shipping_labels') ? { status: 400, json: { code: '23514', message: "new row violates check constraint on 'channel'" } } : base(url, body)))
+  const r3 = await label(BODY)
+  assert.equal(r3.payload.cost_logged, false)
+  assert.equal(n('/rest/v1/shipping_labels'), 1)
+})
+
+
+// ── B3a review round 2 fixes ──────────────────────────────────────────────────────────────
+test('B3a: another spelling of the order id finds the same label; nothing is bought twice', async () => {
+  for (const spelling of ['8333', '08333', 'gid://shopify/Order/08333']) {
+    dropToken()
+    reset(world({ prior: [{ order_id: OID, box_index: 1, status: 'purchased', tracking_number: '1ZRETAIL', shippo_object_id: TXN }] }))
+    const r = await label({ ...BODY, order_id: spelling })
+    assert.equal(r.code, 409, spelling)
+    assert.equal(r.payload.error, 'Already bought')
+    assert.equal(calls.find(c => c.url.includes('ship_labels_for_order')).body.p_order_id, OID)
+    assert.equal(bought(), 0)
+  }
+  reset(world())
+  assert.equal((await label({ ...BODY, order_id: 'abc' })).code, 400)
+  dropToken(); reset(world())
+  await label({ ...BODY, order_id: '8333' })
+  const row = calls.find(c => c.url.includes('/rest/v1/shipping_labels')).body
+  assert.equal(row.order_id, OID)                                   // stored under the one spelling
+  assert.equal(calls.find(c => c.url.includes('claim_label_box')).body.p_order_id, OID)
+})
+
+test('B3a: a retail quote reads the customer\'s order, so it needs a signed-in user even with enforcement off', async () => {
+  const was = process.env.PORTAL_AUTH_ENFORCE
+  delete process.env.PORTAL_AUTH_ENFORCE
+  try {
+    reset(world())
+    const r = await call({ action: 'rate' }, BODY, {})
+    assert.equal(r.code, 401)
+    assert.equal(calls.length, 0)
+    // A text/plain body arrives as a string: still refused.
+    const s = await call({ action: 'rate' }, JSON.stringify(BODY), {})
+    assert.equal(s.code, 401)
+    assert.equal(calls.length, 0)
+  } finally { process.env.PORTAL_AUTH_ENFORCE = was }
+})
+
+test('B3a: rate and label say which ship-to they used (no street); the cost row takes Shopify\'s order name', async () => {
+  dropToken(); reset(world({ order: node('#8333', { shippingAddress: SHOPIFY_ADDR }) }))
+  const q = await call({ action: 'rate' }, BODY)
+  assert.deepEqual(q.payload.ship_to, { name: 'Pat Doe', city: 'Queens', province: 'NY', zip: '11419' })
+  reset(world({ order: node('#8333', { shippingAddress: SHOPIFY_ADDR }) }))
+  const r = await label({ ...BODY, order_name: '#FAKE' })
+  assert.deepEqual(r.payload.ship_to, { name: 'Pat Doe', city: 'Queens', province: 'NY', zip: '11419' })
+  assert.equal(JSON.stringify(r.payload.ship_to).includes('New Street'), false)
+  assert.equal(calls.find(c => c.url.includes('/rest/v1/shipping_labels')).body.order_name, '#8333')
+})
+
+test('B3a: a Shopify address with no street, a missing order at quote time, each refuse with nothing rated', async () => {
+  dropToken(); reset(world({ order: node('#8333', { shippingAddress: { ...SHOPIFY_ADDR, address1: '' } }) }))
+  const a = await call({ action: 'rate' }, BODY)
+  assert.equal(a.code, 409); assert.equal(a.payload.code, 'address')
+  reset(world({ order: null }))
+  const b = await call({ action: 'rate' }, BODY)
+  assert.equal(b.code, 409); assert.equal(b.payload.code, 'not_listed')
+  assert.equal(n('/shipments/'), 0)
+})
+
+test('B3a: Shippo still working on a label keeps the claim and says not to buy again; a 429 on the buy frees it', async () => {
+  dropToken()
+  const base = world()
+  reset(url => (url.endsWith('/transactions/') ? { status: 201, json: { status: 'QUEUED', object_id: TXN } } : base(url)))
+  const r = await label(BODY)
+  assert.equal(r.code, 502)
+  assert.equal(r.payload.code, 'label_pending')
+  assert.match(r.payload.error, /Don't buy it again/)
+  assert.equal(n('release_label_box'), 0)
+  reset(url => (url.endsWith('/transactions/') ? { status: 429, json: { detail: 'throttled' } } : base(url)))
+  const t = await label(BODY)
+  assert.equal(t.code, 429)
+  assert.equal(n('release_label_box'), 1)
+  reset(url => (url.endsWith('/transactions/') ? { status: 201, json: { status: 'ERROR', messages: [] } } : base(url)))
+  assert.equal((await label(BODY)).code, 502)
+  assert.equal(n('release_label_box'), 1)
+})
+
+test('B3a: the cost row survives a network error, and a retry that finds it already written counts as written', async () => {
+  dropToken()
+  const base = world()
+  let tries = 0
+  reset((url, body) => (url.includes('/rest/v1/shipping_labels') && tries++ === 0 ? { throw: 'socket hang up' } : base(url, body)))
+  assert.equal((await label(BODY)).payload.cost_logged, true)
+  tries = 0
+  reset((url, body) => (url.includes('/rest/v1/shipping_labels') ? (tries++ === 0 ? { status: 504, json: {} } : { status: 409, json: { code: '23505', message: 'duplicate key value violates unique constraint' } }) : base(url, body)))
+  const r = await label(BODY)
+  assert.equal(r.payload.cost_logged, true)
+  assert.equal(n('/rest/v1/shipping_labels'), 2)
+  // A duplicate on the first try (no retry) is not proof of anything: reported.
+  reset((url, body) => (url.includes('/rest/v1/shipping_labels') ? { status: 409, json: { code: '23505' } } : base(url, body)))
+  assert.equal((await label(BODY)).payload.cost_logged, false)
+})
+
+test('B3a: the box is freed only when Shippo plainly bought nothing; any doubt keeps the claim', async () => {
+  const base = world()
+  for (const [why, out, freed] of [
+    ['SUCCESS without tracking', { status: 201, json: { status: 'SUCCESS', object_id: TXN } }, false],
+    ['5xx with JSON', { status: 503, json: { detail: 'upstream' } }, false],
+    ['ERROR', { status: 201, json: { status: 'ERROR', messages: [] } }, true],
+    ['4xx refusal', { status: 400, json: { detail: 'bad rate' } }, true]
+  ]) {
+    dropToken()
+    reset(url => (url.endsWith('/transactions/') ? out : base(url)))
+    const r = await label(BODY)
+    assert.equal(n('release_label_box'), freed ? 1 : 0, why)
+    if (!freed) assert.equal(r.payload.code, 'label_pending', why)
+    assert.equal(n('/rest/v1/shipping_labels'), 0, why)
   }
 })

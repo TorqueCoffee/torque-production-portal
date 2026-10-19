@@ -6,8 +6,8 @@ Status: DRAFT. Sections marked OPEN need Andy's input before go-live. Steps assu
 
 1. Open the portal Retail tab. The list shows eligible orders only (rules R1). Pickup orders do not appear. Held orders appear in a separate "Hold" list with the reason.
 2. Review the Hold list. For each: fix in Shopify, ship by hand, or leave. Never ship part of an order.
-3. Select up to 25 orders. Check carton and billed lb per row. Click Rate all. Any row with no rate shows the error and is skipped.
-4. Click Buy all. One combined PDF prints in packing order: label then slip, per order.
+3. Select up to 25 orders (or Select all, which takes the oldest 25). Check each row's carton; the bar shows the total billed lb.
+4. Tap Buy and print. Each order is quoted and bought at once (UPS Ground only), at the address Shopify has now; one PDF opens in a new tab, label then slip per order, sorted by carton. Go back to the portal tab to watch the Buying screen. An order with no rate, a price that rose, or a refusal is not bought and shows why: fix the address in Shopify and Re-rate, or Try again. Anything not bought returns to the queue. Open PDF and Reprint print again and never buy; a bought order also has Reprint on the queue. A row that says "Bought, not recorded" must not be bought again: tell Andy. (B3a, ADR 0028.)
 5. Pack: pick the carton shown on the slip, pack, apply the label, check the order number on label and slip match.
 6. Click Fulfill all after labels are applied. Shopify sends the one customer shipping email.
 7. Repeat for the next batch of 25.

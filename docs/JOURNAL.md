@@ -1,5 +1,115 @@
 # Journal
 
+## 2026-10-19 — Phase B, B3a: Retail Buy and print, the Buying screen, the retail slip (B4)
+
+### Work done
+
+- Andy's calls (2026-10-19): `channel` column (1a); the B4 slip built in this slice (2b); merge with buying off until B3b, the SQL and the live test (3a); no-rate orders don't hold up the rest (4b); the PDF tab opened in the tap (5a); three at a time (6a); B3b keeps batch state on `shipping_labels` (7a, for later).
+- **Quantity:** `api/_retail.js` uses `min(unfulfilledQuantity, currentQuantity)` (the check in the entry below).
+- **Page** (`index.html`, Retail block): Buy and print, the Buying screen (progress, counts, total spent, row statuses, per-row Open in Shopify, Re-rate, Buy at the new quote, Try again), Open PDF and Reprint, a "Bought, not fulfilled" group on the queue with Reprint, and the lock while buying and while the PDF is made. `RETAIL_BUY_ENABLED` stays `false`.
+- **Server:**
+  - `api/shippo-label.js`: retail quotes and buys at Shopify's current address; Shippo 429 and 5xx are reported as such; the cost row carries `channel: 'retail'`, the validated box numbers, and one retry after a 5xx.
+  - `api/ship-doc.js` + new `api/_retail-slip.js`: the batch PDF (label then slip per order) and the retail slip to `retail_slip_spec.md`.
+  - `?type=retail-ship` also returns `pack_sig` and `subscription` (FIRST or RECURRING).
+- **DB:** `db/2026-10-19-label-channel.sql` (+ rollback): `shipping_labels.channel`, and the two lookups return it. **Not applied.** The B2B Ship tab's banner skips retail rows.
+- Tests: `tests/b3a-retail-buy.test.js` (34), `tests/b4-retail-slip.test.js` (7), blocks in the B1, B3 and B0 tests, `tests/db/label-channel.test.js` (5). After review round 2: `npm test` 201/201, `npm run test:db` 26/26.
+- Preview (local, sample data): the Buying screen mid-run and finished at 1180 and 768 wide, the queue's Bought group; no console errors. Slip sample: `docs/retail_slip_sample_b3a.pdf` (3 sample orders plus edge cases: accents and emoji, replacement, note, 14 lines on two pages), compared with `retail_slip_sample.pdf`.
+- `docs/retail_runbook.md` step 3–4 now describe Buy and print.
+- Not committed, not deployed.
+
+### Detours & fixes
+
+- **The new test file never exited.** The tests passed, but the page's 10-minute "free the PDF" timer kept Node alive. The sandbox now hands the page an unref'd timer. Not a page bug.
+- **The Buying table clipped the Note column at 768 px.** Its grid was wider than the card. Narrowed to 708 px, like the queue.
+- **Adversarial review, round 1** (Saboteur, Security Auditor, Architect, fresh subagents). Accepted and fixed:
+  - **Re-rate re-sent the old address.** "Fix it in Shopify, then Re-rate" couldn't work, and an address edited after the list loaded got a label to the old one, because the server compared only the pack. Retail now rates and buys at Shopify's address.
+  - **A label bought but not recorded showed as fine.** After a reload it would look unbought, and once the claim went stale the server could buy it again. It is now flagged on the row and above the table, and the cost row is retried once.
+  - **The 429 fallback was dead code.** Nothing returned 429, and a Shippo throttle or outage came back as "No UPS Ground rate", telling the operator to fix a good address. The server now passes 429 and 5xx through. A row put back after a 429 could also be left Waiting forever; the run now goes round until the queue is empty.
+  - **The PDF was built with the screen unlocked.** Open PDF made a second tab, and Back threw. The screen is now locked while the PDF is made. A closed tab, a missing label file, or a reply that isn't a PDF now each say what to do.
+  - **SSRF on the label fetch.** The retail path now accepts only `https://deliver.goshippo.com` (no port, no redirect), PDF only, 2 MB at most.
+  - **Queue Reprint printed the newest row.** It now prints the order's one live label and refuses two. It still doesn't ask Shippo (accepted risk, ADR 0028).
+  - **The raw `box_index` went into the cost row.** "1e0" passed the check but would fail the integer column, leaving a bought label with no row. The row now gets the validated numbers.
+  - **Smaller:**
+    - `pack_sig` comes from the server instead of being built by hand;
+    - one quote function instead of two;
+    - no Try again on an order that changed in Shopify;
+    - after a run, rows needing a decision sort first;
+    - the PGRST204-only channel fallback;
+    - the pending lookup is sequenced with the list load;
+    - the slip's comma rule never cuts inside a coffee name;
+    - a slip error names the order;
+    - "(NO COFFEE SET)" on the slip;
+    - dead code removed.
+  - Test gaps the Saboteur's mutations exposed now have tests. Each new test was run with its fix removed and failed.
+  - **Rejected or deferred:**
+    - `maxDuration` (Vercel's default covers a 25-label PDF);
+    - the B2B ship-doc path's older fetch rules and font fallback (B2B, not this slice);
+    - a `carton` column (B5);
+    - B3b's data model (Architect A6: Pack and Resume read the DB, not `retailBatch`; noted in ADR 0028);
+    - status names vs the handoff's state machine (cosmetic).
+
+- **Adversarial review, round 2** (fresh Saboteur, Security Auditor, Architect). Nothing blocks merging with buying off. Accepted and fixed:
+  - **A label bought but not recorded was forgotten on Back to queue** (found by two reviewers). The reload replaced the in-memory note with the DB's set, which has no row. This device now keeps such orders (localStorage, a week) and merges them in on every load, marked "Bought, not recorded. Do not buy again".
+  - **The slip printed the old address.** Since round 1 the label goes to Shopify's address, but the slip and the screen still used the list's. Rate and label now return the ship-to used (no street).
+  - **Another spelling of the order id ("8333") bought a box again.** The lookup and the claim compare strings. Every label and void call now uses `gid://shopify/Order/<n>`. Checked read-only first: all 231 live rows are in that form.
+  - **A retail quote read the customer's order with enforcement off.** It is now signed-in only, always.
+  - **QUEUED or WAITING from Shippo freed the box,** so Try again could buy a second label when the first completed. The claim is now kept and the row says not to buy again.
+  - **A retry after a lost answer reported "not recorded"** for a row that was written. A 23505 duplicate on the retry now counts as written.
+  - **Smaller:**
+    - a 429 on the buy is passed through, and the page waits 1.5 s, 3 s, 4.5 s before each retry;
+    - Open PDF makes a new PDF once the old one is freed, and Back frees it a minute later;
+    - Buy waits for a list load still running;
+    - Reprint ignores a second tap;
+    - Sign out waits while the PDF is made;
+    - Shopify's order name goes in the cost row;
+    - a Shopify address with no street, city or ZIP is refused;
+    - the label-fetch timeout is now tested with its own timer;
+    - the migration checks itself before committing, and its rollback uses `if exists` and says to save the retail rows first.
+  - **Docs:**
+    - the RUNBOOK, the ADR and the page now agree that the first push with buying on is the supervised live test;
+    - the post-migration check now works in the SQL editor;
+    - the login rollback gets a step 0;
+    - ADR 0025 and 0026 are marked amended by 0028;
+    - the ADR records the address decision and the accepted risks;
+    - the retail runbook now matches the screen.
+  - **Rejected or deferred:**
+    - the page's unused `address_to` (one request shape for both kinds);
+    - a Shopify throttle slowing the batch (it is "try again");
+    - slip-layout mutation tests (the printed sample is the gate);
+    - the round 1 cosmetic leftovers (colour token, carton list in three places, `addLabelPage` copy, a case-sensitive tag match).
+
+- **Review round 3** (Security finished; Saboteur and Architect stopped early at Andy's call to save time, then one focused money-path reviewer instead). Fixed:
+  - **A text/plain body skipped the retail-quote sign-in rule.** The body is now parsed before the auth decision.
+  - **A junk entry in the device's "not recorded" note broke the tab.** It is now dropped.
+  - **Two escaped fields had no test** (a "not open any more" row, a tracking number). Tests added.
+  - The focused reviewer found 4 more (no blockers). Three are fixed:
+    - a failed label lookup dropped this device's "not recorded" notes;
+    - a label Shippo may have bought (still working, or a 5xx) came back as ready after Back;
+    - the server freed the box on SUCCESS-without-tracking and on a 5xx.
+
+    Now only ERROR or a 4xx frees the box. The page remembers every maybe-bought order until a retry settles it or "Shippo shows none" clears it. Rejected: putting the company line on retail labels (rule R1 never lists a retail order with a company).
+  - Mutation-checked: 204/204.
+
+### Decisions captured
+
+- [`0028-retail-buy-and-print.md`](./decisions/0028-retail-buy-and-print.md); ADR 0025 and 0026 amended.
+
+## 2026-10-19 — Phase B, B3a prep: two read-only checks
+
+### Work done
+
+- **Does `unfulfilledQuantity` drop when a refunded line is removed from an unfulfilled order?** Not always. Shopify connector, read-only, every unfulfilled or partly fulfilled order that is refunded or partly refunded (27 orders, 2022 to 2026):
+  - Refunds with restock type CANCEL (25 orders): `currentQuantity` and `unfulfilledQuantity` both drop to 0.
+  - Refunds with NO_RESTOCK (3 orders): #5275 (2026-02) drops to 0; **#3341 (2025-02, Airscape canister) and #3074 (2024-11, "invoice") keep `unfulfilledQuantity` 1 with `currentQuantity` 0.**
+  - So the list's quantity becomes `min(unfulfilledQuantity, currentQuantity)` (first change of B3a; it feeds the list and the label check alike). Not seen in live data: a partly refunded order with lines left to ship.
+- **Does `api/shopify-fulfill.js` work for retail?** Yes, unchanged:
+  - Tracking company is always "UPS"; every number must be 1Z + 16; no URL sent.
+  - One `fulfillmentCreate` per call over every open fulfillment order, so one shipping email per order.
+  - A retry after success (or after a lost response) finds every fulfillment order CLOSED and takes the `alreadyFulfilled` path: no create, no email. Two devices at once: Shopify refuses the second create (nothing left to fulfill), no second email.
+  - The last 50 subscription orders each had one fulfillment order (no SCHEDULED ones), and today's 3 open orders have none either, so the "scheduled delivery left open" case wasn't seen.
+  - Gaps for B3b: `notified` echoes the request, not whether Shopify had an email to send to (a replacement draft may have none); the page supplies the tracking numbers rather than the server reading them from the label rows.
+- **Found in passing:** `ship_labels_pending()` returns every `purchased` row with no channel. Once a retail label is bought, the B2B Ship tab's red "never fulfilled" banner and its once-per-session alert will list that retail order, with a Clear button. Needs a channel marker before the first retail buy (question to Andy).
+
 ## 2026-10-19 — Phase B, B1 UI: the Retail tab queue
 
 ### Work done
