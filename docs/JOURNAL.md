@@ -54,7 +54,7 @@
     - Checked: the sign-in form and supabase-js 2.117.2 are served.
     - Without a token, label, fulfill, ship-doc, `b2b` and `b2b-ship` return 401; `/api/_auth` returns 404; products returns 200 (until 3a); `/docs`, `/db` and `/.npmrc` return 404.
     - Next: every device signs in, then the observation day (step 2).
-  - **Step 2 check, 2026-10-19 00:25 UTC (about 4.5 h after the deploy, a Sunday; no labels bought, only retail orders):**
+  - **Step 2 check, 2026-10-19 00:25 UTC (about 4.5 h after the deploy, a Sunday; no labels bought: only retail orders came in, and the portal doesn't ship retail yet):**
     - `auth.users`: andy@ and info@ have signed in. **elias@ and nanelle@ never have.** All 4 carry `portal_staff`, none anonymous. 3b refuses to run until all 4 have signed in.
     - Supabase API logs (edge logs, `/rest/v1/`, OPTIONS left out): only 2 browsers since the deploy. Andy's Mac (Safari 26.5, 50 calls) and a second device (Safari 18.7.5, 55 calls, signed in as info@ at 20:50) used `authenticated`.
     - 13 calls had no user token, all from the Safari 18.7.5 device between 20:49:21 and 20:49:24, with supabase-js 2.117.3 (the old unpinned page). That device signed in 51 s later. No token-less calls since.
