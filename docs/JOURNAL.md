@@ -18,7 +18,12 @@
 - Tests: 104 in `npm test` after the review (the label tests' stubs now answer the Shopify order fetch).
 - Checked in a browser against a local static server: sign-in shows, no console errors, the page's `packBoxes` is the lib's.
 - ADR 0025, RUNBOOK (deploy allowlist, where the rules live, local preview) and TESTS (S1–S8) written.
-- Not deployed. S8 (the next live B2B order) waits for the push.
+- **Deployed 2026-10-19, pushed 01:32 UTC (f3a78d3).** Checked live:
+  - the page carries the `/lib/ship-rules.js` tag, and the served file matches the commit byte for byte (`cache-control: max-age=0, must-revalidate`);
+  - `/docs`, `/db`, `/tests`, `/.vercelignore`, `/api/_shopify` and `/api/_auth` return 404;
+  - the label and `b2b-ship` endpoints return 401 without a token, so both load the shared file.
+  - An open tab from before the deploy sends no `pack_sig`; its label call gets a 400 "reload" and buys nothing.
+  - S8 waits for the next real B2B order.
 
 ### Detours & fixes
 

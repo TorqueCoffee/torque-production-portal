@@ -237,6 +237,7 @@ One copy of the weight and packing rules in `lib/ship-rules.js`, loaded by the p
 **Run log:**
 - 2026-10-19: S1–S7 PASS, 100/100 (`npm test`).
 - 2026-10-19: one Architect review (Andy's call: one reviewer, one round). 11 findings: 0 Blocks ship, 6 Should fix, 5 Worth noting. Accepted fixes landed (JOURNAL). S1–S9 PASS, 104/104.
+- 2026-10-19: deployed (f3a78d3, 01:32 UTC). Live: page loads the lib, lib matches the commit, hidden paths 404, label and `b2b-ship` 401 without a token. S8 open.
 
 ## B2B Cubic Shipping
 
