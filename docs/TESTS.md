@@ -221,6 +221,18 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
 - 2026-10-17: adversarial review round 2. Accepted fixes landed (see JOURNAL). G1–G3 PASS, 38/38 (`npm test`).
 - 2026-10-18: adversarial review round 3 (the cap). Accepted fixes landed (see JOURNAL). G1–G3 PASS, 47/47 (`npm test`).
 
+### B1 — retail order list (`?type=retail-ship`)
+`tests/b1-retail.test.js`, fetch stubbed:
+- [x] **R1 acceptance:** the 30 orders in `tests/fixtures/retail-orders.json` (Shopify's own data for `docs/acceptance_fixtures.json`) list, hold or are excluded exactly as Phase A decided, with the same class.
+- [x] **R2 contents:** listed orders carry Phase A's bags (xPods = 12 oz; title beats a 0 catalog weight); shipping charged matches; SUBSCRIPTION, REPLACEMENT and FREE_SHIPPING flags.
+- [x] **R3 other holds:** partly fulfilled → HOLD; fulfilled → excluded; refunded, local delivery, no delivery method, non-US or missing address, more than 30 lines, an unweighable line, over 30 bag-equivalents (30 itself lists), nothing left to ship. A gift card line doesn't block.
+- [x] **R4 endpoint:** signed-in staff only even before enforcement; pages are joined; a failed page fails the whole list (502).
+- [x] **R5 live (read-only):** Shopify accepts the query; today's open orders classify as expected.
+- [ ] **R6 deployed:** `?type=retail-ship` from a signed-in device returns the open retail orders.
+
+**Run log:**
+- 2026-10-19: R1–R5 PASS, 112/112 (`npm test`).
+
 ### B2a — shared ship rules (ADR [`0025`](./decisions/0025-shared-ship-rules-server-repack.md))
 One copy of the weight and packing rules in `lib/ship-rules.js`, loaded by the page and `require`d by the API. The label endpoint repacks the order from Shopify and buys only the parcel it packs itself. `tests/b0-ups.test.js` (B2a block) + `tests/syntax.test.js`, fetch stubbed:
 - [x] **S1 one copy:** every name the page takes from `ShipRules` is exported by the lib and declared nowhere in `index.html`; `shopify-token.js` and `shippo-label.js` declare no rule. In a browser the file defines a frozen `ShipRules` global.

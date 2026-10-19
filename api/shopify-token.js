@@ -1,7 +1,8 @@
 const fetch = globalThis.fetch || require('node-fetch');
 const { requireUser } = require('./_auth')
 const { API_VERSION, getToken } = require('./_shopify')
-const { b2bShipItems } = require('../lib/ship-rules.js')
+const { b2bShipItems, classifyRetailOrder, retailShipItems, shippingCharged } = require('../lib/ship-rules.js')
+const { fetchOpenRetailOrders } = require('./_retail')
 
 const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle']
 
@@ -53,7 +54,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' })
   // Customer names and addresses (b2b, b2b-ship) need a signed-in staff user from the first
   // deploy on; the product and order lists only once PORTAL_AUTH_ENFORCE=1.
-  if (!(await requireUser(req, res, { always: req.query.type === 'b2b' || req.query.type === 'b2b-ship' }))) return
+  if (!(await requireUser(req, res, { always: ['b2b', 'b2b-ship', 'retail-ship'].includes(req.query.type) }))) return
   const { SHOPIFY_STORE_HANDLE } = process.env
 
   try {
@@ -96,6 +97,29 @@ module.exports = async function handler(req, res) {
 
       const products = [...new Set(titles)].sort()
       return res.status(200).json({ products })
+    }
+
+    // RETAIL per-order shipping list (B1): every open retail order, classified by R1/R1a
+    // (classifyRetailOrder in lib/ship-rules.js). LIST and HOLD orders come back with the reason;
+    // EXCLUDE orders are only counted. Customer names and addresses: signed-in staff only.
+    if (req.query.type === 'retail-ship') {
+      const got = await fetchOpenRetailOrders(token)
+      if (!got.ok) return res.status(502).json({ error: 'Shopify retail orders query failed', detail: got.why })
+      const out = [], excluded = {}
+      for (const o of got.orders) {
+        const c = classifyRetailOrder(o)
+        if (c.decision === 'EXCLUDE') { excluded[c.class] = (excluded[c.class] || 0) + 1; continue }
+        out.push({
+          order_id: o.order_id, order_name: o.order_name, created_at: o.created_at,
+          decision: c.decision, class: c.class, detail: c.detail || null, flags: c.flags || [],
+          delivery_method: o.delivery_methods[0] || null,
+          shipping_charged: shippingCharged(o).toFixed(2),
+          shipping_title: o.shipping_lines.map(l => l.title).join(', '),
+          shipping_address: o.address,
+          items: retailShipItems(o)
+        })
+      }
+      return res.status(200).json({ orders: out, excluded })
     }
 
     // Fetch all unfulfilled orders

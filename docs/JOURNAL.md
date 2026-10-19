@@ -1,5 +1,24 @@
 # Journal
 
+## 2026-10-19 — Phase B, B1: the retail order list (`?type=retail-ship`)
+
+### Work done
+
+- `lib/ship-rules.js`: `classifyRetailOrder()` applies R1, R1a and R11–R14 to one order, first match wins:
+  - EXCLUDE (counted, never listed): cancelled, Fellow, Siip, pickup, local delivery, no shipping, refunded, Fellow Drops, company (B2B), not open.
+  - HOLD (listed with the reason): partly fulfilled or on hold, more than 30 lines, draft with a custom line, no US address, HI/AK/PR/APO, custom line without a variant, non-Torque product vendor, no weight, over 30 bag-equivalents (nominal lb / 0.75, as `retail_catalog.csv` counts them).
+  - LIST: class ELIGIBLE, or DRAFT_COMP_OR_REPLACEMENT for a draft with no shipping line. Flags SUBSCRIPTION, REPLACEMENT, FREE_SHIPPING.
+  - Also `retailShipItems()` (packer items for B2, weight by R10) and `shippingCharged()` (R11).
+- New `api/_retail.js`: one GraphQL query (2025-10) for open, unfulfilled or partly fulfilled orders, Fellow left out at the source, 25 per page; every page or a 502, never a partial list. It turns each order into the plain shape the classifier reads. Quantity is `unfulfilledQuantity`.
+- `api/shopify-token.js?type=retail-ship`: LIST and HOLD orders with class, flags, delivery method, shipping charged, address and items; EXCLUDE orders only as counts. Signed-in staff only from the start (names and addresses).
+- `tests/fixtures/retail-orders.json`: the 30 Phase A acceptance orders as Shopify returns them, pulled read-only through the Shopify connector, cut to state, ZIP and company. `tests/b1-retail.test.js`: all 30 list, hold or are excluded exactly as `acceptance_fixtures.json` says, with Phase A's bags and shipping charged; plus holds the fixtures don't cover and the endpoint (paging, failure, sign-in). 112 tests pass.
+- Checked live, read-only: Shopify accepts the query. Today's 4 open orders: the pickup #8284 is excluded; #8351, #8353 and #8354 list with the right bags and free-shipping flags.
+- Not deployed. Not reviewed (Andy asked to keep this fast). No page change: B3 is Andy's design.
+
+### Detours & fixes
+
+- **The endpoint test hit the real network.** It loaded `api/_retail.js` before installing its fetch stub, and the module captures `fetch` when loaded. The stub now goes first, as in the other test files.
+
 ## 2026-10-19 — Phase B, B2a: one copy of the ship rules; the server repacks before buying
 
 ### Work done
