@@ -71,11 +71,11 @@
   - **Step 3a done, 2026-10-19 ~00:36 UTC.** Andy set `PORTAL_AUTH_ENFORCE=1` (Production) and redeployed (`torque-production-portal-6sg1ff2y5`).
     - The RUNBOOK said "Settings → Environment Variables", which no longer exists. Environment Variables is now a project sidebar item, and redeploying is done from Deployments → ⋯ → Redeploy. RUNBOOK corrected from Vercel's docs (eae8f95).
     - Checked without a token: `shopify-token` (products, orders, b2b) and `shippo-label` rate return 401, and a made-up token gets 401 (`auth:invalid`). The page returns 200. The Vercel logs show `enforce=1`.
-    - Andy reloaded the floor iPad and ran Pull Orders under enforcement. The logs agree:
+    - Andy tested on his Mac: a private window signed in as nanelle@ (00:37:28) and a normal window as andy@ (00:38). Both ran Pull Orders under enforcement:
       - `shopify-token` returned 200/304 with no `auth:` lines, and every server token check (`/auth/v1/user` from `node`) returned 200.
       - Pull Orders wrote as `authenticated`: `daily_plan` PATCHes (204) and an `activity_log` insert (201).
-      - Andy's Mac (andy@) did the same at 00:38.
-    - **The floor iPad signed in as nanelle@ (00:37:28), not info@,** from Safari 26.5. The info@ sign-in at 20:50 came from a Safari 18.7.5 device, so that one is a different machine.
+    - The floor device (info@, Safari 18.7.5) made no calls to the new deployment by 00:40, although Andy reported reloading it and pulling orders there. Its next use will show in the logs.
+    - nanelle@ now counts as signed in for the 3b check, but only from Andy's test. Nanelle hasn't used her own device yet.
     - Next: 3b once Elias has signed in (the migration refuses before that), after a backup or the Pro upgrade.
 
 ### Detours & fixes
