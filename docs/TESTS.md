@@ -131,6 +131,7 @@ Rollout order (RUNBOOK "First rollout"):
 - 2026-10-19: step 3a (`PORTAL_AUTH_ENFORCE=1`, redeployed). L5 API part PASS: with no token, `?type=products`, the order list, `?type=b2b` and `shippo-label` rate → 401; with a made-up token → 401.
   - Andy's Mac (andy@, and nanelle@ in a private window) ran Pull Orders under enforcement: 200s, no `auth:` lines, writes as `authenticated`. The floor device didn't show in the logs.
 - 2026-10-19: step 3b run. L5 PASS (publishable key only): table reads → `[]`, `activity_log` insert refused by RLS, `ship_labels_pending` / `mark_ship_labels_fulfilled` → permission denied, `shippo-label` rate and `b2b-ship` → 401, `/api/_auth` → 404.
+  - After 3b, Andy's Mac: plan loads, Pull Orders writes (`authenticated`, 204/201); the green planner reads `green_coffee_settings` (15 rows) and `blend_matrix` (19) as `green_planner_app`.
 - 2026-10-18 (PDT): step 2b run (realtime publication, 4 tables). L6 PASS (Andy, on two devices): the plan loads, a change shows on the other device without a reload, six fast "+" taps store 6, Pull Orders works, Ship rates without buying, and the green planner loads.
 
 ## UPS Ground (Phase B, plan: [`Retail-USPS-UPS.md`](./Retail-USPS-UPS.md))

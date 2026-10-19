@@ -81,7 +81,9 @@
     - Checked against live: 11 public tables (the 10 plus `label_claims`), 36 public + 19 `green_planner` policies, `auth.users` included. Row counts match for `daily_plan` (9), `activity_log` (1,301) and `shipping_labels` (231).
   - **Step 3b run, 2026-10-19 ~01:02 UTC,** through the Supabase connector. `login-rls.sql` passed its checks and committed. Public policies are now 36 permissive `authenticated`, 10 restrictive "portal staff only" and 2 `green_planner_app`.
     - L5 with the publishable key only: reads of `daily_plan`, `activity_log`, `green_coffee_settings` and `plan_state` → `[]`; an `activity_log` insert → RLS refusal; a `plan_state` PATCH matches nothing; `ship_labels_pending` and `mark_ship_labels_fulfilled` → permission denied. `/api/shippo-label` rate and `?type=b2b-ship` → 401; `/api/_auth` → 404.
-    - No signed-in device had used the database since 3b when this was written. Next: reload a signed-in device, Pull Orders, and open the green planner.
+    - After 3b (01:05 UTC), Andy reloaded the portal on his Mac and ran Pull Orders: every read 200 with rows (`daily_plan` 9, `green_coffee_settings` 15, `blend_matrix` 19), 7 `daily_plan` PATCHes (204) and an `activity_log` insert (201), all `authenticated`.
+    - The green planner loaded as `green_planner_app`: all its tables 200, and the two portal tables returned rows (`green_coffee_settings` 15, `blend_matrix` 19).
+    - **The login slice rollout is done.** Still open: the floor device (info@) and Elias's and Nanelle's own devices haven't been seen since enforcement; each needs a reload and sign-in at its next use. The backup dump commands were rerun by accident at 18:02 local; `schema.sql` was checked and still holds the state from before 3b.
 
 ### Detours & fixes (rollout, 2026-10-19)
 
