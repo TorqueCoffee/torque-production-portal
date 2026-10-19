@@ -100,7 +100,11 @@ Each step can be undone on its own; the undo is under each one.
    - Every account appears in the `auth.users` check with a `last_sign_in_at`.
    - 2b. Once no old tab is left, run [`db/2026-10-18-realtime-publication.sql`](../db/2026-10-18-realtime-publication.sql), so changes on one device show on the others. Not earlier: an old page reloads on every row event, and its counters can overwrite each other. Then the L6 checks in [`TESTS.md`](./TESTS.md). *Undo:* `…-realtime-publication-rollback.sql`.
 3. **Shut the doors:**
-   - 3a. Vercel → Settings → Environment Variables: `PORTAL_AUTH_ENFORCE` = `1` (exactly `1`; Production), redeploy. Check: `/api/shopify-token?type=products` without a token returns 401. *Undo:* unset it and redeploy.
+   - 3a. Set `PORTAL_AUTH_ENFORCE` and redeploy (Vercel docs, checked 2026-10-19):
+     - Vercel dashboard → project `torque-production-portal` → **Environment Variables** in the sidebar. Add New: Name `PORTAL_AUTH_ENFORCE`, Value `1` (exactly `1`), environment **Production** only. Save.
+     - The variable reaches only new deployments. **Deployments** in the sidebar → the current production deployment → ⋯ → **Redeploy** → Redeploy.
+     - Check: `/api/shopify-token?type=products` without a token returns 401.
+     - *Undo:* in Environment Variables, ⋯ next to `PORTAL_AUTH_ENFORCE` → Delete, then redeploy the same way.
    - 3b. SQL editor: run [`db/2026-10-18-login-rls.sql`](../db/2026-10-18-login-rls.sql). It refuses to run if any account has never signed in or lacks the staff marker, an anonymous user exists, login-prep is missing, or the policies aren't the 36 it was written against. *Undo:* [`…-login-rls-rollback.sql`](../db/2026-10-18-login-rls-rollback.sql), which returns to the step 0 state, so the login code keeps working.
    - Then the L5 checks in [`TESTS.md`](./TESTS.md).
 
