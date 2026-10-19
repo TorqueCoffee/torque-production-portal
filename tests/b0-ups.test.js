@@ -847,7 +847,7 @@ test('B2a: boxParcel never guesses a carton', () => {
   const box = { box_label: '14x10x10', contents: [{ qty: 1, unit_weight_lb: 5 }] }
   assert.deepEqual(ShipRules.boxParcel(box), { length: 14, width: 10, height: 10, weight: 6 })
   assert.equal(ShipRules.boxParcel({ ...box, box_label: 'mailer' }), null)       // not LxWxH
-  assert.equal(ShipRules.boxParcel({ ...box, box_label: '12x8x6' }), null)       // no tare yet (B2)
+  assert.equal(ShipRules.boxParcel({ ...box, box_label: '12x9x4' }), null)       // a size with no tare
   assert.equal(ShipRules.packSignature([box, { ...box, box_label: 'mailer' }]), null)
 })
 

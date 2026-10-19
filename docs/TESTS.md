@@ -221,6 +221,16 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
 - 2026-10-17: adversarial review round 2. Accepted fixes landed (see JOURNAL). G1–G3 PASS, 38/38 (`npm test`).
 - 2026-10-18: adversarial review round 3 (the cap). Accepted fixes landed (see JOURNAL). G1–G3 PASS, 47/47 (`npm test`).
 
+### B2 — retail packer (`packRetail`)
+`tests/b2-retail-pack.test.js`, pure:
+- [x] **P1 acceptance:** all 16 LIST orders in `acceptance_fixtures.json` get Phase A's carton and billed pounds.
+- [x] **P2 fit table and oversize:** R2's 12x8x6 list, the 8x6x3 single, and every combination in A4's oversize table (5 x 12 oz → 5 lb … 3 x 2 lb + 5 lb → 13 lb, all 14x10x10); a 5 lb bag with a 12 oz is oversize; a size outside the table is oversize.
+- [x] **P3 one carton:** 30 bags is one 14x10x10 at 24 lb; empty or unweighable orders pack to nothing.
+- [x] **P4 list:** `?type=retail-ship` returns the parcel for LIST orders and null for HOLD.
+
+**Run log:**
+- 2026-10-19: P1–P4 PASS, 115/115 (`npm test`).
+
 ### B1 — retail order list (`?type=retail-ship`)
 `tests/b1-retail.test.js`, fetch stubbed:
 - [x] **R1 acceptance:** the 30 orders in `tests/fixtures/retail-orders.json` (Shopify's own data for `docs/acceptance_fixtures.json`) list, hold or are excluded exactly as Phase A decided, with the same class.

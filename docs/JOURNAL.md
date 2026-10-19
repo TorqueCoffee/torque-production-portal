@@ -1,5 +1,17 @@
 # Journal
 
+## 2026-10-19 — Phase B, B2: the retail packer
+
+### Work done
+
+- `lib/ship-rules.js`:
+  - `CARTON_TARE_LB` gains the retail cartons: 8x6x3 0.156, 12x8x6 0.42 (A3). B2B still uses only the 14x10x10.
+  - `packRetail(items)`: one carton per order, never split (Andy), in the same pack shape as `packBoxes`. The carton comes from R2's fit table by bag counts (12 oz, 2 lb, 5 lb; a 250 g box and xPods are 12 oz); anything not in the table, a 5 lb bag with anything included, goes in the 14x10x10. An unweighable item packs to nothing.
+  - The billed pounds are the existing `declaredWeightLb` / `boxParcel` on that box: ceil(net + tare + 0.05), net from the measured bag weights.
+- `?type=retail-ship` now returns `parcel` (carton inches and billed pounds) for each LIST order, null for HOLD.
+- `tests/b2-retail-pack.test.js`: all 16 listed acceptance orders get Phase A's carton and billed pounds; the fit table and every A4 oversize combination; one carton for 30 bags (24 lb); empty and unweighable orders. 115 tests pass.
+- Not yet: the label endpoint's repack check is still B2B-only (ADR 0025). B3 has to tell it which packer applies before a retail label can be bought.
+
 ## 2026-10-19 — Phase B, B1: the retail order list (`?type=retail-ship`)
 
 ### Work done

@@ -1,7 +1,7 @@
 const fetch = globalThis.fetch || require('node-fetch');
 const { requireUser } = require('./_auth')
 const { API_VERSION, getToken } = require('./_shopify')
-const { b2bShipItems, classifyRetailOrder, retailShipItems, shippingCharged } = require('../lib/ship-rules.js')
+const { b2bShipItems, classifyRetailOrder, retailShipItems, shippingCharged, packRetail, boxParcel } = require('../lib/ship-rules.js')
 const { fetchOpenRetailOrders } = require('./_retail')
 
 const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle']
@@ -116,7 +116,9 @@ module.exports = async function handler(req, res) {
           shipping_charged: shippingCharged(o).toFixed(2),
           shipping_title: o.shipping_lines.map(l => l.title).join(', '),
           shipping_address: o.address,
-          items: retailShipItems(o)
+          items: retailShipItems(o),
+          // B2: the one carton and the declared (billed) pounds; null for a HOLD order.
+          parcel: c.decision === 'LIST' ? boxParcel(packRetail(retailShipItems(o)).boxes[0]) : null
         })
       }
       return res.status(200).json({ orders: out, excluded })

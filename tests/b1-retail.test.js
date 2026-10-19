@@ -114,6 +114,8 @@ test('B1: ?type=retail-ship returns LIST and HOLD orders across pages and counts
   assert.equal(o.decision, 'LIST'); assert.equal(o.shipping_charged, '8.00'); assert.equal(o.delivery_method, 'SHIPPING')
   assert.equal(o.shipping_address.province, 'NY')
   assert.equal(r.payload.orders.find(x => x.order_name === '#7297').class, 'HI_AK_PR_APO')
+  assert.deepEqual(o.parcel, { length: 12, width: 8, height: 6, weight: 2 })         // B2: 2 x 12 oz
+  assert.equal(r.payload.orders.find(x => x.order_name === '#7297').parcel, null)   // HOLD: no carton
 })
 
 test('B1: a failed page fails the whole list (never a partial list)', async () => {
