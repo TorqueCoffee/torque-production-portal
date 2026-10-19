@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Retail review</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hepta+Slab:wght@600;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:#EDEAE0;color:#100000}
+.hd{background:#100000;display:flex;align-items:center;gap:16px;padding:0 20px;height:56px}
+.logo{font-family:'Hepta Slab',Georgia,serif;font-weight:800;font-size:15px;color:#FFFEF0;white-space:nowrap}
+.tabs{display:flex;gap:6px;flex:1;overflow:hidden}
+.tab{padding:8px 14px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid rgba(255,254,240,.3);color:rgba(255,254,240,.85);background:rgba(255,254,240,.08);white-space:nowrap}
+.tab.on{background:#E58825;border-color:#E58825;color:#100000}
+.card{background:#FFFEF0;border:2px solid #100000;border-radius:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:999px;border:2px solid #100000;background:#FFFEF0;color:#100000;font:700 13px 'Helvetica Neue',Helvetica,Arial,sans-serif;white-space:nowrap}
+.btn.pri{background:#E58825;min-height:52px;padding:0 28px;font-size:15px}
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1.5px solid #100000;background:#EDEAE0;white-space:nowrap}
+.c-warn{background:#FDF3DC;color:#5C3311;border-color:#5C3311}
+.c-bad{background:#FBE7E4;color:#7a2a20;border-color:#7a2a20}
+.row{display:grid;grid-template-columns:84px 110px 1fr 90px 110px 330px;align-items:center;column-gap:12px;min-height:62px;padding:0 16px;border-top:1px solid rgba(16,0,0,.12);font-size:13px}
+.row.flag{background:#FDF3DC}
+.row.err{background:#FBE7E4}
+.th{min-height:40px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5E5148;border-top:0}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.mut{color:#5E5148}
+</style>
+</helmet>
+<div style="width:1180px;box-sizing:border-box;min-height:1200px;display:flex;flex-direction:column">
+  <div class="hd">
+    <div class="logo">Torque Production Portal</div>
+    <div class="tabs">
+      <span class="tab">Bagging</span><span class="tab">Lbs Needed</span><span class="tab">Roasting</span><span class="tab">Add Order</span><span class="tab">Blends</span><span class="tab">B2B</span><span class="tab">Ship</span><span class="tab on">Retail</span><span class="tab">Subscriptions</span><span class="tab">Mix Guide</span>
+    </div>
+  </div>
+  <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+    <div class="card" style="padding:12px 18px;background:#FFF5D2;font-size:13px"><b>This screen only opens when an order has no UPS rate.</b> If every order has a rate, Buy and print goes straight to buying and this screen never shows.</div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <h1 style="margin:0;font-family:'Hepta Slab',Georgia,serif;font-size:28px;font-weight:800;flex:1">{{exN}} of {{totalN}} has no rate</h1>
+      <span class="chip">{{okN}} quoted, ready</span>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div class="row th"><span>Order</span><span>Ship to</span><span>Coffees</span><span>Carton</span><span class="num">UPS quote</span><span>Why it is here · what to do</span></div>
+      <sc-for list="{{rows}}" as="row" hint-placeholder-count="3">
+        <div class="{{row.cls}}">
+          <b>{{row.order}}</b>
+          <span>{{row.ship}}</span>
+          <span style="display:flex;flex-direction:column;gap:2px;padding:8px 0"><sc-for list="{{row.lines}}" as="ln" hint-placeholder-count="2"><span><b>{{ln.q}}×</b> {{ln.sz}} · {{ln.name}}</span></sc-for></span>
+          <span>{{row.carton}}</span>
+          <span class="num"><b>{{row.quote}}</b></span>
+          <span style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+            <span class="{{row.chipCls}}">{{row.chip}}</span>
+            <span style="display:flex;gap:8px">
+              <sc-if value="{{row.hasQuote}}" hint-placeholder-val="{{ true }}"><button class="btn" style="min-height:36px;padding:0 14px;background:#FFF5D2">Buy anyway</button><button class="btn" style="min-height:36px;padding:0 14px">Leave out</button></sc-if>
+              <sc-if value="{{row.noQuote}}" hint-placeholder-val="{{ false }}"><button class="btn" style="min-height:36px;padding:0 14px">Open in Shopify</button><button class="btn" style="min-height:36px;padding:0 14px">Re-rate</button></sc-if>
+            </span>
+          </span>
+        </div>
+      </sc-for>
+    </div>
+    <div class="card" style="display:flex;align-items:center;gap:20px;padding:12px 18px;min-height:72px;background:#FFF5D2">
+      <div style="flex:1;font-size:14px"><b>{{buyN}} will be bought</b> <span class="mut">· the {{exN}} above are decided per row. Anything left out returns to the queue.</span></div>
+      <button class="btn pri">Buy and print {{buyN}} labels · {{buyTotal}}</button>
+    </div>
+    <div class="mut" style="font-size:12px;max-width:980px">A row lands here only when Shippo returns no UPS Ground rate. Orders with a rate are never listed; quote amounts are not judged against a norm in this version. A row with no rate is never bought on another service or carrier. If UPS charges more at purchase than the quote, that row is not bought and shows on the Buying screen.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mk = (a) => a.map((x, i) => ({key:'l' + i, q:x[0], sz:x[1], name:x[2]}));
+    const ex = [
+      {o:'#8301',s:'FL 32817',k:'12x8x6',q:null,l:mk([[4,'12oz','Malacara Rojo']]),why:'No rate · address not valid'}
+    ];
+    const inRange = [6.43,8.62,8.80,9.94,8.08,13.00,17.11,16.18,10.18,12.68,9.38,8.51,18.06,16.36];
+    const usd = (n) => '$' + n.toFixed(2);
+    const rows = ex.map((d) => ({
+      key:d.o, cls: d.q === null ? 'row err' : 'row flag', order:d.o, ship:d.s, lines:d.l, carton:d.k,
+      quote: d.q === null ? 'none' : usd(d.q), chip:d.why, chipCls: d.q === null ? 'chip c-bad' : 'chip c-warn',
+      hasQuote: d.q !== null, noQuote: d.q === null
+    }));
+    const flaggedWithQuote = ex.filter((d) => d.q !== null);
+    const total = inRange.reduce((a, b) => a + b, 0) + flaggedWithQuote.reduce((a, d) => a + d.q, 0);
+    return { rows, exN: ex.length, totalN: inRange.length + ex.length, okN: inRange.length, buyN: inRange.length + flaggedWithQuote.length, buyTotal: usd(total) };
+  }
+}
+</script>
+</body>
+</html>

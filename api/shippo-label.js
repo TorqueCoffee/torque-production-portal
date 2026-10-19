@@ -25,7 +25,7 @@
 const fetch = globalThis.fetch || require('node-fetch')
 const { requireUser, supabaseHeaders } = require('./_auth')
 const { fetchOrder } = require('./_shopify')
-const { b2bShipItems, packB2BItems, boxParcel, packSignature } = require('../lib/ship-rules.js')
+const { b2bShipItems, packB2BItems, boxParcel, packSignature, UPS_LINE_MAX, cleanText, isPoBox } = require('../lib/ship-rules.js')
 
 const SHIPPO_BASE = 'https://api.goshippo.com'
 const SERVICE_TOKEN = 'ups_ground'   // NOT ups_ground_saver
@@ -48,15 +48,11 @@ const ORIGIN = {
 // customer email comes from Shopify on fulfillment; a recipient email makes Shippo send its
 // own notice). No phone on the order -> Torque's phone (R5).
 const ADDRESS_FIELDS = ['name', 'company', 'street1', 'street2', 'city', 'state', 'zip', 'country', 'phone']
-const UPS_LINE_MAX = 35      // UPS address line limit
 const RAW_FIELD_MAX = 200    // anything longer is not an address; refuse before normalizing it
 // Cutting these would misdeliver the box, so a line that's too long is refused, not cut.
 const STRICT_FIELDS = { street1: 'Address line 1', street2: 'Address line 2', city: 'City' }
-// NFC text for the label. Invisible format characters (zero-width, soft hyphen, bidi marks)
-// are dropped; control characters become spaces.
-function cleanText(v) {
-  return v.normalize('NFC').replace(/\p{Cf}/gu, '').replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim()
-}
+// UPS_LINE_MAX, cleanText and isPoBox live in lib/ship-rules.js: the retail queue (B1) runs the
+// same checks at list time (addressProblem), so an address it lets through is one this accepts.
 // -> { address } or { error }
 function recipientAddress(a) {
   if (!a || typeof a !== 'object' || Array.isArray(a)) return { error: 'address_to required' }
@@ -76,12 +72,6 @@ function recipientAddress(a) {
   if (!out.country) out.country = 'US'
   return { address: out }
 }
-// UPS does not deliver to P.O. boxes: "P.O. Box 12", "PO-Box 7", "P/O Box 5", "PO BOX 9",
-// "POB 12", "P.O.B. 12", "Po Bx 4", "P0 Box 1", "Post Office Box 5", "Postal Box 9". A box
-// word must be followed by a number, so a street named "Pobox Way" still ships. Tested on
-// the NFKC form of the cleaned line.
-const PO_BOX = /\b(?:p[\s.\-\/]*[o0][\s.\-\/]*b(?:o?x)?\.?|post(?:al)?\s+(?:office\s+)?box)\s*(?:#|no\.?)?\s*\d/i
-const isPoBox = line => PO_BOX.test(line.normalize('NFKC'))
 // The confirmed price, as the page sends it (Number(...).toFixed(2)).
 const AMOUNT_RX = /^\d{1,4}(\.\d{1,2})?$/
 

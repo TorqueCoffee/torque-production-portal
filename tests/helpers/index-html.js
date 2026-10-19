@@ -19,15 +19,15 @@ function inlineScripts(html = fs.readFileSync(INDEX, 'utf8')) {
   return out
 }
 
-// Source text of one top-level `function NAME(` or `const NAME =` declaration. Bracket
+// Source text of one top-level `function NAME(`, `const NAME =` or `let NAME =` declaration. Bracket
 // depth is tracked across (), [] and {}: a function ends when its body brace closes, a
 // const at the first newline outside any bracket. Good enough for the plain declarations
 // tested here (no unbalanced brackets inside strings).
 function declarationSource(src, name) {
-  const rx = new RegExp(`^(?:async\\s+)?function\\s+${name}\\s*\\(|^const\\s+${name}\\s*=`, 'm')
+  const rx = new RegExp(`^(?:async\\s+)?function\\s+${name}\\s*\\(|^(?:const|let)\\s+${name}\\s*=`, 'm')
   const m = rx.exec(src)
   if (!m) throw new Error(`declaration not found in index.html: ${name}`)
-  const isFn = !m[0].startsWith('const')
+  const isFn = !/^(const|let)/.test(m[0])
   let depth = 0, inBody = false
   for (let i = m.index; i < src.length; i++) {
     const c = src[i]

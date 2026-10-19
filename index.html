@@ -285,6 +285,41 @@ td select{padding:6px 8px;border:2px solid var(--black);border-radius:6px;font-s
 .help-note{background:var(--cream-hi);border:2px solid var(--black);border-radius:var(--r-card);padding:14px 18px;font-size:13px;line-height:1.5;color:var(--black)}
 .stale-detail{font-size:12px;margin-top:4px;opacity:.85}
 
+/* RETAIL (B1 queue; docs/design/retail-ui/Main.dc.html) */
+.mut{color:var(--muted)}
+.rt-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.rt-title h2{margin:0 auto 0 0;font-family:var(--font-display);font-size:24px;font-weight:800}
+.rt-chip{display:inline-block;padding:3px 9px;border-radius:var(--r-pill);font-size:11px;font-weight:700;border:1.5px solid var(--black);background:var(--cream-dark);line-height:1.3}
+.rt-chip-warn{background:var(--amber-light);color:var(--orange-dark);border-color:var(--orange-dark)}
+.rt-chip-bad{background:var(--red-light);color:var(--red-ink);border-color:var(--red-ink)}
+.rt-bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 18px;margin-bottom:14px;background:var(--cream-hi);border:2px solid var(--black);border-radius:var(--r-card)}
+/* The count and the 25-cap message stay in view while ticking further down (not on a phone,
+   where the sticky header already takes a third of the screen). --rt-top = header height. */
+@media(min-width:700px){.rt-bar{position:sticky;top:var(--rt-top,0);z-index:5}}
+.rt-bar-text{flex:1;min-width:220px;font-size:14px}
+.rt-msg{margin-top:4px;font-size:12px;font-weight:700;color:var(--red-ink)}
+.rt-small{font-size:12px;margin-top:4px}
+.rt-buy{min-height:48px;padding:0 24px;font-size:14px}
+.rt-buy:disabled,.rt-title .btn:disabled,.rt-hold-head .btn:disabled{opacity:.4;cursor:not-allowed}
+.rt-tap{min-height:44px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+/* Fits an iPad in portrait (768 wide) without hiding the Check column; narrower scrolls in its box. */
+.rt-table{min-width:704px}
+.rt-row{display:grid;grid-template-columns:44px 76px 96px minmax(200px,1fr) 72px minmax(140px,230px);align-items:center;column-gap:10px;min-height:46px;padding:0 12px;border-top:1px solid var(--hairline);font-size:13px}
+.rt-row.on{background:var(--cream-hi)}
+.rt-row.dis{background:#F6F0F0;color:#5E5148}
+.rt-th{min-height:40px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5E5148;border-top:0}
+.rt-cell-check{display:flex;align-items:center;justify-content:center;min-height:44px;cursor:pointer}
+.rt-row input[type=checkbox]{width:22px;height:22px;accent-color:var(--black)}
+.rt-lines{display:flex;flex-direction:column;gap:2px;padding:7px 0}
+.rt-note{font-style:italic;color:var(--orange-dark)}
+.rt-chips{display:flex;gap:6px;flex-wrap:wrap}
+.rt-grp{display:flex;align-items:center;gap:12px;min-height:34px;padding:0 16px;background:var(--cream-dark);border-top:1px solid rgba(16,0,0,.25);font-size:12px;font-weight:700}
+.rt-hold{background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);margin-bottom:14px;overflow:hidden}
+.rt-hold-head{display:flex;align-items:center;gap:14px;padding:10px 18px;min-height:56px;flex-wrap:wrap;font-size:13px}
+.rt-hold-row{display:grid;grid-template-columns:76px 96px 1fr auto;gap:12px;align-items:center;padding:10px 18px;border-top:1px solid var(--hairline);font-size:13px}
+.rt-hold-why{color:var(--red-ink)}
+@media(max-width:640px){.rt-hold-row{grid-template-columns:70px 1fr}}
+
 /* SHIP */
 .ship-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .ship-bar-title{font-size:13px;font-weight:700;color:var(--black)}
@@ -307,7 +342,7 @@ td select{padding:6px 8px;border:2px solid var(--black);border-radius:6px;font-s
 .ship-step{font-size:13px;color:var(--black);line-height:1.5}
 
 @media print{
-  .header,.toolbar,#bagging,#lbsneeded,#addorder,#blends,#b2b,#ship,#help,.sort-bar,.bag-toolbar{display:none!important}
+  .header,.toolbar,#bagging,#lbsneeded,#addorder,#blends,#b2b,#ship,#retail,#help,.sort-bar,.bag-toolbar{display:none!important}
   #roasting{display:block!important;padding:0}
   .summary-row{display:none}
   body{background:white}
@@ -427,6 +462,7 @@ html.tq-locked body>*:not(#tqGate){display:none!important}
     <button class="tab" data-tab="blends" onclick="switchTab('blends',this)">Blends</button>
     <button class="tab" data-tab="b2b" onclick="switchTab('b2b',this)">B2B</button>
     <button class="tab" data-tab="ship" onclick="switchTab('ship',this)">Ship</button>
+    <button class="tab" data-tab="retail" onclick="switchTab('retail',this)">Retail</button>
     <button class="tab" data-tab="schedule" onclick="switchTab('schedule',this)">Subscriptions</button>
     <button class="tab" data-tab="mix" onclick="switchTab('mix',this)">Mix Guide</button>
   </div>
@@ -584,6 +620,11 @@ html.tq-locked body>*:not(#tqGate){display:none!important}
   <div id="shipBody"><div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">Loading shippable B2B orders…</div></div>
 </div>
 
+
+<!-- RETAIL (B1: the queue) -->
+<div id="retail" class="view">
+  <div id="retailBody"></div>
+</div>
 
 <!-- SCHEDULE -->
 <div id="schedule" class="view">
@@ -853,6 +894,7 @@ function switchTab(tab, el) {
   if (tab === 'blends') renderBlendEditor()
   if (tab === 'b2b') loadB2B()
   if (tab === 'ship') initShipTab()
+  if (tab === 'retail') initRetailTab()
   if (tab === 'schedule') loadSchedule()
   if (tab === 'mix') renderMixGuide()
 }
@@ -3047,6 +3089,311 @@ function applySubscriptionSubstitution(items) {
   return result
 }
 
+
+// ---------------------------------------------------------------------------------------
+// RETAIL tab (B1): the queue. Open retail orders from /api/shopify-token?type=retail-ship,
+// grouped by carton (docs/RETAIL_UI_HANDOFF.md section 3.1). Nothing is selected by default
+// (D1); Select all ticks the ready rows up to the batch cap. Buying is B3a: until then the
+// Buy button stays off (RETAIL_BUY_ENABLED). The server classifies and packs; this only shows.
+// ---------------------------------------------------------------------------------------
+const RETAIL_MAX_BATCH = 25
+const RETAIL_BUY_ENABLED = false
+// Show an "N days old" chip from this many days. null = no chip; Andy has not set N yet.
+const RETAIL_AGE_CHIP_DAYS = null
+const RETAIL_STALE_MS = 10 * 60 * 1000   // reopening the tab after this reloads the list
+const RETAIL_CARTONS = ['8x6x3', '12x8x6', '14x10x10']
+const RETAIL_CARTON_DESC = {
+  '8x6x3': '1 × 12oz',
+  '12x8x6': '2 to 4 × 12oz, 2lb or 5lb single, 2 × 2lb, 12oz + 2lb',
+  '14x10x10': 'Everything else, one label'
+}
+const RETAIL_HOLD_TEXT = {
+  NOT_UNFULFILLED: 'Partly fulfilled or on hold in Shopify',
+  TOO_MANY_LINES: 'More than 30 lines',
+  DRAFT_CUSTOM_LINE: 'Draft order with a custom line',
+  NO_US_ADDRESS: 'No US address',
+  HI_AK_PR_APO: 'Hawaii, Alaska, Puerto Rico or APO',
+  CUSTOM_LINE_NO_VARIANT: 'A line is not a catalog product',
+  NON_TORQUE_VENDOR: 'A line is not a Torque product',
+  NO_WEIGHT: 'A line has no weight',
+  OVER_30_BAGS: 'Over 30 × 12oz by weight'
+}
+// NOT_UNFULFILLED orders: Shopify's fulfillment status (the server's `detail`) says which.
+const RETAIL_HOLD_DETAIL_TEXT = {
+  PARTIALLY_FULFILLED: 'Partly fulfilled in Shopify', ON_HOLD: 'On hold in Shopify', IN_PROGRESS: 'Fulfillment in progress in Shopify',
+  SCHEDULED: 'Fulfillment scheduled in Shopify', PENDING_FULFILLMENT: 'Fulfillment pending in Shopify'
+}
+const RETAIL_EXCLUDED_TEXT = {
+  PICKUP: 'pickup', LOCAL_DELIVERY: 'local delivery', COMPANY_B2B: 'B2B', CANCELLED: 'cancelled', NO_SHIPPING: 'no shipping',
+  FELLOW: 'Fellow', FELLOW_DROPS_COMPANY: 'Fellow Drops', SIIP_FULFILLMENT: 'Siip', REFUNDED: 'refunded', NOT_OPEN: 'not open'
+}
+let retailOrders = []        // LIST and HOLD orders from the server
+let retailExcluded = {}      // class -> count, orders the server never lists
+let retailLoadedAt = 0
+let retailLoadSeq = 0        // a slower, older load never overwrites a newer one
+let retailLoading = false
+let retailError = ''
+let retailSel = new Set()    // order_id of ticked rows (ready rows only)
+let retailMsg = ''
+let retailShowHold = false
+
+// The carton the server packed this order into ("8x6x3"), or null.
+function retailCartonLabel(o) {
+  const p = o && o.parcel
+  const c = p ? `${p.length}x${p.width}x${p.height}` : ''
+  return RETAIL_CARTONS.includes(c) ? c : null
+}
+// The size of one line for the queue: xPods and the 250 g box (both weigh as 12 oz but are a
+// different thing to pick), then the weight R10 resolved, then the variant text.
+function retailSizeLabel(it) {
+  const t = `${it.product_name || ''} ${it.variant_title || ''}`
+  const w = Number(it.weight_lb)
+  if (w === 0.75 && /\bx\s*pods?\b/i.test(t)) { const n = (it.variant_title || '').match(/^\s*(\d+)\s*x\s*pods?\b/i); return n ? `${n[1]} xPods` : 'xPods' }
+  if (w === 0.75 && /\b250\s*g\b/i.test(t)) return '250g'
+  if (w === 0.75) return '12oz'
+  if (w === 2) return '2lb'
+  if (w === 5) return '5lb'
+  if (it.variant_title && it.variant_title !== 'Default') return it.variant_title
+  return w > 0 ? `${w}lb` : '?'
+}
+// Whole days since the order was created; null if the date is missing or unreadable.
+function retailAgeDays(o, nowMs) {
+  const t = Date.parse(o && o.created_at)
+  return Number.isFinite(t) ? Math.max(0, Math.floor((nowMs - t) / 86400000)) : null
+}
+// Sort the server's orders into the queue's groups. An order with a fix, or one the server
+// could not size, is never ready: it cannot be ticked, so it can never reach a purchase.
+function retailGroups(orders) {
+  const g = { fix: [], ready: { '8x6x3': [], '12x8x6': [], '14x10x10': [] }, hold: [] }
+  for (const o of orders || []) {
+    if (o.decision === 'HOLD') { g.hold.push(o); continue }
+    if (o.decision !== 'LIST') continue
+    const carton = retailCartonLabel(o)
+    if (o.fix) g.fix.push({ order: o, why: o.fix.text })
+    else if (!carton) g.fix.push({ order: o, why: 'No carton size for this order. Tell Andy' })
+    else g.ready[carton].push(o)
+  }
+  return g
+}
+function retailReadyOrders(g) {
+  return RETAIL_CARTONS.flatMap(c => g.ready[c])
+}
+// Select all: the oldest ready orders first, never more than a batch.
+function retailSelectAllIds(g) {
+  return retailReadyOrders(g)
+    .slice().sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')))
+    .slice(0, RETAIL_MAX_BATCH).map(o => o.order_id)
+}
+function retailBilledLb(orders) {
+  return orders.reduce((s, o) => s + (o.parcel && Number.isInteger(o.parcel.weight) ? o.parcel.weight : 0), 0)
+}
+
+// Subscription lines name the plan, not the coffee: swap in this week's coffee from the
+// Schedule, through the same function Bagging uses. One call over every line. That function also
+// shows or hides the "no coffee selected" alert on the Subscriptions tab from the lines it is given;
+// that alert belongs to Bagging's full order list, so it is put back as it was.
+function retailApplySubscriptions(orders) {
+  const flat = []
+  orders.forEach((o, oi) => (o.items || []).forEach((it, ii) => flat.push({ ...it, _o: oi, _i: ii })))
+  const alertEl = document.getElementById('subMissingAlert')
+  const was = alertEl && { display: alertEl.style.display, text: alertEl.textContent }
+  const done = applySubscriptionSubstitution(flat)
+  if (was) { alertEl.style.display = was.display; alertEl.textContent = was.text }
+  orders.forEach(o => { o.items = [] })
+  for (const it of done) {
+    const { _o, _i, ...item } = it
+    orders[_o].items[_i] = item
+  }
+  return orders
+}
+async function ensureScheduleData() {
+  if (scheduleData.length) return
+  try {
+    const { data, error } = await sb.from('subscription_schedule').select('*').order('week_start', { ascending: true })
+    if (error) throw error
+    scheduleData = data || []
+  } catch (e) {
+    console.warn('subscription_schedule unavailable:', e.message || e)   // subscription lines keep the plan name
+  }
+}
+
+function initRetailTab() {
+  if (retailLoading) return
+  if (!retailLoadedAt || Date.now() - retailLoadedAt > RETAIL_STALE_MS) loadRetailOrders()
+  else renderRetail()
+}
+async function loadRetailOrders() {
+  const seq = ++retailLoadSeq
+  retailLoading = true
+  retailError = ''
+  renderRetail()
+  try {
+    if (!SHIP_RULES_LOADED) throw new Error("The shipping rules didn't load (/lib/ship-rules.js). Reload the page; if it repeats, tell Andy.")
+    const res = await apiFetch('/api/shopify-token?type=retail-ship')
+    const data = await res.json()
+    if (!res.ok || data.error) throw new Error(data.error || `status ${res.status}`)
+    await ensureScheduleData()
+    if (seq !== retailLoadSeq) return
+    retailOrders = retailApplySubscriptions(data.orders || [])
+    retailExcluded = data.excluded || {}
+    retailLoadedAt = Date.now()
+    // Keep only ticks that are still ready rows after the refresh.
+    const ready = new Set(retailReadyOrders(retailGroups(retailOrders)).map(o => o.order_id))
+    retailSel = new Set([...retailSel].filter(id => ready.has(id)))
+    retailMsg = ''
+  } catch (err) {
+    if (seq !== retailLoadSeq) return
+    retailError = err.message || String(err)
+  }
+  retailLoading = false
+  renderRetail()
+}
+
+function retailToggle(id) {
+  const ready = new Set(retailReadyOrders(retailGroups(retailOrders)).map(o => o.order_id))
+  if (!ready.has(id)) return
+  if (retailSel.has(id)) { retailSel.delete(id); retailMsg = '' }
+  else if (retailSel.size >= RETAIL_MAX_BATCH) retailMsg = `A batch is ${RETAIL_MAX_BATCH} orders at most. Untick one first.`
+  else { retailSel.add(id); retailMsg = '' }
+  renderRetail()
+}
+function retailToggleAll() {
+  const g = retailGroups(retailOrders)
+  const ids = retailSelectAllIds(g)
+  if (ids.length && ids.every(id => retailSel.has(id)) && retailSel.size === ids.length) {
+    retailSel = new Set(); retailMsg = ''
+  } else {
+    retailSel = new Set(ids)
+    const n = retailReadyOrders(g).length
+    retailMsg = n > RETAIL_MAX_BATCH ? `Selected the oldest ${RETAIL_MAX_BATCH} of ${n} ready. A batch is ${RETAIL_MAX_BATCH} orders at most.` : ''
+  }
+  renderRetail()
+}
+function retailToggleHold() {
+  retailShowHold = !retailShowHold
+  renderRetail()
+}
+
+function retailChip(kind, text) {
+  return `<span class="rt-chip rt-chip-${kind}">${escHtml(text)}</span>`
+}
+function retailChips(o, fixText) {
+  const chips = []
+  if ((o.flags || []).includes('REPLACEMENT')) chips.push(retailChip('bad', `REPLACEMENT · ${(o.discount_codes || []).join(', ') || 'reason not recorded'}`))
+  if (o.note) chips.push(retailChip('warn', 'NOTE · read before shipping'))
+  const age = retailAgeDays(o, Date.now())
+  if (RETAIL_AGE_CHIP_DAYS != null && age != null && age >= RETAIL_AGE_CHIP_DAYS) chips.push(retailChip('warn', `${age} days old`))
+  if ((o.items || []).some(i => i.note)) chips.push(retailChip('warn', 'No coffee set this week. Set it in Subscriptions'))
+  if (fixText) chips.push(retailChip('bad', fixText))
+  return chips.join('')
+}
+function retailShipTo(o) {
+  const a = o.shipping_address || {}
+  return [a.province, a.zip].filter(Boolean).join(' ') || 'no address'
+}
+function retailLines(o) {
+  const lines = (o.items || []).map(it =>
+    `<span><b>${escHtml(it.qty)}×</b> ${escHtml(retailSizeLabel(it))} · ${escHtml(it.product_name)}</span>`).join('')
+  const note = o.note ? `<span class="rt-note">Note: ${escHtml(o.note.length > 200 ? o.note.slice(0, 200) + '…' : o.note)}</span>` : ''
+  return lines + note
+}
+// "Open in Shopify" for an order, only when the server's link is a web link.
+function retailShopifyLink(o) {
+  const href = safeUrl(o.admin_url)
+  return href ? `<a class="btn btn-secondary btn-sm rt-tap" href="${escHtml(href)}" target="_blank" rel="noopener">Open in Shopify</a>` : ''
+}
+function retailRow(o, opts) {
+  const id = escHtml(o.order_id)
+  const on = !opts.fix && retailSel.has(o.order_id)
+  const box = `<input type="checkbox" data-id="${id}" ${on ? 'checked' : ''} ${opts.fix ? 'disabled' : ''} onchange="retailToggle(this.dataset.id)" aria-label="Select ${escHtml(o.order_name)}">`
+  return `<div class="rt-row${on ? ' on' : ''}${opts.fix ? ' dis' : ''}">
+    <label class="rt-cell-check">${box}</label>
+    <b>${escHtml(o.order_name)}</b>
+    <span>${escHtml(retailShipTo(o))}</span>
+    <span class="rt-lines">${retailLines(o)}</span>
+    <span>${escHtml(opts.fix ? '—' : retailCartonLabel(o))}</span>
+    <span class="rt-chips">${retailChips(o, opts.fix)}${opts.fix ? retailShopifyLink(o) : ''}</span>
+  </div>`
+}
+
+function renderRetail() {
+  const body = document.getElementById('retailBody')
+  if (!body) return
+  if (retailError) {
+    body.innerHTML = `<div class="alert alert-red">Couldn't load retail orders: ${escHtml(retailError)} <button class="btn btn-secondary btn-sm rt-tap" onclick="loadRetailOrders()">Try again</button></div>`
+    return
+  }
+  if (!retailLoadedAt) {
+    body.innerHTML = '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">Loading retail orders…</div>'
+    return
+  }
+  const g = retailGroups(retailOrders)
+  const ready = retailReadyOrders(g)
+  const sel = ready.filter(o => retailSel.has(o.order_id))
+  const allIds = retailSelectAllIds(g)
+  const allOn = allIds.length > 0 && allIds.every(id => retailSel.has(id)) && retailSel.size === allIds.length
+  const synced = new Date(retailLoadedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+
+  const title = `<div class="rt-title">
+    <h2>Retail shipping</h2>
+    <span class="rt-chip">${ready.length} ready</span>
+    <span class="rt-chip${g.fix.length ? ' rt-chip-bad' : ''}">${g.fix.length} need a fix</span>
+    <span class="rt-chip">${g.hold.length} on hold</span>
+    <span class="rt-chip">Synced ${escHtml(synced)}</span>
+    <button class="btn btn-secondary btn-sm rt-tap" onclick="loadRetailOrders()" ${retailLoading ? 'disabled' : ''}>${retailLoading ? 'Refreshing…' : 'Refresh orders'}</button>
+  </div>`
+
+  const buyLabel = `Buy and print ${sel.length} label${sel.length !== 1 ? 's' : ''}`
+  const bar = `<div class="rt-bar">
+    <div class="rt-bar-text"><b>${sel.length} selected</b> <span class="mut">of ${ready.length} ready · ${retailBilledLb(sel)} billed lb</span>
+      ${retailMsg ? `<div class="rt-msg">${escHtml(retailMsg)}</div>` : ''}
+      ${RETAIL_BUY_ENABLED ? '' : '<div class="mut rt-small">Buying turns on in the next release. This screen only lists and selects.</div>'}
+    </div>
+    <button class="btn btn-primary rt-buy" ${RETAIL_BUY_ENABLED && sel.length ? '' : 'disabled'}>${buyLabel}</button>
+  </div>`
+
+  const groupRow = (t, d) => `<div class="rt-grp"><span>${escHtml(t)}</span><span class="mut" style="font-weight:400">${escHtml(d)}</span></div>`
+  let rows = ''
+  if (g.fix.length) rows += groupRow(`Needs a fix · ${g.fix.length}`, 'Cannot be selected until corrected in Shopify') + g.fix.map(f => retailRow(f.order, { fix: f.why })).join('')
+  for (const c of RETAIL_CARTONS) {
+    const list = g.ready[c]
+    if (!list.length) continue
+    rows += groupRow(`Pack in ${c} · ${list.length} order${list.length !== 1 ? 's' : ''}`, RETAIL_CARTON_DESC[c]) + list.map(o => retailRow(o, {})).join('')
+  }
+  const head = `<div class="rt-row rt-th">
+    <label class="rt-cell-check"><input type="checkbox" id="retailAll" ${allOn ? 'checked' : ''} ${ready.length ? '' : 'disabled'} onchange="retailToggleAll()" aria-label="Select all ready orders"></label>
+    <span>Order</span><span>Ship to</span><span>Coffees</span><span>Carton</span><span>Check</span>
+  </div>`
+  const table = ready.length || g.fix.length
+    ? `<div class="table-wrap"><div class="rt-table">${head}${rows}</div></div>`
+    : '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">No retail orders are waiting to ship.</div>'
+
+  const holdRows = g.hold.map(o => {
+    const why = (o.class === 'NOT_UNFULFILLED' && RETAIL_HOLD_DETAIL_TEXT[o.detail]) || RETAIL_HOLD_TEXT[o.class] || o.class
+    return `<div class="rt-hold-row"><b>${escHtml(o.order_name)}</b><span>${escHtml(retailShipTo(o))}</span><span class="rt-hold-why">${escHtml(why)}</span>${retailShopifyLink(o) || '<span></span>'}</div>`
+  }).join('')
+  const hold = `<div class="rt-hold">
+    <div class="rt-hold-head"><b>Hold (${g.hold.length})</b><span class="mut" style="flex:1">Not shipped, never partially.</span>
+      <button class="btn btn-secondary btn-sm rt-tap" onclick="retailToggleHold()" ${g.hold.length ? '' : 'disabled'}>${retailShowHold ? 'Hide hold list' : 'Show hold list'}</button></div>
+    ${retailShowHold && g.hold.length ? `<div class="rt-hold-list">${holdRows}</div>` : ''}
+  </div>`
+
+  const ex = Object.entries(retailExcluded).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${RETAIL_EXCLUDED_TEXT[k] || k}`).join(', ')
+  const foot = `<div class="mut rt-small">Pickup, B2B, cancelled and no-shipping orders never list.${ex ? ` Not listed right now: ${escHtml(ex)}.` : ''}</div>`
+
+  // Every render replaces every control: keep keyboard focus on the one just used (a ticked
+  // box, Select all, Show hold list), matched by its row id and handler.
+  const f = document.activeElement
+  const key = el => [el.tagName, el.getAttribute('data-id'), el.getAttribute('onclick') || el.getAttribute('onchange')].join('|')
+  const focused = f && f !== document.body && body.contains && body.contains(f) ? key(f) : null
+  body.innerHTML = title + bar + table + hold + foot
+  const all = document.getElementById('retailAll')
+  if (all) all.indeterminate = retailSel.size > 0 && !allOn
+  if (focused) { const el = [...body.querySelectorAll('input,button,a')].find(e => key(e) === focused); if (el) el.focus() }
+  // The sticky selection bar sits under the sticky header, whose height changes as it wraps.
+  const hd = document.querySelector && document.querySelector('.header')
+  if (hd && body.style) body.style.setProperty('--rt-top', `${hd.offsetHeight}px`)
+}
 
 
 // MIX GUIDE

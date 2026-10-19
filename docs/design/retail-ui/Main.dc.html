@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Retail queue</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hepta+Slab:wght@600;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:#EDEAE0;color:#100000}
+.hd{background:#100000;display:flex;align-items:center;gap:16px;padding:0 20px;height:56px}
+.logo{font-family:'Hepta Slab',Georgia,serif;font-weight:800;font-size:15px;color:#FFFEF0;white-space:nowrap}
+.tabs{display:flex;gap:6px;flex:1;overflow:hidden}
+.tab{padding:8px 14px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid rgba(255,254,240,.3);color:rgba(255,254,240,.85);background:rgba(255,254,240,.08);white-space:nowrap}
+.tab.on{background:#E58825;border-color:#E58825;color:#100000}
+.card{background:#FFFEF0;border:2px solid #100000;border-radius:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border-radius:999px;border:2px solid #100000;background:#FFFEF0;color:#100000;font:700 13px 'Helvetica Neue',Helvetica,Arial,sans-serif;white-space:nowrap}
+.btn.pri{background:#E58825;min-height:52px;padding:0 28px;font-size:15px}
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1.5px solid #100000;background:#EDEAE0;white-space:nowrap}
+.c-warn{background:#FDF3DC;color:#5C3311;border-color:#5C3311}
+.c-bad{background:#FBE7E4;color:#7a2a20;border-color:#7a2a20}
+.row{display:grid;grid-template-columns:44px 84px 130px 1fr 96px 230px;align-items:center;column-gap:12px;min-height:46px;padding:0 16px;border-top:1px solid rgba(16,0,0,.12);font-size:13px}
+.row.on{background:#FFF5D2}
+.row.dis{background:#F6F0F0;color:#5E5148}
+.th{min-height:40px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5E5148;border-top:0}
+.grp{display:flex;align-items:center;gap:12px;min-height:34px;padding:0 16px;background:#EDEAE0;border-top:1px solid rgba(16,0,0,.25);font-size:12px;font-weight:700}
+.mut{color:#5E5148}
+input[type=checkbox]{width:22px;height:22px;accent-color:#100000}
+</style>
+</helmet>
+<div style="width:1180px;box-sizing:border-box;min-height:1700px;display:flex;flex-direction:column">
+  <div class="hd">
+    <div class="logo">Torque Production Portal</div>
+    <div class="tabs">
+      <span class="tab">Bagging</span><span class="tab">Lbs Needed</span><span class="tab">Roasting</span><span class="tab">Add Order</span><span class="tab">Blends</span><span class="tab">B2B</span><span class="tab">Ship</span><span class="tab on">Retail</span><span class="tab">Subscriptions</span><span class="tab">Mix Guide</span>
+    </div>
+  </div>
+  <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+    <div class="card" style="display:flex;align-items:center;gap:16px;padding:10px 18px;background:#FDF3DC;border-color:#5C3311">
+      <div style="flex:1;font-size:13px"><b>Batch in progress:</b> 9 packed, 5 to go. Shown only when a batch was left open.</div>
+      <button class="btn">Resume batch</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <h1 style="margin:0;font-family:'Hepta Slab',Georgia,serif;font-size:28px;font-weight:800;flex:1">Retail shipping</h1>
+      <span class="chip">{{readyN}} ready</span>
+      <span class="chip c-bad">{{fixN}} need a fix</span>
+      <span class="chip">{{holdN}} on hold</span>
+      <span class="chip">Synced just now</span>
+      <button class="btn">Refresh orders</button>
+    </div>
+    <div class="card" style="display:flex;align-items:center;gap:20px;padding:12px 18px;min-height:72px;background:#FFF5D2">
+      <div style="flex:1;font-size:14px"><b>{{selN}} selected</b> <span class="mut">of {{readyN}} ready · {{lbTotal}} billed lb</span></div>
+      <button class="btn pri">Buy and print {{selN}} labels · ~{{estTotal}}</button>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div class="row th"><label style="display:flex;align-items:center"><input type="checkbox" checked="{{allSel}}" onChange="{{noop}}" aria-label="Select all ready orders"></label><span>Order</span><span>Ship to</span><span>Coffees</span><span>Carton</span><span>Check</span></div>
+      <sc-for list="{{rows}}" as="row" hint-placeholder-count="24">
+        <sc-if value="{{row.isGroup}}" hint-placeholder-val="{{ false }}">
+          <div class="grp"><span>{{row.title}}</span><span class="mut" style="font-weight:400">{{row.desc}}</span></div>
+        </sc-if>
+        <sc-if value="{{row.isRow}}" hint-placeholder-val="{{ true }}">
+          <div class="{{row.cls}}">
+            <input type="checkbox" checked="{{row.sel}}" disabled="{{row.dis}}" onChange="{{noop}}" aria-label="Select {{row.order}}">
+            <b>{{row.order}}</b>
+            <span>{{row.ship}}</span>
+            <span style="display:flex;flex-direction:column;gap:2px;padding:7px 0"><sc-for list="{{row.lines}}" as="ln" hint-placeholder-count="2"><span><b>{{ln.q}}×</b> {{ln.sz}} · {{ln.name}}</span></sc-for></span>
+            <span>{{row.carton}}</span>
+            <span style="display:flex;gap:6px;flex-wrap:wrap">
+              <sc-if value="{{row.chipRep}}" hint-placeholder-val="{{ false }}"><span class="chip c-bad">REPLACEMENT · {{row.repWhy}}</span></sc-if>
+              <sc-if value="{{row.chipNote}}" hint-placeholder-val="{{ false }}"><span class="chip c-warn">NOTE · read before shipping</span></sc-if>
+              <sc-if value="{{row.chipAge}}" hint-placeholder-val="{{ false }}"><span class="chip c-warn">{{row.age}}</span></sc-if>
+              <sc-if value="{{row.chipFix}}" hint-placeholder-val="{{ false }}"><span class="chip c-bad">{{row.fix}}</span></sc-if>
+            </span>
+          </div>
+        </sc-if>
+      </sc-for>
+    </div>
+    <div class="card" style="display:flex;align-items:center;gap:14px;padding:0 18px;min-height:56px">
+      <b style="font-size:14px">Hold ({{holdN}})</b>
+      <span class="mut" style="font-size:13px;flex:1">Not shipped, never partially. Reasons on the Hold board.</span>
+      <button class="btn">Show hold list</button>
+    </div>
+    <div class="mut" style="font-size:12px;max-width:980px">Chips appear only when they change what you do: REPLACEMENT, NOTE, age (older than the set number of days) and address problems. Rows marked [example] show a state the real orders above do not have. Quotes are fetched when you tap Buy and print; the Review screen opens only if an order has no rate. Pickup, B2B, cancelled and no-shipping orders never list.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":1700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mk = (a) => a.map((x, i) => ({key:'l' + i, q:x[0], sz:x[1], name:x[2]}));
+    const data = [
+      {o:'#8331',s:'CA 92104',k:'8x6x3',e:6.43,b:1,l:mk([[1,'12oz','Classicist subscription (coffee per weekly schedule)']])},
+      {o:'#7133',s:'TN 37217',k:'8x6x3',e:8.62,b:1,l:mk([[1,'12oz','La Mora']])},
+      {o:'#8255',s:'IL 60047',k:'8x6x3',e:8.80,b:1,l:mk([[1,'8 xPods','Dark Drop xPods']])},
+      {o:'#8291',s:'AZ 85622',k:'8x6x3',e:7.62,b:1,l:mk([[1,'12oz','Obata Cruz']]),rep:'Mis ship',off:1},
+      {o:'#8333',s:'NY 11418',k:'12x8x6',e:9.94,b:2,l:mk([[1,'12oz','Gum Drop'],[1,'12oz','BomBón']])},
+      {o:'#8322',s:'CA 92102',k:'12x8x6',e:8.08,b:3,l:mk([[1,'12oz','BomBón'],[1,'12oz','Worka Chelbessa'],[1,'12oz','Ntwari Natural']])},
+      {o:'#8301',s:'FL 32817',k:'12x8x6',e:14.27,b:4,l:mk([[4,'12oz','Malacara Rojo']])},
+      {o:'#8316',s:'MA 02445',k:'12x8x6',e:13.00,b:3,l:mk([[1,'2lb','Cocoa Drop']])},
+      {o:'#8289',s:'MD 20878',k:'12x8x6',e:17.11,b:6,l:mk([[1,'5lb','Dark Drop']])},
+      {o:'#8298',s:'IL 62510',k:'12x8x6',e:16.18,b:4,l:mk([[1,'12oz','Obata Cruz'],[1,'2lb','BomBón']])},
+      {o:'#8303',s:'OR 97365',k:'12x8x6',e:10.18,b:4,l:mk([[1,'12oz','Cocoa Drop'],[1,'12oz','Dark Drop'],[1,'2lb','San Augustine']])},
+      {o:'#7550',s:'TX 77406',k:'12x8x6',e:12.68,b:5,l:mk([[1,'2lb','BomBón plus'],[1,'2lb','Honey Drop']])},
+      {o:'#8306',s:'CO 80904',k:'12x8x6',e:9.38,b:3,l:mk([[1,'12oz','Honey Drop'],[1,'12oz','La Mora'],[1,'12oz','BomBón plus']])},
+      {o:'#[example]',s:'[City ST ZIP]',k:'12x8x6',e:9.00,b:2,l:mk([[2,'12oz','[coffee]']]),note:1,age:'5 days old',off:1,ex:1},
+      {o:'#8290',s:'CA 92123',k:'14x10x10',e:8.51,b:5,l:mk([[2,'12oz','BomBón plus'],[3,'12oz','BomBón']])},
+      {o:'#7388',s:'MA 01778',k:'14x10x10',e:18.06,b:7,l:mk([[2,'12oz','Nayarit Natural plus'],[2,'12oz','Cocoa Drop'],[3,'12oz','Dark Drop']])},
+      {o:'#8275',s:'OK 73025',k:'14x10x10',e:16.36,b:6,l:mk([[1,'12oz','Worka Chelbessa'],[1,'2lb','Nayarit Natural plus'],[1,'2lb','BomBón plus']])}
+    ];
+    const fixes = [
+      {o:'#[example]',s:'[City ST ZIP]',k:'—',l:mk([[1,'12oz','[coffee]']]),fix:'P.O. box · UPS cannot deliver. Fix in Shopify'},
+      {o:'#[example]',s:'[City ST ZIP]',k:'—',l:mk([[2,'12oz','[coffee]']]),fix:'Street line over 35 characters. Shorten in Shopify'}
+    ];
+    const desc = {'8x6x3':'1 × 12oz','12x8x6':'2 to 4 × 12oz, 2lb or 5lb single, 2 × 2lb, 12oz + 2lb','14x10x10':'Everything else, one label'};
+    const usd = (n) => '$' + n.toFixed(0);
+    const rows = [];
+    let selN = 0, est = 0, lb = 0, ready = 0;
+    rows.push({key:'gfix', isGroup:true, isRow:false, title:'Needs a fix · ' + fixes.length, desc:'Cannot be selected until corrected in Shopify'});
+    fixes.forEach((d, i) => rows.push({key:'fx' + i, isGroup:false, isRow:true, cls:'row dis', sel:false, dis:true, order:d.o, ship:d.s, lines:d.l, carton:d.k, chipRep:false, chipNote:false, chipAge:false, chipFix:true, fix:d.fix, repWhy:'', age:''}));
+    ['8x6x3','12x8x6','14x10x10'].forEach((k) => {
+      const items = data.filter((d) => d.k === k);
+      rows.push({key:'g' + k, isGroup:true, isRow:false, title:'Pack in ' + k + ' · ' + items.length + ' orders', desc:desc[k]});
+      items.forEach((d) => {
+        const sel = !d.off;
+        if (!d.ex) ready++;
+        if (sel) { selN++; est += d.e; lb += d.b; }
+        rows.push({key:d.o + d.s, isGroup:false, isRow:true, cls: sel ? 'row on' : 'row', sel, dis:false, order:d.o, ship:d.s, lines:d.l, carton:d.k, chipRep: !!d.rep, repWhy:d.rep || '', chipNote: !!d.note, chipAge: !!d.age, age:d.age || '', chipFix:false, fix:''});
+      });
+    });
+    return { rows, selN, readyN: ready, fixN: fixes.length, holdN: 6, estTotal: usd(est), lbTotal: lb, allSel:false, noop: () => {} };
+  }
+}
+</script>
+</body>
+</html>

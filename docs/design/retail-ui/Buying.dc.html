@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Retail buy and print</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hepta+Slab:wght@600;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:#EDEAE0;color:#100000}
+.hd{background:#100000;display:flex;align-items:center;gap:16px;padding:0 20px;height:56px}
+.logo{font-family:'Hepta Slab',Georgia,serif;font-weight:800;font-size:15px;color:#FFFEF0;white-space:nowrap}
+.tabs{display:flex;gap:6px;flex:1;overflow:hidden}
+.tab{padding:8px 14px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid rgba(255,254,240,.3);color:rgba(255,254,240,.85);background:rgba(255,254,240,.08);white-space:nowrap}
+.tab.on{background:#E58825;border-color:#E58825;color:#100000}
+.card{background:#FFFEF0;border:2px solid #100000;border-radius:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:999px;border:2px solid #100000;background:#FFFEF0;color:#100000;font:700 13px 'Helvetica Neue',Helvetica,Arial,sans-serif;white-space:nowrap}
+.btn.pri{background:#E58825}
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1.5px solid #100000;background:#EDEAE0;white-space:nowrap}
+.c-ok{background:#E3F2E6;color:#0F5A29;border-color:#0F5A29}
+.c-warn{background:#FDF3DC;color:#5C3311;border-color:#5C3311}
+.c-bad{background:#FBE7E4;color:#7a2a20;border-color:#7a2a20}
+.row{display:grid;grid-template-columns:84px 110px 1fr 90px 120px 300px;align-items:center;column-gap:12px;min-height:44px;padding:0 16px;border-top:1px solid rgba(16,0,0,.12);font-size:13px}
+.row.badr{background:#FBE7E4}
+.th{min-height:40px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5E5148;border-top:0}
+.mut{color:#5E5148}
+</style>
+</helmet>
+<div style="width:1180px;box-sizing:border-box;min-height:1200px;display:flex;flex-direction:column">
+  <div class="hd">
+    <div class="logo">Torque Production Portal</div>
+    <div class="tabs">
+      <span class="tab">Bagging</span><span class="tab">Lbs Needed</span><span class="tab">Roasting</span><span class="tab">Add Order</span><span class="tab">Blends</span><span class="tab">B2B</span><span class="tab">Ship</span><span class="tab on">Retail</span><span class="tab">Subscriptions</span><span class="tab">Mix Guide</span>
+    </div>
+  </div>
+  <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <h1 style="margin:0;font-family:'Hepta Slab',Georgia,serif;font-size:28px;font-weight:800;flex:1">Buying and printing {{totalN}} labels</h1>
+      <span class="chip c-ok">{{doneN}} bought</span>
+      <span class="chip">{{workN}} in progress</span>
+      <span class="chip c-bad">{{badN}} not bought</span>
+    </div>
+    <div class="card" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:12px;font-size:13px"><b style="flex:1">{{doneN}} of {{totalN}} done</b><span class="mut">Nothing to click while this runs</span></div>
+      <div style="height:14px;border:2px solid #100000;border-radius:999px;overflow:hidden;background:#EDEAE0"><div style="height:100%;width:{{pct}}%;background:#E58825"></div></div>
+    </div>
+    <div class="card" style="display:flex;align-items:center;gap:16px;padding:14px 18px;background:#FFF5D2">
+      <div style="flex:1"><b>Labels and slips open in a new tab when buying finishes.</b><div style="font-size:13px;margin-top:4px">One PDF, label then slip for each order, sorted by carton. Print it from that tab. If the tab was blocked, use Open PDF. Reprint never buys again.</div></div>
+      <button class="btn pri">Open PDF</button>
+      <button class="btn">Reprint</button>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div class="row th"><span>Order</span><span>Ship to</span><span>Coffees</span><span>Carton</span><span>Status</span><span>Note</span></div>
+      <sc-for list="{{rows}}" as="row" hint-placeholder-count="14">
+        <div class="{{row.cls}}">
+          <b>{{row.order}}</b>
+          <span>{{row.ship}}</span>
+          <span>{{row.coffee}}</span>
+          <span>{{row.carton}}</span>
+          <span><span class="{{row.chipCls}}">{{row.status}}</span></span>
+          <span style="font-size:12px">{{row.note}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div class="mut" style="font-size:12px;max-width:980px">One failure does not stop the rest. A row UPS now prices above its quote is not bought; use Re-rate on that row, then Buy again for it alone. Tracking is saved with the label and nothing is written to Shopify until Fulfill. Row 8303 below is an illustrative price change, not live data.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const data = [
+      ['#8331','CA 92104','1 × 12oz','8x6x3','b'],['#7133','TN 37217','1 × 12oz','8x6x3','b'],['#8255','IL 60047','1 × 8 xPods','8x6x3','b'],
+      ['#8333','NY 11418','2 × 12oz','12x8x6','b'],['#8322','CA 92102','3 × 12oz','12x8x6','b'],['#8316','MA 02445','1 × 2lb','12x8x6','b'],
+      ['#8289','MD 20878','1 × 5lb','12x8x6','b'],['#8298','IL 62510','12oz + 2lb','12x8x6','b'],['#8303','OR 97365','2 × 12oz + 2lb','12x8x6','x','UPS now charges more than the quote. Re-rate this row.'],
+      ['#7550','TX 77406','2 × 2lb','12x8x6','b'],['#8306','CO 80904','3 × 12oz','12x8x6','b'],['#8290','CA 92123','5 × 12oz','14x10x10','b'],
+      ['#7388','MA 01778','7 × 12oz','14x10x10','y'],['#8275','OK 73025','12oz + 2 × 2lb','14x10x10','w']
+    ];
+    const map = {b:['Bought','chip c-ok','row'], y:['Buying','chip c-warn','row'], w:['Waiting','chip','row'], x:['Not bought','chip c-bad','row badr']};
+    const rows = data.map((d) => ({key:d[0], order:d[0], ship:d[1], coffee:d[2], carton:d[3], status:map[d[4]][0], chipCls:map[d[4]][1], cls:map[d[4]][2], note:d[5] || ''}));
+    const doneN = data.filter((d) => d[4] === 'b').length;
+    const badN = data.filter((d) => d[4] === 'x').length;
+    return { rows, totalN: data.length, doneN, badN, workN: data.length - doneN - badN, pct: Math.round(doneN / data.length * 100) };
+  }
+}
+</script>
+</body>
+</html>

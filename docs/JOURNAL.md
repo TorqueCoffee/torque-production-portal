@@ -1,5 +1,37 @@
 # Journal
 
+## 2026-10-19 — Phase B, B1 UI: the Retail tab queue
+
+### Work done
+
+- New **Retail** tab (after Ship) in `index.html`, built to `docs/design/retail-ui/Main.dc.html`: title row with ready / need a fix / on hold counts, synced time and Refresh; the selection bar ("N selected of N ready · N billed lb"); Needs a fix group; one group per carton; Hold card with a hold list. Read-only: it calls only `?type=retail-ship`.
+- Nothing is ticked on load. Select all takes the oldest ready orders, at most 25 (Andy, open item 3). Fix, hold and unsized orders can't be ticked. Buy and print is shown disabled ("turns on in the next release"); no dollar estimate (open item 6).
+- Every line shows quantity, size and coffee. Chips: REPLACEMENT (discount-code reason), NOTE (the note text shows under the coffees), "No coffee set", age (built, off until Andy gives N). Subscription lines show this week's coffee through `applySubscriptionSubstitution`, one call over every line.
+- `lib/ship-rules.js`: `addressProblem()` plus `cleanText`, `isPoBox` and `UPS_LINE_MAX` moved in from `api/shippo-label.js` (which imports them), so the queue's P.O. box and 35-character check is the purchase check. `?type=retail-ship` now returns `fix`, `note`, `discount_codes` and `admin_url`; `api/_retail.js` reads the order `note`.
+- Tests: `tests/b1-retail-ui.test.js` (new) and a block in `tests/b1-retail.test.js`; the apiFetch call-site count is 11; the test helper reads `let` declarations. 131 pass after the review fixes below.
+- Checked in a local preview with sample data built from the 30 fixtures: the 6 hold orders match the handoff's list, no console errors, the table scrolls inside its box on a phone width.
+- Review (three passes, Opus 5.5): 15 should-fix items fixed (Subscriptions alert side effect, size labels, 768 px table, 44 px tap targets, sticky bar and kept focus, three strings, five vacuous tests). Details under Detours & fixes.
+- Andy's calls on the review's open questions: unpaid (pending) orders list as normal; Select all keeps NOTE and REPLACEMENT rows; Needs a fix rows get Open in Shopify (added); the REPLACEMENT rule stays as is.
+- Not done: deploy, live check on the iPad (U11), age chip threshold, the Resume banner and everything from B3a on. RUNBOOK unchanged (no new setup).
+
+### Detours & fixes
+
+- **The page test couldn't see a hold link.** `safeUrl` uses `new URL`, which the test sandbox didn't have, so every link came out empty. The sandbox now passes `URL`; the page itself was fine.
+- **Where to put the address check.** Adding a classifier outcome would have touched the 30 acceptance fixtures' contract; computing it beside the classifier did not. See ADR 0027.
+- **Adversarial review (code, UX, copy), fixes:**
+  - Loading the queue hid or showed the Subscriptions tab's "no coffee selected" alert. Root cause: `applySubscriptionSubstitution` sets that alert from whatever lines it gets, and the queue passes only retail lines. Fix: `retailApplySubscriptions` puts the alert back as it was.
+  - A 250 g box showed as "12oz" and an xPods box as "xPods". Root cause: the size label came from the weight (both count as 12 oz, R3). Fix: at 12 oz weight, "250g" and "8 xPods" (count from the variant) win.
+  - On an iPad in portrait (768) the Check column (fix reason, REPLACEMENT, NOTE) was cut off. Root cause: the grid's minimum was 776 px in a 724 px box. Fix: narrower minimums (704 px).
+  - Refresh, Show hold list, Try again were 31 px tall and Open in Shopify a 15 px text link. Fix: all 44 px (`.rt-tap`); Open in Shopify is a button.
+  - Once scrolled, the selection count and the 25-cap message were off screen, so a refused 26th tick looked like a dead checkbox. Fix: the selection bar is sticky under the header from 700 px wide (not on a phone).
+  - Each tick re-renders the list and dropped keyboard focus to the page. Fix: `renderRetail` refocuses the control that was used.
+  - Copy: a partly fulfilled hold read "Partly fulfilled or on hold in Shopify (partially fulfilled)"; now Shopify's status, once. "Over 30 bags" was false for 2 lb and 5 lb orders (the rule counts 12 oz equivalents); now "Over 30 × 12oz by weight". The no-coffee chip now says where to fix it: "Set it in Subscriptions".
+  - Tests: two assertions passed whatever the code did (`discount_codes.length >= 0`; a stub's `checked === false`); they now check the codes and the half-ticked Select all. The read-only check covered one function; it now covers the whole Retail block. Every new test was run against the code without its fix and failed.
+
+### Decisions captured
+
+- [`0027-retail-queue-scope.md`](./decisions/0027-retail-queue-scope.md)
+
 ## 2026-10-19 — Phase B, B2: the retail packer
 
 ### Work done

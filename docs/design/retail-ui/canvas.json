@@ -1,0 +1,31 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Buying.dc.html": {"h": 1200, "title": "3 Buy and print", "w": 1180, "x": 3780, "y": 0},
+    "Done.dc.html": {"h": 1200, "title": "5 Done", "w": 1180, "x": 6300, "y": 0},
+    "Exceptions.dc.html": {"h": 1200, "title": "6 Hold, void, recover", "w": 1180, "x": 7560, "y": 0},
+    "Flow.dc.html": {"h": 1060, "title": "0 Flow map", "w": 1180, "x": 0, "y": 0},
+    "Main.dc.html": {"h": 1700, "title": "1 Queue: select", "w": 1180, "x": 1260, "y": 0},
+    "Pack.dc.html": {"h": 1200, "title": "4 Pack and fulfill", "w": 1180, "x": 5040, "y": 0},
+    "Rated.dc.html": {"h": 1200, "title": "2 Review (only if flagged)", "w": 1180, "x": 2520, "y": 0}
+  },
+  "createdOnFiles": {"at": "2026-10-18T17:20:00Z", "v": 1},
+  "designSystems": [],
+  "launch": {"view": "canvas"},
+  "notes": {
+    "note-1ys6u6": {"text": "i think we could better only highlight rates that are out of norm?", "w": 240, "x": 416, "y": 375},
+    "t1": {"kind": "title1", "maxW": 8740, "text": "Retail shipping: flow and screens", "w": 240, "x": 0, "y": -300}
+  },
+  "order": [
+    "Flow.dc.html",
+    "Main.dc.html",
+    "Rated.dc.html",
+    "Buying.dc.html",
+    "Pack.dc.html",
+    "Done.dc.html",
+    "Exceptions.dc.html"
+  ],
+  "pages": [],
+  "title": "Retail Shipping Layout and Flow"
+}

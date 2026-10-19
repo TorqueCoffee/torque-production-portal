@@ -123,3 +123,39 @@ test('B1: a failed page fails the whole list (never a partial list)', async () =
   const r = await call()
   assert.equal(r.code, 502)
 })
+
+// ── B1 UI: what the queue needs on top of the list ─────────────────────────────────────────
+test('B1 UI: a P.O. box or a street line over 35 characters is flagged on a LIST order; HOLD orders are not', async () => {
+  const live = RAW.map(asListed)
+  const edit = (name, fn) => live.map(n => (n.name === name ? fn(n) : n))
+  const addr = (n, patch) => ({ ...n, shippingAddress: { ...n.shippingAddress, ...patch } })
+  pages = [page(edit('#8333', n => addr(n, { address1: 'PO Box 123' })))]
+  let r = await call()
+  assert.deepEqual(r.payload.orders.find(o => o.order_name === '#8333').fix, { code: 'PO_BOX', text: 'P.O. box · UPS cannot deliver. Fix in Shopify' })
+  assert.equal(r.payload.orders.find(o => o.order_name === '#8333').decision, 'LIST')   // the classifier is untouched
+  assert.equal(r.payload.orders.find(o => o.order_name === '#8322').fix, null)
+  pages = [page(edit('#8333', n => addr(n, { address1: 'x'.repeat(36) })))]
+  r = await call()
+  assert.equal(r.payload.orders.find(o => o.order_name === '#8333').fix.code, 'LINE_TOO_LONG')
+  pages = [page(edit('#7297', n => addr(n, { address1: 'PO Box 9' })))]                  // a HOLD order (HI)
+  r = await call()
+  assert.equal(r.payload.orders.find(o => o.order_name === '#7297').fix, null)
+})
+
+test('B1 UI: the order note, discount codes and Shopify link come back for the NOTE chip, the REPLACEMENT reason and the hold list', async () => {
+  const live = RAW.map(asListed).map(n => (n.name === '#8291' ? { ...n, id: 'gid://shopify/Order/8291001', note: '  Leave with the neighbour  ' } : n))
+  pages = [page(live)]
+  const o = (await call()).payload.orders.find(x => x.order_name === '#8291')
+  assert.equal(o.note, 'Leave with the neighbour')
+  assert.deepEqual(o.discount_codes, ['Mis ship'])                                     // the REPLACEMENT reason
+  assert.equal(o.admin_url, 'https://admin.shopify.com/store/store/orders/8291001')   // handle comes from SHOPIFY_STORE_HANDLE
+  assert.equal(normalizeRetailOrder({ name: '#1' }).note, '')                          // no note -> empty, never undefined
+})
+
+test('B1 UI: an unpaid order lists like any other (Shopify shows pending for an hour after checkout; Andy 2026-10-19)', () => {
+  const base = byName['#8333']
+  for (const financial_status of ['PENDING', 'AUTHORIZED', 'PARTIALLY_PAID', 'PAID']) {
+    assert.equal(classifyRetailOrder({ ...base, financial_status }).decision, 'LIST', financial_status)
+  }
+  assert.equal(classifyRetailOrder({ ...base, financial_status: 'REFUNDED' }).class, 'REFUNDED')   // still never shipped
+})

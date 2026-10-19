@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Retail flow map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hepta+Slab:wght@600;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:#EDEAE0;color:#100000}
+.card{background:#FFFEF0;border:2px solid #100000;border-radius:14px}
+.mut{color:#5E5148}
+h1{margin:0;font-family:'Hepta Slab',Georgia,serif;font-size:30px;font-weight:800}
+h2{margin:0;font-family:'Hepta Slab',Georgia,serif;font-size:18px;font-weight:800}
+.num{width:30px;height:30px;border-radius:50%;background:#E58825;border:2px solid #100000;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+.exit{background:#FBE7E4;border:1.5px solid #7a2a20;border-radius:10px;padding:8px 10px;font-size:12px;color:#100000}
+.exit b{color:#7a2a20}
+li{margin-bottom:6px}
+</style>
+</helmet>
+<div style="width:1180px;box-sizing:border-box;min-height:1060px;padding:32px;display:flex;flex-direction:column;gap:20px">
+  <div>
+    <h1>Retail batch, start to finish</h1>
+    <div class="card" style="display:inline-block;margin-top:10px;padding:8px 16px;background:#FFF5D2;font-size:14px"><b>Two clicks from the queue:</b> Select (or Select all), then Buy and print. Everything after is packing and one confirm.</div>
+    <div class="mut" style="font-size:14px;margin-top:10px">Up to 25 orders per batch. UPS Ground only. B2B keeps its own Ship tab and flow unchanged. You pick which orders ship; the portal never selects for you.</div>
+  </div>
+  <div style="position:relative">
+    <div style="position:absolute;left:30px;right:30px;top:15px;height:2px;background:#100000"></div>
+    <div style="position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px">
+      <sc-for list="{{stages}}" as="s" hint-placeholder-count="5">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span class="num">{{s.n}}</span>
+          <div class="card" style="padding:14px 14px;display:flex;flex-direction:column;gap:8px;min-height:240px">
+            <b style="font-family:'Hepta Slab',Georgia,serif;font-size:18px">{{s.name}}</b>
+            <span class="mut" style="font-size:11px;font-weight:700;text-transform:uppercase">{{s.screen}}</span>
+            <span style="font-size:13px;line-height:1.4">{{s.does}}</span>
+          </div>
+          <div class="exit"><b>If not:</b> {{s.exit}}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <div class="card" style="padding:16px 18px">
+      <h2>Rules the screens enforce</h2>
+      <ul style="margin:10px 0 0;padding-left:18px;font-size:13px;line-height:1.4">
+        <li>UPS Ground only. No rate means no label; never another carrier.</li>
+        <li>Billed lb = ceil(net + carton tare + 0.05), 1 lb minimum.</li>
+        <li>One label per order carton. A reload shows a bought label as bought.</li>
+        <li>No partial shipments. An order with any held line holds whole.</li>
+        <li>Pickup, B2B, cancelled and no-shipping orders never list.</li>
+        <li>Address problems (P.O. box, street line over 35 characters) show in the queue, before buying.</li>
+        <li>Shopify sends the one customer email, at Fulfill only.</li>
+      </ul>
+    </div>
+    <div class="card" style="padding:16px 18px;background:#FFF5D2">
+      <h2>Open: the daily routine</h2>
+      <div style="font-size:13px;margin:8px 0;line-height:1.4">Not code. These decide how the Retail tab is used each day.</div>
+      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.4">
+        <li>Who runs the batch</li>
+        <li>Cutoff time before the UPS pickup</li>
+        <li>Which printer: Rollo thermal or AirPrint</li>
+        <li>Pickup: real weekly fee, which account, Saturday coverage</li>
+      </ul>
+    </div>
+    <div class="card" style="padding:16px 18px">
+      <h2>After every batch</h2>
+      <ul style="margin:10px 0 0;padding-left:18px;font-size:13px;line-height:1.4">
+        <li>Each label writes a cost row with carton, billed lb and channel.</li>
+        <li>Parcels go to the pickup spot with labels applied.</li>
+        <li>Bad orders go in the 90-day incident log.</li>
+        <li>Monthly: UPS invoice against logged costs; variance over 3% means tare is off.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const stages = [
+      {n:1,name:'Select',screen:'Queue',does:'Open Retail. Eligible orders list by carton with the coffees on each line. Tick the orders to ship, or Select all. Replacements, notes, old orders and address problems are flagged.',exit:'Order goes to Hold with its reason, or Needs a fix for an address problem.'},
+      {n:2,name:'Buy and print',screen:'Buying',does:'One click gets a UPS Ground quote for each selected order, buys every label, and opens one PDF: label then slip per order, sorted by carton.',exit:'No rate: the Review screen opens for just those rows.'},
+      {n:3,name:'Pack',screen:'Pack and fulfill',does:'Pack from the cards. Every order starts included. Check the order number on label and slip.',exit:'Cannot send one: Hold back on its card. Bad print: Reprint that card.'},
+      {n:4,name:'Fulfill',screen:'Pack and fulfill',does:'One button. A confirm shows the count: N of N packed, send N customer emails. Tracking is written to Shopify and Shopify emails each customer.',exit:'A write fails: Retry, no second email. Done by hand in Shopify: Clear.'},
+      {n:5,name:'Done',screen:'Done',does:'N shipped, N emails sent, parcels for pickup, anything still open. Orders are closed.',exit:'Wrong label before UPS scans it: Void, then buy again.'}
+    ].map((s) => ({ key:'s' + s.n, ...s }));
+    return { stages };
+  }
+}
+</script>
+</body>
+</html>

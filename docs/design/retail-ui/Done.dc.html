@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Retail done</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hepta+Slab:wght@600;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:#EDEAE0;color:#100000}
+.hd{background:#100000;display:flex;align-items:center;gap:16px;padding:0 20px;height:56px}
+.logo{font-family:'Hepta Slab',Georgia,serif;font-weight:800;font-size:15px;color:#FFFEF0;white-space:nowrap}
+.tabs{display:flex;gap:6px;flex:1;overflow:hidden}
+.tab{padding:8px 14px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid rgba(255,254,240,.3);color:rgba(255,254,240,.85);background:rgba(255,254,240,.08);white-space:nowrap}
+.tab.on{background:#E58825;border-color:#E58825;color:#100000}
+.card{background:#FFFEF0;border:2px solid #100000;border-radius:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border-radius:999px;border:2px solid #100000;background:#FFFEF0;color:#100000;font:700 13px 'Helvetica Neue',Helvetica,Arial,sans-serif;white-space:nowrap}
+.btn.pri{background:#E58825}
+.stat{padding:18px 20px;display:flex;flex-direction:column;gap:4px}
+.stat b{font-family:'Hepta Slab',Georgia,serif;font-size:40px;line-height:1}
+.stat span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5E5148}
+.mut{color:#5E5148}
+</style>
+</helmet>
+<div style="width:1180px;box-sizing:border-box;min-height:1200px;display:flex;flex-direction:column">
+  <div class="hd">
+    <div class="logo">Torque Production Portal</div>
+    <div class="tabs">
+      <span class="tab">Bagging</span><span class="tab">Lbs Needed</span><span class="tab">Roasting</span><span class="tab">Add Order</span><span class="tab">Blends</span><span class="tab">B2B</span><span class="tab">Ship</span><span class="tab on">Retail</span><span class="tab">Subscriptions</span><span class="tab">Mix Guide</span>
+    </div>
+  </div>
+  <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+    <h1 style="margin:0;font-family:'Hepta Slab',Georgia,serif;font-size:28px;font-weight:800">Batch done</h1>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+      <div class="card stat"><b>13</b><span>Shipped</span></div>
+      <div class="card stat"><b>13</b><span>Customer emails sent</span></div>
+      <div class="card stat"><b>13</b><span>Parcels for pickup</span></div>
+      <div class="card stat" style="background:#FDF3DC"><b>1</b><span>Still open</span></div>
+    </div>
+    <div class="card" style="padding:16px 20px;display:flex;align-items:center;gap:16px;background:#FDF3DC;border-color:#5C3311">
+      <div style="flex:1;font-size:14px"><b>#8303</b> was held back and is back in the queue, unselected. <span class="mut">Its label stays bought; it is listed as bought and can be fulfilled in the next batch.</span></div>
+      <button class="btn">Show in queue</button>
+    </div>
+    <div class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:8px;font-size:14px">
+      <b style="font-family:'Hepta Slab',Georgia,serif;font-size:18px">Done for you</b>
+      <span>Tracking written to Shopify and the orders closed.</span>
+      <span>One cost row per label saved with carton and billed lb.</span>
+      <span class="mut">Put the packed parcels at the UPS pickup spot. Nothing else to do.</span>
+    </div>
+    <div style="display:flex;gap:12px">
+      <button class="btn pri">Back to queue</button>
+      <button class="btn">Reprint this batch</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

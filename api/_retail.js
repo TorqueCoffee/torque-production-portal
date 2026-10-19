@@ -16,7 +16,7 @@ const QUERY = `query($after: String, $q: String!) {
   orders(first: ${PAGE}, after: $after, query: $q, sortKey: CREATED_AT) {
     pageInfo { hasNextPage endCursor }
     nodes {
-      id name createdAt cancelledAt displayFulfillmentStatus displayFinancialStatus sourceName tags discountCodes
+      id name createdAt note cancelledAt displayFulfillmentStatus displayFinancialStatus sourceName tags discountCodes
       shippingAddress { name company address1 address2 city provinceCode zip countryCodeV2 phone }
       shippingLines(first: 5) { nodes { title discountedPriceSet { shopMoney { amount } } } }
       totalRefundedShippingSet { shopMoney { amount } }
@@ -48,6 +48,7 @@ function normalizeRetailOrder(n) {
     order_id: n.id || null,
     order_name: n.name,
     created_at: n.createdAt || null,
+    note: typeof n.note === 'string' ? n.note.trim() : '',
     cancelled: !!n.cancelledAt,
     fulfillment_status: n.displayFulfillmentStatus,
     financial_status: n.displayFinancialStatus,

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Retail pack and fulfill</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hepta+Slab:wght@600;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:#EDEAE0;color:#100000}
+.hd{background:#100000;display:flex;align-items:center;gap:16px;padding:0 20px;height:56px}
+.logo{font-family:'Hepta Slab',Georgia,serif;font-weight:800;font-size:15px;color:#FFFEF0;white-space:nowrap}
+.tabs{display:flex;gap:6px;flex:1;overflow:hidden}
+.tab{padding:8px 14px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid rgba(255,254,240,.3);color:rgba(255,254,240,.85);background:rgba(255,254,240,.08);white-space:nowrap}
+.tab.on{background:#E58825;border-color:#E58825;color:#100000}
+.card{background:#FFFEF0;border:2px solid #100000;border-radius:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:999px;border:2px solid #100000;background:#FFFEF0;color:#100000;font:700 13px 'Helvetica Neue',Helvetica,Arial,sans-serif;white-space:nowrap}
+.btn.pri{background:#E58825;min-height:52px;padding:0 28px;font-size:15px}
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1.5px solid #100000;background:#EDEAE0;white-space:nowrap}
+.c-warn{background:#FDF3DC;color:#5C3311;border-color:#5C3311}
+.pc{padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-height:176px}
+.pc.off{background:#F6F0F0;color:#5E5148;border-style:dashed}
+.mut{color:#5E5148}
+</style>
+</helmet>
+<div style="width:1180px;box-sizing:border-box;min-height:1200px;display:flex;flex-direction:column">
+  <div class="hd">
+    <div class="logo">Torque Production Portal</div>
+    <div class="tabs">
+      <span class="tab">Bagging</span><span class="tab">Lbs Needed</span><span class="tab">Roasting</span><span class="tab">Add Order</span><span class="tab">Blends</span><span class="tab">B2B</span><span class="tab">Ship</span><span class="tab on">Retail</span><span class="tab">Subscriptions</span><span class="tab">Mix Guide</span>
+    </div>
+  </div>
+  <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <h1 style="margin:0;font-family:'Hepta Slab',Georgia,serif;font-size:28px;font-weight:800;flex:1">Pack and fulfill</h1>
+      <span class="chip">{{packN}} packed</span>
+      <span class="chip c-warn">{{heldN}} held back</span>
+    </div>
+    <div class="card" style="display:flex;align-items:center;gap:20px;padding:12px 18px;min-height:72px;background:#FFF5D2">
+      <div style="flex:1;font-size:14px"><b>Every order starts included.</b> <span class="mut">Pack, check the order number on label and slip, and tap Hold back only for one you cannot send.</span></div>
+      <button class="btn pri">Fulfill {{packN}} orders</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="9">
+        <div class="{{c.cls}}">
+          <div style="display:flex;align-items:center;gap:8px"><b style="font-size:16px">{{c.order}}</b><span class="mut" style="font-size:12px;flex:1">{{c.ship}}</span><span class="chip">{{c.carton}}</span></div>
+          <div style="display:flex;flex-direction:column;gap:3px;font-size:13px;flex:1"><sc-for list="{{c.lines}}" as="ln" hint-placeholder-count="2"><span><b>{{ln.q}}×</b> {{ln.sz}} · {{ln.name}}</span></sc-for></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn" style="min-height:38px;padding:0 14px">Reprint</button>
+            <button class="btn" style="min-height:38px;padding:0 14px">{{c.holdLabel}}</button>
+            <sc-if value="{{c.held}}" hint-placeholder-val="{{ false }}"><span class="chip c-warn">Stays open</span></sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div class="mut" style="font-size:12px">Showing 9 of {{totalN}} cards. Cards are sorted by carton so the same size packs together. Reprint opens just that order label and slip.</div>
+    <div class="card" style="padding:18px 20px;display:flex;align-items:center;gap:20px;border-width:3px">
+      <div style="flex:1"><b style="font-family:'Hepta Slab',Georgia,serif;font-size:18px">{{packN}} of {{totalN}} packed. Send {{packN}} customer emails?</b><div style="font-size:13px;margin-top:4px" class="mut">Shown after Fulfill is tapped. Writes UPS tracking to Shopify for {{packN}} orders; Shopify sends one shipping email each. {{heldN}} held back stays open in the queue.</div></div>
+      <button class="btn">Back</button>
+      <button class="btn pri">Fulfill and send</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mk = (a) => a.map((x, i) => ({key:'l' + i, q:x[0], sz:x[1], name:x[2]}));
+    const d = [
+      {o:'#8331',s:'CA 92104',k:'8x6x3',l:mk([[1,'12oz','Classicist subscription']])},
+      {o:'#7133',s:'TN 37217',k:'8x6x3',l:mk([[1,'12oz','La Mora']])},
+      {o:'#8255',s:'IL 60047',k:'8x6x3',l:mk([[1,'8 xPods','Dark Drop xPods']])},
+      {o:'#8333',s:'NY 11418',k:'12x8x6',l:mk([[1,'12oz','Gum Drop'],[1,'12oz','BomBón']])},
+      {o:'#8322',s:'CA 92102',k:'12x8x6',l:mk([[1,'12oz','BomBón'],[1,'12oz','Worka Chelbessa'],[1,'12oz','Ntwari Natural']])},
+      {o:'#8316',s:'MA 02445',k:'12x8x6',l:mk([[1,'2lb','Cocoa Drop']])},
+      {o:'#8289',s:'MD 20878',k:'12x8x6',l:mk([[1,'5lb','Dark Drop']])},
+      {o:'#8303',s:'OR 97365',k:'12x8x6',l:mk([[1,'12oz','Cocoa Drop'],[1,'12oz','Dark Drop'],[1,'2lb','San Augustine']]),held:1},
+      {o:'#7388',s:'MA 01778',k:'14x10x10',l:mk([[2,'12oz','Nayarit Natural plus'],[2,'12oz','Cocoa Drop'],[3,'12oz','Dark Drop']])}
+    ];
+    const cards = d.map((c) => ({key:c.o, order:c.o, ship:c.s, carton:c.k, lines:c.l, held:!!c.held, cls: c.held ? 'card pc off' : 'card pc', holdLabel: c.held ? 'Include' : 'Hold back'}));
+    const totalN = 14;
+    const heldN = 1;
+    return { cards, totalN, heldN, packN: totalN - heldN };
+  }
+}
+</script>
+</body>
+</html>

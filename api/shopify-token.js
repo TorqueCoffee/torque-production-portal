@@ -1,7 +1,7 @@
 const fetch = globalThis.fetch || require('node-fetch');
 const { requireUser } = require('./_auth')
 const { API_VERSION, getToken } = require('./_shopify')
-const { b2bShipItems, classifyRetailOrder, retailShipItems, shippingCharged, packRetail, boxParcel } = require('../lib/ship-rules.js')
+const { b2bShipItems, classifyRetailOrder, retailShipItems, shippingCharged, packRetail, boxParcel, addressProblem } = require('../lib/ship-rules.js')
 const { fetchOpenRetailOrders } = require('./_retail')
 
 const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle']
@@ -112,6 +112,12 @@ module.exports = async function handler(req, res) {
         out.push({
           order_id: o.order_id, order_name: o.order_name, created_at: o.created_at,
           decision: c.decision, class: c.class, detail: c.detail || null, flags: c.flags || [],
+          note: o.note, discount_codes: o.discount_codes,
+          // Shopify admin link for the hold list; the handle is server config, not in the page.
+          admin_url: /(\d+)$/.test(o.order_id || '') ? `https://admin.shopify.com/store/${SHOPIFY_STORE_HANDLE}/orders/${o.order_id.match(/(\d+)$/)[1]}` : null,
+          // D5: an address purchase would refuse (P.O. box, a line over 35) -> the queue's
+          // "Needs a fix" group. Only for LIST orders; the classifier is untouched.
+          fix: c.decision === 'LIST' ? addressProblem(o.address) : null,
           delivery_method: o.delivery_methods[0] || null,
           shipping_charged: shippingCharged(o).toFixed(2),
           shipping_title: o.shipping_lines.map(l => l.title).join(', '),

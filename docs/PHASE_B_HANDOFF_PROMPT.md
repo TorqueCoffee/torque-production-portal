@@ -16,7 +16,8 @@ Andy copies the Phase A files from the source folder into the repo's `docs/` fol
 4. `docs/retail_slip_spec.md` (A7, approved) and `docs/b2b_slip_spec.md`, with `retail_slip_sample.pdf` and `retail_slip_sample_b2b.pdf` as the visual targets
 5. `docs/cost_report_spec.md` (A9), `docs/retail_runbook.md` (A8), `docs/shipping_margin.md` (A6)
 6. `docs/acceptance_fixtures.json` (A10, 30 orders) and `docs/ups_ground_fixtures.csv` (A5, 72 rows) as the test oracle
-7. The repo's own project doc, ADRs (especially 0004, 0011, 0020, 0021, 0022; 0018 is superseded by 0020), test gates (`docs/TESTS.md`, `npm test`) and adversarial-review process. Follow them.
+7. `docs/RETAIL_UI_HANDOFF.md` and `docs/design/retail-ui/` (approved retail screens, flow, click budget, open items). Where it conflicts with the slice table on screen behavior, it wins.
+8. The repo's own project doc, ADRs (especially 0004, 0011, 0020, 0021, 0022; 0018 is superseded by 0020), test gates (`docs/TESTS.md`, `npm test`) and adversarial-review process. Follow them.
 
 ## Locked rules (do not reopen)
 - UPS Ground only. Billed lb = ceil(net + tare + 0.05), 1 lb minimum. Tares: 8x6x3 0.156, 12x8x6 0.42, 14x10x10 0.83. Net: 12 oz 0.75, 2 lb 2.03, 5 lb 5.07.

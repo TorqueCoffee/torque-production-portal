@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Retail hold, void, recover</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hepta+Slab:wght@600;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:#EDEAE0;color:#100000}
+.hd{background:#100000;display:flex;align-items:center;gap:16px;padding:0 20px;height:56px}
+.logo{font-family:'Hepta Slab',Georgia,serif;font-weight:800;font-size:15px;color:#FFFEF0;white-space:nowrap}
+.tabs{display:flex;gap:6px;flex:1;overflow:hidden}
+.tab{padding:8px 14px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid rgba(255,254,240,.3);color:rgba(255,254,240,.85);background:rgba(255,254,240,.08);white-space:nowrap}
+.tab.on{background:#E58825;border-color:#E58825;color:#100000}
+.card{background:#FFFEF0;border:2px solid #100000;border-radius:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:999px;border:2px solid #100000;background:#FFFEF0;color:#100000;font:700 13px 'Helvetica Neue',Helvetica,Arial,sans-serif;white-space:nowrap}
+.btn.pri{background:#E58825}
+.btn.bad{background:#B23A2E;color:#FFFEF0}
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1.5px solid #100000;background:#EDEAE0;white-space:nowrap}
+.c-bad{background:#FBE7E4;color:#7a2a20;border-color:#7a2a20}
+.row{display:grid;grid-template-columns:80px 110px 1fr 250px;align-items:center;column-gap:10px;min-height:58px;padding:0 16px;border-top:1px solid rgba(16,0,0,.12);font-size:13px}
+.th{min-height:40px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5E5148;border-top:0}
+.mut{color:#5E5148}
+h2{margin:0;font-family:'Hepta Slab',Georgia,serif;font-size:20px;font-weight:800}
+.fld{border:2px solid #100000;border-radius:8px;background:#FFFEF0;min-height:40px;padding:0 10px;display:flex;align-items:center;font-size:13px}
+.lab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5E5148;margin-bottom:4px}
+</style>
+</helmet>
+<div style="width:1180px;box-sizing:border-box;min-height:1200px;display:flex;flex-direction:column">
+  <div class="hd">
+    <div class="logo">Torque Production Portal</div>
+    <div class="tabs">
+      <span class="tab">Bagging</span><span class="tab">Lbs Needed</span><span class="tab">Roasting</span><span class="tab">Add Order</span><span class="tab">Blends</span><span class="tab">B2B</span><span class="tab">Ship</span><span class="tab on">Retail</span><span class="tab">Subscriptions</span><span class="tab">Mix Guide</span>
+    </div>
+  </div>
+  <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <h1 style="margin:0;font-family:'Hepta Slab',Georgia,serif;font-size:28px;font-weight:800;flex:1">Retail shipping · Hold, void, recover</h1>
+    </div>
+    <div class="card" style="display:flex;align-items:center;gap:16px;padding:14px 18px;background:#FBE7E4;border-color:#7a2a20">
+      <div style="flex:1"><b style="color:#7a2a20">Paid, not fulfilled: #8316</b><div style="font-size:13px;margin-top:4px">Label bought, tracking not yet written to Shopify, so the customer has no email. Retry fulfill. If you fulfilled it by hand in Shopify, tap Clear. This banner shows at the top of the Retail tab until resolved.</div></div>
+      <button class="btn pri">Retry fulfill</button>
+      <button class="btn">Clear</button>
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <div style="flex:1;display:flex;flex-direction:column;gap:16px">
+        <div class="card" style="overflow:hidden">
+          <div style="padding:14px 16px;display:flex;align-items:baseline;gap:12px"><h2>Hold ({{holdN}})</h2><span class="mut" style="font-size:13px">Never shipped partially. Fix the order in Shopify and it lists on the next refresh.</span></div>
+          <div class="row th"><span>Order</span><span>Ship to</span><span>Reason</span><span>Action</span></div>
+          <sc-for list="{{hold}}" as="h" hint-placeholder-count="6">
+            <div class="row">
+              <b>{{h.order}}</b>
+              <span>{{h.ship}}</span>
+              <span>{{h.reason}}</span>
+              <span style="display:flex;gap:8px"><button class="btn" style="min-height:40px;padding:0 14px">Open in Shopify</button><button class="btn" style="min-height:40px;padding:0 14px">Shipped by hand</button></span>
+            </div>
+          </sc-for>
+        </div>
+        <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <h2>Needs a fix (shown in the queue)</h2>
+          <div style="font-size:13px">An order with a P.O. box or a street line over 35 characters lists in a Needs a fix group at the top of the queue, unselectable, with the reason. UPS would refuse it at purchase, so it is caught before buying. Fix it in Shopify and Refresh orders.</div>
+        </div>
+        <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <h2>Replacement orders</h2>
+          <div style="font-size:13px">A replacement or comp draft with a 100% discount code lists in the queue with a red REPLACEMENT chip and the reason from the code. It is unselected like every order, and ships like any other.</div>
+          <div style="display:flex;gap:10px;align-items:center;font-size:13px"><b>#8291</b><span>AZ 85622 · 1 × 12oz · 8x6x3</span><span class="chip c-bad">REPLACEMENT · Mis ship</span></div>
+        </div>
+      </div>
+      <div style="width:370px;display:flex;flex-direction:column;gap:16px">
+        <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+          <h2>Void a label</h2>
+          <div style="font-size:13px"><b>#8322</b> · 12x8x6 · 3 lb<br><span class="mut">Bought today, not yet scanned by UPS</span></div>
+          <div style="font-size:13px">Voids the label through Shippo, marks the cost row voided, and returns the order to the queue so it can be selected and bought again.</div>
+          <div style="display:flex;gap:10px"><button class="btn bad">Void label</button><button class="btn">Keep label</button></div>
+          <div class="mut" style="font-size:12px">If Shippo refuses because the label was already scanned, the label stays on and the order is flagged for the incident log.</div>
+        </div>
+        <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <h2>Held back after buying</h2>
+          <div style="font-size:13px">If you tap Hold back on a Pack card, the label stays bought and the order stays open. It appears in the queue as bought, not fulfilled, and can be fulfilled in the next batch without buying again. Proposed behavior, to confirm.</div>
+        </div>
+        <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px"><h2 style="flex:1">Log a bad order</h2><span class="chip">Proposed</span></div>
+          <div class="mut" style="font-size:12px">For the 90-day test. Not in slices B1 to B7 yet; the runbook keeps this as a table.</div>
+          <div><div class="lab">Order</div><div class="fld">#</div></div>
+          <div><div class="lab">State</div><div class="fld">Wrong item · Wrong address · Damaged · Lost · Late · Replacement</div></div>
+          <div><div class="lab">Cause</div><div class="fld">Carrier · Address · Packing · Other</div></div>
+          <div style="display:flex;gap:10px"><div style="flex:1"><div class="lab">Cost ($)</div><div class="fld">0.00</div></div><div style="flex:2"><div class="lab">Resolution</div><div class="fld">Replacement sent</div></div></div>
+          <button class="btn pri">Save to log</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1180,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const hold = [
+      {order:'#7482', ship:'CA 92126', reason:'Non-Torque vendor line (Compak). No catalog weight.'},
+      {order:'#6889', ship:'IL 60515', reason:'Subscription with a custom line and no variant.'},
+      {order:'#8293', ship:'HI', reason:'Draft with a custom line. No weight.'},
+      {order:'#7297', ship:'HI 96795', reason:'Hawaii. Outside the retail ship area.'},
+      {order:'#7248', ship:'AK 99645', reason:'Alaska. Outside the retail ship area.'},
+      {order:'#7349', ship:'AE 09622', reason:'Military mail (APO). Outside the retail ship area.'}
+    ].map((h) => ({ key:h.order, ...h }));
+    return { hold, holdN: hold.length };
+  }
+}
+</script>
+</body>
+</html>

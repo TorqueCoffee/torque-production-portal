@@ -42,7 +42,7 @@ Rollout order (RUNBOOK "First rollout"):
     - There's a Sign out button (refused mid-buy and mid-fulfill), and no sign-up or reset call.
   - supabase-js is pinned (`@2.117.2`) with a sha384 `integrity` attribute. The CDN file was compared byte for byte with the npm tarball.
   - `apiFetch`:
-    - all 10 `/api` call sites use it, and no bare `fetch('/api…')` is left;
+    - all 11 `/api` call sites use it (the 11th is the Retail queue), and no bare `fetch('/api…')` is left;
     - it sends `Authorization: Bearer <token>`, and none without a session;
     - on a 401 it refreshes the session once and retries, then shows the sign-in screen.
   - `sbFetch` (supabase-js's fetch):
@@ -231,6 +231,28 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
 **Run log:**
 - 2026-10-19: P1–P4 PASS, 115/115 (`npm test`).
 - 2026-10-19: deployed (f2b0f2f). Lib matches the commit; `retail-ship` 401 without a token.
+
+### B1 UI — the Retail tab queue (ADR [`0027`](./decisions/0027-retail-queue-scope.md))
+`tests/b1-retail-ui.test.js` (page functions loaded out of `index.html`, no browser) and the B1 UI block in `tests/b1-retail.test.js` (endpoint, fetch stubbed):
+- [x] **U1 address pre-check:** `addressProblem` (shared with the label endpoint) flags P.O. boxes in every spelling B0 refuses (line 1 or 2, full-width letters) and street or city lines over 35 characters (by character; invisible characters dropped first); 35 passes; "Pobox Way" passes. The endpoint puts a LIST order with a bad address in `fix` and leaves its decision LIST; a HOLD order never gets a `fix`.
+- [x] **U2 endpoint extras:** `note` (trimmed), `discount_codes` and `admin_url` (handle from `SHOPIFY_STORE_HANDLE`) come back for the NOTE chip, the REPLACEMENT reason and the hold list.
+- [x] **U3 groups:** Needs a fix first, then one group per carton (8x6x3, 12x8x6, 14x10x10), Hold apart. An order with a fix, or one whose carton the table doesn't name, is never ready.
+- [x] **U4 selection:** a fresh load ticks nothing and Buy is off; Select all takes the oldest ready orders up to 25 and says so; a 26th tick is refused with a message; a second Select all clears; fix, hold and unknown ids cannot be ticked. Billed lb is the sum of the server's declared pounds.
+- [x] **U5 chips:** only REPLACEMENT (with the discount-code reason, or "reason not recorded"), NOTE, age (off until N is set) and "No coffee set this week. Set it in Subscriptions". No SUBSCRIPTION, COLLECTIVE or free-shipping chips. The note text is shown, escaped.
+- [x] **U6 lines, hold list, escaping:** every line shows qty, size and coffee (a 250 g box shows "250g" and xPods "8 xPods", not "12oz"); the hold list shows plain-language reasons (Shopify's own status for a partly fulfilled or on-hold order; "Over 30 × 12oz by weight") and an Open in Shopify button only when it is an https URL; order names and notes are escaped; the "not listed" counts show.
+- [x] **U7 states:** loading, error (replaces the list), empty.
+- [x] **U8 subscriptions:** one call to `applySubscriptionSubstitution` over every line; the helper keys are stripped after; the Subscriptions tab's "no coffee selected" alert is left as Bagging set it.
+- [x] **U9 read-only:** the tab is wired in; the whole Retail block names one endpoint (`?type=retail-ship`), no Shippo, no POST, no insert/update/upsert/rpc, and one Supabase call (the Schedule read); `RETAIL_BUY_ENABLED` is false. B1 UI buys and writes nothing.
+- [x] **U10 preview:** local page with sample data built from the 30 fixtures, no console errors. Nothing ticked on load; Select all ticks the 14 ready orders; two address problems under Needs a fix, unticked and disabled; the 6 hold orders match #7482, #6889, #8293, #7297, #7248, #7349; indeterminate header with a partial selection; on a phone-width screen the table scrolls inside its box and the page doesn't.
+- [x] **U12 touch and keyboard:** every Retail button and link is at least 44 px tall (`.rt-tap`), as is each tick box's cell; the grid's minimum width fits an iPad in portrait (768) with the Check column showing; the selection bar is sticky under the header from 700 px wide; a tick keeps keyboard focus on its box.
+- [x] **U13 unpaid orders list:** pending, authorized and partly paid orders classify LIST like paid ones; refunded still doesn't ship (Shopify shows pending for about an hour after checkout).
+- [x] **U14 fix-row link:** a Needs a fix row has Open in Shopify (https links only); a ready row has none.
+- [ ] **U11 live (Andy):** after deploy, open Retail on the iPad signed in: the real open orders list with coffees and cartons; the subscription lines show this week's coffee; Refresh works.
+
+**Run log:**
+- 2026-10-19: U1–U10 PASS, 127/127 (`npm test`).
+- 2026-10-19: after the review fixes and Andy's four decisions: U13, U14 added; 133/133.
+- 2026-10-19: adversarial review (code, UX, copy) fixes; U1–U10 and U12 PASS, 131/131 (`npm test`). Preview re-checked at 1180, 768 and 375 wide: at 768 the table fits (724 of 724 px) with chips showing, every control 44 px or more, the bar sticks under the header, focus stays on a ticked box.
 
 ### B1 — retail order list (`?type=retail-ship`)
 `tests/b1-retail.test.js`, fetch stubbed:
