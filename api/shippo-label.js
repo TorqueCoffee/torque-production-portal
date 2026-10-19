@@ -16,16 +16,27 @@
 //           same file (B2a, ADR 0025). The whole pack must match pack_sig and this box's parcel
 //           must be its own; otherwise 409 { code: 'pack_changed' }, nothing bought, and the
 //           page stops buying the rest of the order.
+//   kind: 'b2b' (absent = b2b, for pages from before B3) or 'retail' (B3, ADR 0026): which
+//           packer the server repacks with. Retail: the order is read through GraphQL, must
+//           classify LIST (else 409 { code: 'not_listed', class }), and packs to one carton
+//           (packRetail), so box_index = box_count = 1. Anything else is refused (400).
 //   carrier: optional; anything other than 'ups' is refused (400). Every shipment is UPS
 //   Ground (ups_ground) on Torque's US UPS account. Never Ground Saver, never USPS, no fallback.
+//
+//
+//   POST /api/shippo-label?action=void    { order_id, box_index } -> voids that box's unused label
+//           through Shippo's refunds API and marks its row voided (B6). Signed-in staff only.
+//           Refused (409) when the row is fulfilled, or Shopify shows the order fulfilled in
+//           any part; refused (503) when either can't be checked. Nothing else is changed.
 //
 // Origin is fixed here (Torque) — single source of truth for the ship-from.
 // Token is read from process.env.SHIPPO_TOKEN (the live token).
 
 const fetch = globalThis.fetch || require('node-fetch')
 const { requireUser, supabaseHeaders } = require('./_auth')
-const { fetchOrder } = require('./_shopify')
-const { b2bShipItems, packB2BItems, boxParcel, packSignature, UPS_LINE_MAX, cleanText, isPoBox } = require('../lib/ship-rules.js')
+const { fetchOrder, orderNumericId } = require('./_shopify')
+const { fetchRetailOrder } = require('./_retail')
+const { b2bShipItems, packB2BItems, boxParcel, packSignature, classifyRetailOrder, retailShipItems, packRetail, UPS_LINE_MAX, cleanText, isPoBox } = require('../lib/ship-rules.js')
 
 const SHIPPO_BASE = 'https://api.goshippo.com'
 const SERVICE_TOKEN = 'ups_ground'   // NOT ups_ground_saver
@@ -167,21 +178,38 @@ async function confirmWithShippo(prior, auth) {
   }
 }
 
-// The pack the server itself makes for this order (B2a). The page packs from the order list it
-// loaded; the order may have been edited since, or the page may be out of date or tampered
-// with. The whole pack is compared, not only this box: an order that changed buys nothing,
-// rather than some boxes of a packing that no longer exists.
-//   { ok: true }   { ok: false, status, error, code? }
-async function checkPackedBox(orderId, boxIndex, boxCount, parcel, pageSig) {
-  const got = await fetchOrder(orderId)
+// The pack the server itself makes for this order (B2a), with the packer `kind` names (B3).
+//   { ok: true, pack }   { ok: false, status, error, code?, class? }
+async function serverPack(kind, orderId) {
+  const got = kind === 'retail' ? await fetchRetailOrder(orderId) : await fetchOrder(orderId)
   if (!got.ok) {
     if (got.status === 400) return { ok: false, status: 400, error: 'order_id is not a Shopify order id' }
     if (got.status === 404) return { ok: false, status: 409, code: 'pack_changed', error: "Shopify has no such order. Nothing was bought. Reload the orders." }
-    console.warn(`checkPackedBox: Shopify order fetch failed (${got.why}); nothing bought`)
+    console.warn(`serverPack: Shopify ${kind} order fetch failed (${got.why}); nothing bought`)
     return { ok: false, status: 503, error: "Couldn't read the order from Shopify to check the boxes, so nothing was bought. Try again in a minute; if it repeats, tell Andy." }
   }
+  if (kind === 'retail') {
+    // The list's own rules (B1), applied again now: an order that was cancelled, refunded,
+    // fulfilled by hand or edited onto a hold since it was listed buys nothing.
+    const c = classifyRetailOrder(got.order)
+    if (c.decision !== 'LIST') {
+      return { ok: false, status: 409, code: 'not_listed', class: c.class, error: `This order is no longer shippable here (${c.decision} ${c.class}${c.detail ? ' ' + c.detail : ''}). Nothing was bought. Refresh the list.` }
+    }
+    return { ok: true, pack: packRetail(retailShipItems(got.order)) }
+  }
   if (got.order.cancelled_at) return { ok: false, status: 409, code: 'pack_changed', error: 'This order is cancelled in Shopify. Nothing was bought.' }
-  const pack = packB2BItems(b2bShipItems(got.order.line_items))
+  return { ok: true, pack: packB2BItems(b2bShipItems(got.order.line_items)) }
+}
+
+// The page's parcel and pack checked against the server's own pack. The page packs from the
+// order list it loaded; the order may have been edited since, or the page may be out of date or
+// tampered with. The whole pack is compared, not only this box: an order that changed buys
+// nothing, rather than some boxes of a packing that no longer exists.
+//   { ok: true }   { ok: false, status, error, code?, class? }
+async function checkPackedBox(kind, orderId, boxIndex, boxCount, parcel, pageSig) {
+  const got = await serverPack(kind, orderId)
+  if (!got.ok) return got
+  const pack = got.pack
   if (pack.unpackable.length) return { ok: false, status: 409, code: 'pack_changed', error: "This order has an item the packer can't weigh. Nothing was bought. Ship it by hand or fix the item in Shopify." }
   const sig = packSignature(pack.boxes)
   const box = pack.boxes[boxIndex - 1]
@@ -190,10 +218,95 @@ async function checkPackedBox(orderId, boxIndex, boxCount, parcel, pageSig) {
   const same = want && sig === pageSig && pack.box_count === boxCount &&
     want.length === parcel.length && want.width === parcel.width && want.height === parcel.height && want.weight === parcel.weight
   if (!same) {
-    console.warn(`checkPackedBox: ${orderId} box ${boxIndex}: page ${pageSig} ${JSON.stringify(parcel)}, server ${sig} ${JSON.stringify(want)}`)
+    console.warn(`checkPackedBox: ${kind} ${orderId} box ${boxIndex}: page ${pageSig} ${JSON.stringify(parcel)}, server ${sig} ${JSON.stringify(want)}`)
     return { ok: false, status: 409, code: 'pack_changed', error: `This order changed since the list was loaded (Shopify now packs it as ${sig || 'nothing to ship'}). Nothing was bought. Go back to the orders, refresh, and open it again.` }
   }
   return { ok: true }
+}
+
+// mark_ship_label_voided (db/2026-10-19-label-void.sql), as the caller. -> the row count it
+// returns (1 = marked), or a string saying why it couldn't be called.
+async function markLabelVoided(orderId, boxIndex, shippoId, userToken) {
+  const SB_URL = process.env.SUPABASE_URL
+  if (!SB_URL || !process.env.SUPABASE_ANON_KEY) return 'not configured'
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS)
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/mark_ship_label_voided`, {
+      method: 'POST', headers: supabaseHeaders(userToken),
+      body: JSON.stringify({ p_order_id: String(orderId), p_box_index: boxIndex, p_shippo_object_id: shippoId }), signal: ctrl.signal
+    })
+    if (r.status !== 200) return `status ${r.status}`
+    const v = await r.json()
+    return typeof v === 'number' ? v : 'unexpected response'
+  } catch (e) {
+    return e.name === 'AbortError' ? 'timeout' : e.message
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// B6: void one box's unused label. Order: the row (must be 'purchased') -> Shopify (no
+// fulfillment of any part) -> Shippo confirms the transaction -> refund -> mark the row. Any
+// check that can't be made stops before Shippo is asked for anything.
+const REFUND_OK = ['QUEUED', 'PENDING', 'SUCCESS']
+async function voidLabel(req, res, session, auth) {
+  let body = req.body
+  if (typeof body === 'string') { try { body = JSON.parse(body || '{}') } catch { body = {} } }
+  body = body || {}
+  const boxIndex = Number(body.box_index)
+  if (!orderNumericId(body.order_id) || !(Number.isInteger(boxIndex) && boxIndex >= 1)) {
+    return res.status(400).json({ error: 'order_id (a Shopify order id) and box_index are required to void a label' })
+  }
+  const orderId = String(body.order_id)
+  try {
+    const lookup = await existingLabel(orderId, boxIndex, session.token)
+    if (!lookup.ok) {
+      console.warn(`voidLabel: lookup failed (${lookup.why}); nothing voided`)
+      return res.status(503).json({ error: "Couldn't read this box's label record, so nothing was voided. Try again in a minute." })
+    }
+    const row = lookup.label
+    if (!row) return res.status(404).json({ error: 'This box has no label to void.' })
+    if (row.status !== 'purchased') {
+      return res.status(409).json({ error: `This label is ${row.status}, so it can't be voided here. Nothing was changed.` })
+    }
+    // The row flips to fulfilled only after the fulfill call; an order fulfilled by hand in
+    // Shopify, or a fulfill whose row flip failed, still says purchased. Ask Shopify too.
+    const got = await fetchOrder(orderId)
+    if (!got.ok) {
+      if (got.status === 404) return res.status(409).json({ error: "Shopify has no such order, so nothing was voided. Void it in Shippo by hand if it's really unused." })
+      console.warn(`voidLabel: Shopify order fetch failed (${got.why}); nothing voided`)
+      return res.status(503).json({ error: "Couldn't check the order in Shopify, so nothing was voided. Try again in a minute." })
+    }
+    const lines = got.order.line_items || []
+    if (got.order.fulfillment_status != null || lines.some(l => l.fulfillment_status)) {
+      return res.status(409).json({ error: 'This order is already fulfilled in Shopify (the customer has the tracking number). Nothing was voided.' })
+    }
+    const confirmed = await confirmWithShippo(row, auth)
+    if (!confirmed) {
+      console.warn(`voidLabel: row for ${orderId} box ${boxIndex} not confirmed by Shippo; nothing voided`)
+      return res.status(409).json({ error: "Shippo doesn't confirm this label, so nothing was voided. Tell Andy." })
+    }
+    const refundRes = await fetch(`${SHIPPO_BASE}/refunds/`, {
+      method: 'POST', headers: auth,
+      body: JSON.stringify({ transaction: confirmed.shippo_object_id, async: false })
+    })
+    const refund = await refundRes.json().catch(() => null)
+    if (!refundRes.ok || !refund || !REFUND_OK.includes(refund.status)) {
+      console.warn(`voidLabel: refund refused for ${confirmed.shippo_object_id}: ${refundRes.status} ${JSON.stringify(refund).slice(0, 300)}`)
+      return res.status(502).json({ error: 'Shippo refused the void. The label is still live; nothing was changed.', status: refund && refund.status, detail: refund })
+    }
+    const marked = await markLabelVoided(orderId, boxIndex, confirmed.shippo_object_id, session.token)
+    if (marked !== 1) {
+      // The refund is in; only the record is behind. Say so: the box would still read as bought.
+      console.warn(`voidLabel: refund ${refund.object_id} in, row not marked (${marked})`)
+      return res.status(200).json({ ok: true, voided: true, row_marked: false, refund_status: refund.status, refund_id: refund.object_id || null,
+        error: "The label is voided in Shippo, but the portal's record wasn't updated. Tell Andy before rebuying this box." })
+    }
+    return res.status(200).json({ ok: true, voided: true, row_marked: true, refund_status: refund.status, refund_id: refund.object_id || null, tracking_number: confirmed.tracking_number })
+  } catch (err) {
+    return res.status(500).json({ error: err.message })
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -201,16 +314,17 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   // A purchase needs a signed-in staff user from the first deploy on (ADR 0023); rating is
   // only enforced once PORTAL_AUTH_ENFORCE=1.
-  const session = await requireUser(req, res, { always: req.query.action === 'label' })
+  const session = await requireUser(req, res, { always: req.query.action === 'label' || req.query.action === 'void' })
   if (!session) return
 
   const token = process.env.SHIPPO_TOKEN
   if (!token) return res.status(500).json({ error: 'SHIPPO_TOKEN not configured' })
 
-  // Exactly 'rate' or 'label'. Anything else (a typo, a repeated param) must never fall
+  // Exactly 'rate', 'label' or 'void'. Anything else (a typo, a repeated param) must never fall
   // through to the purchase.
   const action = req.query.action == null ? 'rate' : req.query.action
-  if (action !== 'rate' && action !== 'label') return res.status(400).json({ error: "action must be 'rate' or 'label'" })
+  if (action !== 'rate' && action !== 'label' && action !== 'void') return res.status(400).json({ error: "action must be 'rate', 'label' or 'void'" })
+  if (action === 'void') return voidLabel(req, res, session, { 'Authorization': `ShippoToken ${token}`, 'Content-Type': 'application/json' })
 
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body || '{}') } catch { body = {} } }
@@ -219,6 +333,8 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Only UPS Ground is allowed. Reload the page and rate again.' })
   }
   // A page loaded before ADR 0020 sends the net coffee weight; it must not buy at that weight.
+  const kind = body.kind == null ? 'b2b' : body.kind
+  if (kind !== 'b2b' && kind !== 'retail') return res.status(400).json({ error: "kind must be 'b2b' or 'retail'" })
   if (body.weight_basis !== 'packed') {
     return res.status(400).json({ error: 'This page is out of date (it sends coffee weight, not packed weight). Reload the page and rate again.' })
   }
@@ -279,8 +395,8 @@ module.exports = async function handler(req, res) {
         return res.status(409).json({ error: 'Already bought', ...confirmed })
       }
       // The parcel must be the one the server packs for this box (B2a).
-      const check = await checkPackedBox(body.order_id, boxIndex, boxCount, parcel, body.pack_sig)
-      if (!check.ok) return res.status(check.status).json({ error: check.error, ...(check.code ? { code: check.code } : {}) })
+      const check = await checkPackedBox(kind, body.order_id, boxIndex, boxCount, parcel, body.pack_sig)
+      if (!check.ok) return res.status(check.status).json({ error: check.error, ...(check.code ? { code: check.code } : {}), ...(check.class ? { class: check.class } : {}) })
     }
 
     // 1) Rate the shipment.

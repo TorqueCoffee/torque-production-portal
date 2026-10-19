@@ -1,14 +1,23 @@
 // api/_shopify.js — Shopify Admin access shared by the /api functions. Not an endpoint:
 // Vercel does not turn files in api/ whose name starts with "_" into functions.
-// Client-credentials OAuth. Used by shopify-token.js, shopify-fulfill.js and shippo-label.js.
+// Client-credentials OAuth. Used by shopify-token.js, shopify-fulfill.js, shippo-label.js and
+// _retail.js.
 
 const fetch = globalThis.fetch || require('node-fetch')
 
 const API_VERSION = '2025-01'
 const ORDER_TIMEOUT_MS = 5000   // token exchange + order read, together
 
+// The token is kept for the life of the function instance (B3): a batch of 25 labels would
+// otherwise make 25 exchanges. Only a token that says when it expires is kept, and it is
+// dropped TOKEN_MARGIN_S before then, or as soon as Shopify refuses it (401).
+const TOKEN_MARGIN_S = 300
+let cached = null   // { token, until } (ms)
+function dropToken() { cached = null }
+
 // -> { token } or { error }. `signal` (optional) aborts the exchange.
 async function getToken(signal) {
+  if (cached && Date.now() < cached.until) return { token: cached.token }
   const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
   const r = await fetch(`https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/oauth/access_token`, {
     method: 'POST',
@@ -17,7 +26,23 @@ async function getToken(signal) {
     signal
   })
   const d = await r.json()
-  return d.access_token ? { token: d.access_token } : { error: d }
+  if (!d.access_token) return { error: d }
+  const life = Number(d.expires_in)
+  if (Number.isFinite(life) && life > TOKEN_MARGIN_S) cached = { token: d.access_token, until: Date.now() + (life - TOKEN_MARGIN_S) * 1000 }
+  return { token: d.access_token }
+}
+
+// One Shopify call with the (cached) token; a 401 drops the token and tries once more with a
+// fresh one. -> { ok: true, r } (the fetch response) or { ok: false, why }.
+async function withToken(signal, doFetch) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const tk = await getToken(signal)
+    if (tk.error) return { ok: false, why: 'token exchange failed' }
+    const r = await doFetch(tk.token)
+    if (r.status !== 401) return { ok: true, r }
+    dropToken()
+  }
+  return { ok: false, why: 'token refused' }
 }
 
 // The numeric id in "gid://shopify/Order/123" (or a bare "123"); null for anything else.
@@ -36,12 +61,12 @@ async function fetchOrder(orderId) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), ORDER_TIMEOUT_MS)
   try {
-    const tk = await getToken(ctrl.signal)
-    if (tk.error) return { ok: false, status: 502, why: 'token exchange failed' }
-    const r = await fetch(
-      `https://${process.env.SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/${API_VERSION}/orders/${id}.json?fields=id,name,cancelled_at,line_items`,
-      { headers: { 'X-Shopify-Access-Token': tk.token, 'Content-Type': 'application/json' }, signal: ctrl.signal }
-    )
+    const got = await withToken(ctrl.signal, token => fetch(
+      `https://${process.env.SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/${API_VERSION}/orders/${id}.json?fields=id,name,cancelled_at,fulfillment_status,line_items`,
+      { headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }, signal: ctrl.signal }
+    ))
+    if (!got.ok) return { ok: false, status: 502, why: got.why }
+    const r = got.r
     if (r.status === 404) return { ok: false, status: 404, why: 'not found' }
     if (r.status !== 200) return { ok: false, status: 502, why: `status ${r.status}` }
     const d = await r.json()
@@ -54,4 +79,4 @@ async function fetchOrder(orderId) {
   }
 }
 
-module.exports = { API_VERSION, getToken, orderNumericId, fetchOrder }
+module.exports = { API_VERSION, ORDER_TIMEOUT_MS, getToken, dropToken, withToken, orderNumericId, fetchOrder }

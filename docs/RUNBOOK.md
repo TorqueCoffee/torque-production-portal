@@ -48,6 +48,7 @@ Project **`torque-roast-scheduler`**, ref `gblkovtjylrfdotoktkb` (us-west-1) —
 - `subscription_schedule` — one row per `week_start` (date, unique), with text columns `modernist`, `classicist`, `espressoist`, and `updated_at`. Stores the per-tier coffee selection; values are plain coffee names matching `green_coffee_settings.component_name`.
 - `shipping_labels` — B2B Cubic Shipping cost capture (one row per label). RLS: `authenticated` **INSERT/UPDATE only**, no read. Written server-side by the serverless functions at purchase, as the signed-in user; status flips `purchased`→`fulfilled`. Phase 3 P&L view reads from here.
   - Three `SECURITY DEFINER` functions sit on top of it — `ship_labels_for_order(text)`, `ship_labels_pending()`, `mark_ship_labels_fulfilled(text)` (execute granted to `authenticated` only). They are how the app resumes an in-flight shipment and how the fulfill endpoint flips status, **without** a public SELECT policy that would expose cost (ADR [`0004`](./decisions/0004-cost-table-security-model.md), [`0011`](./decisions/0011-recoverable-in-flight-shipments.md)). Apply [`db/2026-07-25-ship-label-recovery.sql`](../db/2026-07-25-ship-label-recovery.sql) to recreate them (also adds the `tracking_url` / `label_url` columns).
+  - Voiding (B6, ADR [`0026`](./decisions/0026-retail-label-kind-and-void.md)): `mark_ship_label_voided(order, box, shippo id)` flips one `purchased` row to `voided` (with `voided_at`) and frees the box's claim; `mark_ship_labels_fulfilled` skips voided rows. Apply [`db/2026-10-19-label-void.sql`](../db/2026-10-19-label-void.sql) to recreate them (needs `label_claims`). *Undo:* `…-label-void-rollback.sql`.
   - A plain PostgREST `PATCH` **cannot** update this table: `UPDATE … WHERE` has to read the rows it matches, and with no SELECT policy the WHERE matches nothing while PostgREST still returns `204` (`Content-Range: */0`). Use the RPC, not a PATCH.
 
 ## Serverless API (Vercel)
@@ -150,5 +151,15 @@ Run `npm test` before every push.
 - **Supabase project:** `torque-roast-scheduler` (`gblkovtjylrfdotoktkb`)
 
 The three names do not match, which has cost time more than once: the repo is `torque-production-portal`, the Vercel project matches it, and the Supabase project still carries the app's original `torque-roast-scheduler` name. There is also a separate `torque-green-planner` Vercel project — a different app. Check the URL before concluding a deploy did not happen.
+
+**Retail labels and void (B3 server, B6), in this order:**
+1. `npm test` and `npm run test:db` pass.
+2. Supabase SQL editor: run [`db/2026-10-19-label-void.sql`](../db/2026-10-19-label-void.sql). Check: `select to_regprocedure('public.mark_ship_label_voided(text, integer, text)');` is not null.
+3. Push. Nothing changes for B2B pages (no `kind` = B2B). A retail label needs a page that sends `kind: 'retail'` (the B3 screen).
+4. Void from a terminal until the B3 screen has a button (signed-in token from the page: devtools → `(await sb.auth.getSession()).data.session.access_token`):
+   ```bash
+   curl -s -X POST "https://torque-production-portal.vercel.app/api/shippo-label?action=void" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"order_id":"gid://shopify/Order/<id>","box_index":1}'
+   ```
+   `voided: true, row_marked: true` = done. `row_marked: false` = refunded in Shippo but the row still says purchased: run `update public.shipping_labels set status = 'voided', voided_at = now() where shippo_object_id = '<id>';` in the SQL editor before the box is rebought. A fulfilled order is refused: void it in the Shippo dashboard only if the box really never shipped.
 
 **Schema changes ship separately.** Migrations in `db/` are applied by hand in the Supabase SQL editor; nothing runs them on deploy. Apply the migration *before* pushing code that writes to the new columns.

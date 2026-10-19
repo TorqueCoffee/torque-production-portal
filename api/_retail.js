@@ -4,6 +4,7 @@
 // product vendor, which REST orders don't carry.
 
 const fetch = globalThis.fetch || require('node-fetch')
+const { ORDER_TIMEOUT_MS, withToken, orderNumericId } = require('./_shopify')
 
 const GQL_VERSION = '2025-10'
 const PAGE = 25            // orders per page; 25 x 30 lines keeps the query cost under Shopify's 1000
@@ -12,10 +13,9 @@ const MAX_PAGES = 20       // 500 open orders; more than that is an error, not a
 // Open and not (fully) fulfilled, Fellow left out at the source (676 a month when it ran).
 const SEARCH = 'status:open AND (fulfillment_status:unfulfilled OR fulfillment_status:partial) AND -tag:Fellow'
 
-const QUERY = `query($after: String, $q: String!) {
-  orders(first: ${PAGE}, after: $after, query: $q, sortKey: CREATED_AT) {
-    pageInfo { hasNextPage endCursor }
-    nodes {
+// One order node: the fields normalizeRetailOrder reads. The list and the label check (B3)
+// read the same fields, so they can't classify or pack an order differently.
+const NODE = `
       id name createdAt note cancelledAt displayFulfillmentStatus displayFinancialStatus sourceName tags discountCodes
       shippingAddress { name company address1 address2 city provinceCode zip countryCodeV2 phone }
       shippingLines(first: 5) { nodes { title discountedPriceSet { shopMoney { amount } } } }
@@ -27,10 +27,17 @@ const QUERY = `query($after: String, $q: String!) {
           title variantTitle currentQuantity unfulfilledQuantity requiresShipping isGiftCard sku customAttributes { key }
           variant { product { vendor } inventoryItem { measurement { weight { unit value } } } }
         }
-      }
+      }`
+
+const QUERY = `query($after: String, $q: String!) {
+  orders(first: ${PAGE}, after: $after, query: $q, sortKey: CREATED_AT) {
+    pageInfo { hasNextPage endCursor }
+    nodes {${NODE}
     }
   }
 }`
+const ORDER_QUERY = `query($id: ID!) { order(id: $id) {${NODE}
+} }`
 
 const GRAMS_PER = { GRAMS: 1, KILOGRAMS: 1000, OUNCES: 28.349523125, POUNDS: 453.59237 }
 function grams(weight) {
@@ -98,4 +105,31 @@ async function fetchOpenRetailOrders(token) {
   return { ok: false, status: 502, why: `more than ${MAX_PAGES * PAGE} open orders` }
 }
 
-module.exports = { SEARCH, QUERY, normalizeRetailOrder, fetchOpenRetailOrders }
+// One order by id, normalized, for the label check (B3). Its own token (cached, _shopify.js)
+// and one 5 s timeout over the exchange and the read; every failure is a result, never a throw.
+//   { ok: true, order }   { ok: false, status, why }   status 400 = bad id, 404 = no such order
+async function fetchRetailOrder(orderId) {
+  const id = orderNumericId(orderId)
+  if (!id) return { ok: false, status: 400, why: 'bad order id' }
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ORDER_TIMEOUT_MS)
+  try {
+    const got = await withToken(ctrl.signal, token => fetch(`https://${process.env.SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/${GQL_VERSION}/graphql.json`, {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: ORDER_QUERY, variables: { id: `gid://shopify/Order/${id}` } }),
+      signal: ctrl.signal
+    }))
+    if (!got.ok) return { ok: false, status: 502, why: got.why }
+    const d = await got.r.json().catch(() => null)
+    if (!got.r.ok || !d || d.errors || !d.data) return { ok: false, status: 502, why: d && d.errors ? JSON.stringify(d.errors).slice(0, 300) : `status ${got.r.status}` }
+    if (!d.data.order) return { ok: false, status: 404, why: 'not found' }
+    return { ok: true, order: normalizeRetailOrder(d.data.order) }
+  } catch (e) {
+    return { ok: false, status: 502, why: e.name === 'AbortError' ? 'timeout' : e.message }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+module.exports = { SEARCH, QUERY, ORDER_QUERY, normalizeRetailOrder, fetchOpenRetailOrders, fetchRetailOrder }

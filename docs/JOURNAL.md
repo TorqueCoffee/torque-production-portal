@@ -32,6 +32,33 @@
 
 - [`0027-retail-queue-scope.md`](./decisions/0027-retail-queue-scope.md)
 
+## 2026-10-19 — Phase B, B3 (server) and B6: retail labels and voiding
+
+### Work done
+
+- `api/shippo-label.js` takes `kind: 'b2b' | 'retail'` (absent = B2B, so today's pages are unchanged).
+  - Retail: the order is read through GraphQL with the list's own fields (new `fetchRetailOrder` in `api/_retail.js`, which now shares one `NODE` field list with the B1 query).
+  - It must still classify LIST (else 409 `not_listed` with the class) and is packed with `packRetail`.
+  - The pack signature and parcel are compared exactly as for B2B. Order unchanged: lookup → pack check → rate → price guard → claim → buy.
+- `api/_shopify.js` caches the Shopify token per function instance until 5 minutes before `expires_in`; a 401 drops it and retries once. A batch of 25 makes one exchange. The 5 s timeout still covers exchange and read inside the `try`. The REST order read now includes `fulfillment_status`.
+- B6: `POST /api/shippo-label?action=void { order_id, box_index }`, signed-in staff only. It checks, in order:
+  - the row must be `purchased`;
+  - Shopify must show no fulfillment of any part;
+  - Shippo must confirm the transaction.
+  - Then Shippo `POST /refunds/`, then the new RPC `mark_ship_label_voided`.
+- `db/2026-10-19-label-void.sql` (+ rollback): `voided_at` column; `mark_ship_label_voided` (staff only, one row by order + box + Shippo id, frees the box's claim so it can be rebought); `mark_ship_labels_fulfilled` stops flipping voided rows to fulfilled. **Not applied**: Andy runs it.
+- Tests: `tests/b3-retail-label.test.js` (13: K1–K6, V1–V4) and `tests/db/label-void.test.js` (5: V5). `npm test` 128/128, `npm run test:db` 21/21. No page change: the B3 screen is Andy's design.
+- Not deployed, not pushed.
+
+### Detours & fixes
+
+- **Found in passing:** `mark_ship_labels_fulfilled` flipped every non-fulfilled row of an order, so a voided label would have come back as `fulfilled` and into the P&L. Fixed in the same migration.
+- **Found in passing:** a successful label purchase never releases its claim, so a voided box couldn't be rebought for 10 minutes. The void RPC now deletes the claim.
+
+### Decisions captured
+
+- [`0026-retail-label-kind-and-void.md`](./decisions/0026-retail-label-kind-and-void.md)
+
 ## 2026-10-19 — Phase B, B2: the retail packer
 
 ### Work done
