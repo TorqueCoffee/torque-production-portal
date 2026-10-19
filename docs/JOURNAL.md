@@ -12,7 +12,8 @@
 - Checked in a local preview with sample data built from the 30 fixtures: the 6 hold orders match the handoff's list, no console errors, the table scrolls inside its box on a phone width.
 - Review (three passes, Opus 5.5): 15 should-fix items fixed (Subscriptions alert side effect, size labels, 768 px table, 44 px tap targets, sticky bar and kept focus, three strings, five vacuous tests). Details under Detours & fixes.
 - Andy's calls on the review's open questions: unpaid (pending) orders list as normal; Select all keeps NOTE and REPLACEMENT rows; Needs a fix rows get Open in Shopify (added); the REPLACEMENT rule stays as is.
-- Not done: deploy, live check on the iPad (U11), age chip threshold, the Resume banner and everything from B3a on. RUNBOOK unchanged (no new setup).
+- **Deployed 2026-10-19 (a398837, main fast-forwarded).** Andy confirmed the Retail tab shows on the live portal. Not checked by me: the served `lib/ship-rules.js` against the commit and the 401s (my curl used a guessed domain, and the Vercel connector returned 403). It shipped the B3 server and B6 commit (62e3ddb) too; `db/2026-10-19-label-void.sql` is NOT applied, so void stays unusable until it is.
+- Not done: live check on the iPad with real orders (U11), age chip threshold, the Resume banner and everything from B3a on. RUNBOOK unchanged (no new setup).
 
 ### Detours & fixes
 
