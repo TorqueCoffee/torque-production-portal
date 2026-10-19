@@ -230,6 +230,7 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
 
 **Run log:**
 - 2026-10-19: P1–P4 PASS, 115/115 (`npm test`).
+- 2026-10-19: deployed (f2b0f2f). Lib matches the commit; `retail-ship` 401 without a token.
 
 ### B1 — retail order list (`?type=retail-ship`)
 `tests/b1-retail.test.js`, fetch stubbed:

@@ -10,6 +10,7 @@
   - The billed pounds are the existing `declaredWeightLb` / `boxParcel` on that box: ceil(net + tare + 0.05), net from the measured bag weights.
 - `?type=retail-ship` now returns `parcel` (carton inches and billed pounds) for each LIST order, null for HOLD.
 - `tests/b2-retail-pack.test.js`: all 16 listed acceptance orders get Phase A's carton and billed pounds; the fit table and every A4 oversize combination; one carton for 30 bags (24 lb); empty and unweighable orders. 115 tests pass.
+- **Deployed 2026-10-19 (f2b0f2f).** Live: the served `lib/ship-rules.js` matches the commit, `?type=retail-ship` returns 401 without a token, and the test file returns 404.
 - Not yet: the label endpoint's repack check is still B2B-only (ADR 0025). B3 has to tell it which packer applies before a retail label can be bought.
 
 ## 2026-10-19 — Phase B, B1: the retail order list (`?type=retail-ship`)
