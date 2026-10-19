@@ -87,7 +87,7 @@
 
 - **No Docker for the backup.** Supabase's documented `supabase db dump` runs `pg_dump` in Docker, which isn't installed. `supabase db dump --dry-run` prints the same script (Supabase's flags and filters), and it runs on Homebrew's `postgresql@17`. RUNBOOK updated.
 - **The Connect dialog was redesigned.** The Session pooler string is under "Direct: Connection string", shown as "Shared pooler" (`aws-1-us-west-1.pooler.supabase.com:5432`, user `postgres.gblkovtjylrfdotoktkb`).
-- **The database password was exposed and reset.** A `read -s` sent through the app's `!` input finished empty, so the pasted password ran as a shell command and landed in the terminal and zsh history. Andy reset the database password. The connection string was then built from the clipboard (`pbpaste`, percent-encoded), so nothing is typed. The RUNBOOK recipe uses `read -s`, which works in a normal terminal but not through the `!` input.
+- **Entering the database password.** A `read -s` sent through the app's `!` input finished empty, so the password Andy had found (his Supabase login password, not the database password) ran as a shell command and landed in the terminal and zsh history. Andy reset the database password, and the connection string was built from the clipboard (`pbpaste`, percent-encoded), so the database password never appeared on screen. The RUNBOOK recipe uses `read -s`, which works in a normal terminal but not through the `!` input.
 
 ### Detours & fixes
 
