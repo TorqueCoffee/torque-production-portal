@@ -265,7 +265,7 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
 - [x] **U12 touch and keyboard:** every Retail button and link is at least 44 px tall (`.rt-tap`), as is each tick box's cell; the grid's minimum width fits an iPad in portrait (768) with the Check column showing; the selection bar is sticky under the header from 700 px wide; a tick keeps keyboard focus on its box.
 - [x] **U13 unpaid orders list:** pending, authorized and partly paid orders classify LIST like paid ones; refunded still doesn't ship (Shopify shows pending for about an hour after checkout).
 - [x] **U14 fix-row link:** a Needs a fix row has Open in Shopify (https links only); a ready row has none.
-- [ ] **U11 live (Andy):** deployed 2026-10-19 (a398837); the tab is there. Still to check:  open Retail on the iPad signed in: the real open orders list with coffees and cartons; the subscription lines show this week's coffee; Refresh works.
+- [ ] **U11 live (Andy):** deployed 2026-10-19 (a398837); live empty state confirmed by Andy (Shopify had only 2 open pickup orders; the tab showed no orders and "Not listed right now: 2 pickup"). Still to check with real orders:  open Retail on the iPad signed in: the real open orders list with coffees and cartons; the subscription lines show this week's coffee; Refresh works.
 
 **Run log:**
 - 2026-10-19: U1–U10 PASS, 127/127 (`npm test`).
