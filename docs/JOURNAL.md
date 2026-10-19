@@ -1,5 +1,12 @@
 # Journal
 
+## 2026-10-19 — Andy's sign-offs after B3a; age chip on at 2 days
+
+### Work done
+
+- Andy approved the printed retail slip sample and the four places the code reads `retail_slip_spec.md` (11 rows with a note, Pacific date, boxes repeat on page 2, subscription box from the line attribute too). TESTS B4 sample checked.
+- **Age chip N = 2.** Read-only, the last 100 shipped orders (Oct 9–19): retail orders ship the same or next day, the slowest at 1.9 days (#8270, Saturday to Monday). At 2 whole days the chip marks only an order that is really late; at 1 it would mark about half of normal next-day orders. `RETAIL_AGE_CHIP_DAYS = 2`; ADR 0027 noted; test added.
+
 ## 2026-10-19 — Phase B, B3a: Retail Buy and print, the Buying screen, the retail slip (B4)
 
 ### Work done

@@ -3114,8 +3114,9 @@ const RETAIL_MAX_BATCH = 25
 const RETAIL_BUY_ENABLED = false
 const RETAIL_BUY_PARALLEL = 3            // label calls at once; drops to 1 if the server says "too many"
 const RETAIL_BUSY_WAIT_MS = 1500         // after "too many": wait this, twice this, three times this
-// Show an "N days old" chip from this many days. null = no chip; Andy has not set N yet.
-const RETAIL_AGE_CHIP_DAYS = null
+// Show an "N days old" chip from this many whole days (null = no chip). 2 (Andy, 2026-10-19): of
+// the last 100 shipped orders (Oct 9-19), the slowest retail one shipped at 1.9 days.
+const RETAIL_AGE_CHIP_DAYS = 2
 const RETAIL_STALE_MS = 10 * 60 * 1000   // reopening the tab after this reloads the list
 const RETAIL_CARTONS = ['8x6x3', '12x8x6', '14x10x10']
 const RETAIL_CARTON_DESC = {

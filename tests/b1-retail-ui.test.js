@@ -140,7 +140,7 @@ test('B1 UI: chips show only what changes the work: replacement reason, note, ag
   const noted = order({ note: 'Gift for <b>Sam</b>' })
   const sub = order({ flags: ['SUBSCRIPTION'], items: [{ product_name: 'Classicist - Coffee Subscription', variant_title: '12oz', qty: 1, weight_lb: 0.75, note: '⚠ No coffee set for this week' }] })
   const free = order({ flags: ['FREE_SHIPPING', 'SUBSCRIPTION'] })
-  q.set({ orders: [plain, rep, rep2, noted, sub, free], loadedAt: Date.now(), sel: [] })
+  q.set({ orders: [plain, rep, rep2, noted, sub, free], loadedAt: Date.now(), sel: [], ageDays: null })   // fixture dates are past
   q.render()
   const html = q.html()
   assert.match(html, /REPLACEMENT · Mis ship/)
@@ -148,7 +148,14 @@ test('B1 UI: chips show only what changes the work: replacement reason, note, ag
   assert.match(html, /NOTE · read before shipping/)
   assert.match(html, /Note: Gift for &lt;b&gt;Sam&lt;\/b&gt;/)                              // the note is escaped
   assert.match(html, /No coffee set this week\. Set it in Subscriptions/)
-  assert.doesNotMatch(html, /SUBSCRIPTION|COLLECTIVE|FREE_SHIPPING|days old/)               // D3/D4; age chip is off until Andy sets N
+  assert.doesNotMatch(html, /SUBSCRIPTION|COLLECTIVE|FREE_SHIPPING|days old/)               // D3/D4; no age chip when N is null
+  // Andy's N = 2: a day-and-a-half-old order has no chip, a two-day-old one does.
+  const d = queue()
+  assert.match(require('fs').readFileSync(require('./helpers/index-html').INDEX, 'utf8'), /^const RETAIL_AGE_CHIP_DAYS = 2$/m)
+  d.set({ orders: [order({ created_at: new Date(Date.now() - 1.5 * 86400000).toISOString() })], loadedAt: Date.now(), sel: [] }); d.render()
+  assert.doesNotMatch(d.html(), /days old/)
+  d.set({ orders: [order({ created_at: new Date(Date.now() - 2.1 * 86400000).toISOString() })] }); d.render()
+  assert.match(d.html(), /2 days old/)
   const old = order({ created_at: new Date(Date.now() - 6 * 86400000).toISOString() })
   q.set({ orders: [old], ageDays: 5 }); q.render()
   assert.match(q.html(), /6 days old/)

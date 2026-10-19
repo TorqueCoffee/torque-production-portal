@@ -20,7 +20,7 @@ Two things also had to be decided in code: where the P.O. box and 35-character c
 
 - **No dollar estimate on the queue.** The total shows on the Buying screen (B3a), after real quotes. Out-of-range quote flagging stays deferred.
 - **Cap of 25.** Select all takes the oldest 25 ready orders and says so; a 26th tick is refused with a message.
-- **Age chip is built but off** (`RETAIL_AGE_CHIP_DAYS = null`) until Andy gives a number of days. NOTE reads Shopify's order `note`.
+- **Age chip is built but off** (`RETAIL_AGE_CHIP_DAYS = null`) until Andy gives a number of days. *Set to 2 (Andy, 2026-10-19): of the last 100 shipped orders, the slowest retail one shipped at 1.9 days, so the chip marks only an order that is really late.* NOTE reads Shopify's order `note`.
 - **Needs a fix is computed beside the classifier, not in it.** `addressProblem()` in `lib/ship-rules.js` runs for LIST orders in the endpoint and returns `fix`; `classifyRetailOrder` and its 30 acceptance fixtures are untouched. The P.O. box pattern, `cleanText` and the 35-character limit moved into `lib/ship-rules.js` from `api/shippo-label.js`, which now imports them, so the queue and the purchase refusal can't drift apart. A LIST order the server could not size also goes to Needs a fix. Neither can be ticked.
 - **The page shows; the server decides.** Classification, carton, billed pounds and the fix all come from the endpoint. The page only groups, counts and escapes.
 - **Buy is shown disabled with a "turns on in the next release" line** (`RETAIL_BUY_ENABLED = false`), so the layout and the 2-click budget can be seen and B3a only has to wire it.
