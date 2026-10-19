@@ -68,7 +68,11 @@
   - **Step 2b run, 2026-10-19 ~00:35 UTC, without waiting for Elias and Nanelle (Andy's call).** `realtime-publication.sql` was run through the Supabase connector. `supabase_realtime` now holds `activity_log`, `daily_plan`, `plan_state` and `roasting_progress`.
     - Accepted risk: an old page still open on their devices reloads on every row event, and its counters can overwrite another device's. Each of them should reload (or close) the portal and sign in at their next use.
     - L6 PASS (Andy): live sync between devices, six fast "+" taps store 6, Pull Orders, Ship rating and the green planner all work.
-    - Next: 3a (`PORTAL_AUTH_ENFORCE=1` and redeploy), then 3b once Elias and Nanelle have signed in (the migration refuses before that), after a backup or the Pro upgrade.
+  - **Step 3a done, 2026-10-19 ~00:36 UTC.** Andy set `PORTAL_AUTH_ENFORCE=1` (Production) and redeployed (`torque-production-portal-6sg1ff2y5`).
+    - The RUNBOOK said "Settings → Environment Variables", which no longer exists. Environment Variables is now a project sidebar item, and redeploying is done from Deployments → ⋯ → Redeploy. RUNBOOK corrected from Vercel's docs (eae8f95).
+    - Checked without a token: `shopify-token` (products, orders, b2b) and `shippo-label` rate return 401, and a made-up token gets 401 (`auth:invalid`). The page returns 200. The Vercel logs show `enforce=1`.
+    - No signed-in device had called the new deployment yet when this was checked.
+    - Next: 3b, once Elias and Nanelle have signed in (the migration refuses before that), after a backup or the Pro upgrade.
 
 ### Detours & fixes
 
