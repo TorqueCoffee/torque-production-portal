@@ -138,7 +138,7 @@ Rollout order (RUNBOOK "First rollout"):
 
 ### B0 — B2B cutover and safety
 Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020-all-orders-ups-ground.md)). `tests/syntax.test.js` + `tests/b0-ups.test.js` (ADR [`0021`](./decisions/0021-node-test-harness.md)), fetch stubbed, no network:
-- [x] **G1 syntax:** both inline `<script>` blocks parse; every `api/*.js` passes `node --check`.
+- [x] **G1 syntax:** both inline `<script>` blocks parse; every `api/*.js` (and, since B2a, `lib/*.js`) passes `node --check`.
 - [x] **G2 weight (`resolveWeightLb`):**
   - Title first, then grams (R10). La Mora 5lb at 340 g → 5 lb; 4 bags → one box declared 22.
   - Units lb, oz, g, kg ("900g" → 1.984). xPods and 250 g → 0.75 (R3), but an explicit size wins ("xPods Bulk 45lb Box" → 45).
@@ -220,6 +220,23 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
 - 2026-10-17: adversarial review round 1. Accepted fixes landed (see JOURNAL). G1–G3 PASS, 25/25.
 - 2026-10-17: adversarial review round 2. Accepted fixes landed (see JOURNAL). G1–G3 PASS, 38/38 (`npm test`).
 - 2026-10-18: adversarial review round 3 (the cap). Accepted fixes landed (see JOURNAL). G1–G3 PASS, 47/47 (`npm test`).
+
+### B2a — shared ship rules (ADR [`0025`](./decisions/0025-shared-ship-rules-server-repack.md))
+One copy of the weight and packing rules in `lib/ship-rules.js`, loaded by the page and `require`d by the API. The label endpoint repacks the order from Shopify and buys only the parcel it packs itself. `tests/b0-ups.test.js` (B2a block) + `tests/syntax.test.js`, fetch stubbed:
+- [x] **S1 one copy:** every name the page takes from `ShipRules` is exported by the lib and declared nowhere in `index.html`; `shopify-token.js` and `shippo-label.js` declare no rule. In a browser the file defines a frozen `ShipRules` global.
+- [x] **S2 deployed:** every same-origin `<script src>` exists in the repo and is in the `.vercelignore` allowlist; `lib/*.js` passes `node --check`.
+- [x] **S3 same items:** the order list (`?type=b2b-ship`) and the label check build items through the same `b2bShipItems()` (filler, other-vendor and fulfilled lines dropped; quantity is `fulfillable_quantity`) and pack through the same `packB2BItems()`.
+- [x] **S4 refuse a mismatch:** a parcel 1 lb lighter or heavier, another carton, another box count, or an order edited since it was listed (a real Shopify edit: `quantity` 16, `fulfillable_quantity` 15) → 409 `pack_changed` for every box, not only the changed one; nothing claimed or bought. A page that sends no `pack_sig` is told to reload. The TCCDS-40 override applies on the server too. `boxParcel` returns null for an unreadable or tare-less carton.
+- [x] **S4b page stops:** a `pack_changed` refusal stops the page's buy loop after that box.
+- [x] **S5 fail closed:** a cancelled or missing order, an unweighable line, Shopify down or the token exchange failing → nothing bought (409 or 503). A malformed `order_id` never reaches Shopify.
+- [x] **S6 no new waits:** rating and the "Already bought" path make no Shopify call.
+- [x] **S7 page (preview):** the page served locally shows sign-in with no console errors; `packB2BItems === ShipRules.packB2BItems`; TCCDS-40 + 3 x 5 lb packs to `14x10x10@21,14x10x10@21,14x10x10@17`. With `/lib/ship-rules.js` missing, sign-in still shows and the only error is the 404.
+- [x] **S9 lib is public:** no `process.env`, `require(` or secret names in `lib/` code.
+- [ ] **S8 live (Andy):** the next B2B order rates and buys as before; the Vercel logs show no `checkPackedBox` warning.
+
+**Run log:**
+- 2026-10-19: S1–S7 PASS, 100/100 (`npm test`).
+- 2026-10-19: one Architect review (Andy's call: one reviewer, one round). 11 findings: 0 Blocks ship, 6 Should fix, 5 Worth noting. Accepted fixes landed (JOURNAL). S1–S9 PASS, 104/104.
 
 ## B2B Cubic Shipping
 

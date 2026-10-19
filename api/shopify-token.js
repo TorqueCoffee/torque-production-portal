@@ -1,5 +1,7 @@
 const fetch = globalThis.fetch || require('node-fetch');
 const { requireUser } = require('./_auth')
+const { API_VERSION, getToken } = require('./_shopify')
+const { b2bShipItems } = require('../lib/ship-rules.js')
 
 const EXCLUDE_TERMS = ['subscription', 'gift card', 'shirt', 'bean & bottle']
 
@@ -22,59 +24,8 @@ function isCoffeeProduct(p) {
   return status === 'DRAFT' && (p.tags || []).some(t => String(t).toLowerCase().includes('roast-profile'))
 }
 
-// Weight resolution for B2B shipping (R10 in docs/RETAIL_SHIPPING_RULES.md): the size in
-// the variant title, then in the product title, then Shopify's per-line `grams`. Grams
-// first was wrong for 98 of 576 variants (La Mora 5lb stores 340 g, so 4 bags read as
-// 3 lb). xPods and the 250 g box count as a 12 oz bag (R3). Returns POUNDS, or null if
-// unknown or ambiguous — the packer flags null-weight items as unpackable rather than
-// guessing.
-const GRAMS_PER_LB = 453.59237
-const KG_PER_LB = 0.45359237
-// Coffee bags come in clean 0.25-lb increments (12oz, 1/2/5 lb). Shopify stores grams
-// rounded (a "5 lb" bag = 2270 g = 5.004 lb), which would push 4×5lb to 20.016 > the 20 lb
-// cap and waste a box. Snap to the nearest quarter-pound to recover the nominal weight and
-// honor the "4×5lb = 20 flat" decision.
-function snapQuarterLb(lb) { return Math.round(lb * 4) / 4 }
-function resolveWeightLb(item) {
-  for (const title of [item && item.variant_title, item && item.title]) {
-    const w = weightFromTitle(title)
-    if (w === HOLD) return null      // the title names a size we must not guess at
-    if (w != null) return w
-  }
-  const g = Number(item && item.grams)
-  if (Number.isFinite(g) && g > 0) return snapQuarterLb(g / GRAMS_PER_LB)
-  return null
-}
-// The bag size printed in a title, in pounds. null when the title names no size. HOLD when
-// it names one that can't be read as a single bag: a multipack ("2 x 12oz", "6 pack",
-// "case of 6") or a fraction ("1/2 lb"). The first number+unit wins, so "xPods Bulk 45lb
-// Box" is 45 lb; xPods and 250 g count as 12 oz (R3) only when no other size is given.
-const HOLD = Symbol('hold')
-const MULTI_OR_FRACTION_RX = /\d+\s*[x×]\s*\d|(?:^|[^a-z])[x×]\s*\d|\bpack\b|\bcase\s+of\b|\d+\s*\/\s*\d+/i
-const SIZE_RX = /(\d+(?:\.\d+)?|\.\d+)\s*(lbs?|pounds?|oz|ounces?|kg|kilograms?|g|grams?)\b/i
-function weightFromTitle(title) {
-  if (!title) return null
-  const t = String(title).slice(0, 255)   // Shopify titles are at most 255; bounds the regex work
-  if (MULTI_OR_FRACTION_RX.test(t)) return HOLD
-  const m = t.match(SIZE_RX)
-  if (m) {
-    const n = parseFloat(m[1]), u = m[2].toLowerCase()
-    if (u[0] === 'o') return Math.round((n / 16) * 1000) / 1000           // ounces
-    if (u[0] === 'k') return Math.round((n / KG_PER_LB) * 1000) / 1000    // kilograms
-    if (u[0] === 'g') return n === 250 ? 0.75 : Math.round((n / GRAMS_PER_LB) * 1000) / 1000   // grams; R3: 250 g box = 12 oz
-    return n                                                               // pounds
-  }
-  if (/\bx\s*pods?\b/i.test(t)) return 0.75   // R3: an xPods box counts as 12 oz
-  return null
-}
-
-// Shipping-weight filler products ("5 lb weight for shipping") pad the weight Shopify
-// Shipping used to quote. They are not packed; under UPS a filler line would add a real
-// box and label (ADR 0016 warns about the same name).
-const SHIPPING_FILLER_RX = /weight for shipping/i
-function isShippableB2BLine(it) {
-  return it.vendor === 'Torque Coffees' && it.fulfillment_status !== 'fulfilled' && !SHIPPING_FILLER_RX.test(it.title || '')
-}
+// Weight (R10), which lines ship and the per-order items: lib/ship-rules.js (B2a), shared
+// with the page and with the label check in api/shippo-label.js.
 
 // Shopify variant text has drifted across relaunches - the same bag comes back as
 // "12oz Coffee Bag", "12oz Bag", "12 oz bag / In Stock", etc. Worse, some coffees
@@ -103,27 +54,15 @@ module.exports = async function handler(req, res) {
   // Customer names and addresses (b2b, b2b-ship) need a signed-in staff user from the first
   // deploy on; the product and order lists only once PORTAL_AUTH_ENFORCE=1.
   if (!(await requireUser(req, res, { always: req.query.type === 'b2b' || req.query.type === 'b2b-ship' }))) return
-  const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
+  const { SHOPIFY_STORE_HANDLE } = process.env
 
   try {
-    const tokenRes = await fetch(
-      `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/oauth/access_token`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: SHOPIFY_CLIENT_ID,
-          client_secret: SHOPIFY_CLIENT_SECRET
-        })
-      }
-    )
-    const tokenData = await tokenRes.json()
-    if (!tokenData.access_token) {
-      return res.status(500).json({ error: 'Token exchange failed', detail: tokenData })
+    const tk = await getToken()
+    if (tk.error) {
+      return res.status(500).json({ error: 'Token exchange failed', detail: tk.error })
     }
-    const token = tokenData.access_token
-    const baseUrl = `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/2025-01`
+    const token = tk.token
+    const baseUrl = `https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/api/${API_VERSION}`
     const headers = { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
 
     // PRODUCTS endpoint - the coffee list that drives dropdowns, blends and the
@@ -218,16 +157,7 @@ module.exports = async function handler(req, res) {
         const company = (order.billing_address && order.billing_address.company) || (sa && sa.company) || null
         if (!company) continue   // B2B only — wholesale accounts carry a company
         if (!sa) continue        // can't ship without an address
-        const items = (order.line_items || [])
-          .filter(isShippableB2BLine)
-          .map(it => ({
-            sku: it.sku || null,
-            product_name: it.title,
-            variant_title: it.variant_title || 'Default',
-            qty: it.quantity,
-            grams: it.grams != null ? it.grams : null,
-            weight_lb: resolveWeightLb(it)
-          }))
+        const items = b2bShipItems(order.line_items)
         if (!items.length) continue
         shipOrders.push({
           order_id: order.admin_graphql_api_id || `gid://shopify/Order/${order.id}`,
@@ -289,8 +219,5 @@ module.exports = async function handler(req, res) {
 }
 
 // Exposed for unit tests (Vercel still invokes module.exports(req, res) as the function).
-module.exports.resolveWeightLb = resolveWeightLb
-module.exports.weightFromTitle = weightFromTitle
-module.exports.isShippableB2BLine = isShippableB2BLine
 module.exports.canonicalVariant = canonicalVariant
 module.exports.isCoffeeProduct = isCoffeeProduct

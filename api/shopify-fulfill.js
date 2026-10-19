@@ -17,7 +17,7 @@
 
 const fetch = globalThis.fetch || require('node-fetch')
 const { requireUser, supabaseHeaders } = require('./_auth')
-const API_VERSION = '2025-01'
+const { API_VERSION, getToken } = require('./_shopify')
 const UPS_TRACKING = /^1Z[0-9A-Z]{16}$/i
 
 // Flip an order's shipping_labels rows to 'fulfilled'. NON-BLOCKING: never throws.
@@ -46,17 +46,6 @@ async function markLabelsFulfilled(orderId, userToken) {
     }
   } catch (e) { /* non-blocking: analytics is the passenger, not the shipment */ }
   return { cost_updated, cost_rows_updated }
-}
-
-async function getToken() {
-  const { SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_HANDLE } = process.env
-  const r = await fetch(`https://${SHOPIFY_STORE_HANDLE}.myshopify.com/admin/oauth/access_token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'client_credentials', client_id: SHOPIFY_CLIENT_ID, client_secret: SHOPIFY_CLIENT_SECRET })
-  })
-  const d = await r.json()
-  return d.access_token ? { token: d.access_token } : { error: d }
 }
 
 module.exports = async function handler(req, res) {

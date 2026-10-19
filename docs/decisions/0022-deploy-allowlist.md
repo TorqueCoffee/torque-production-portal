@@ -1,6 +1,6 @@
 # 0022 — Deploy only the app: index.html, api/, package.json
 
-- **Status**: Accepted
+- **Status**: Accepted (amended 2026-10-19: `lib/` added for B2a)
 - **Date**: 2026-10-17
 
 ## Context
@@ -33,3 +33,8 @@ The Phase A docs committed for Phase B are more sensitive than what was public b
 - `package.json` itself is public (dependency versions only).
 - The allowlist must reach production before the Phase A docs do, and must never be rolled back: reverting it, or a Vercel Instant Rollback to an earlier deployment, publishes `docs/` and `db/` again. The push order is in TESTS.md G7.
 **When to revisit:** the app gains static assets or a build step.
+
+## Amendment, 2026-10-19: `lib/`
+
+B2a moved the shipping rules into `lib/ship-rules.js`, which the page loads as `<script src="/lib/ship-rules.js">` and the API `require`s. `!lib` is added to `.vercelignore`. If it were missing, the file would 404 and the page's script would stop at its first line, sign-in included. `tests/syntax.test.js` now checks that every same-origin `<script src>` in `index.html` exists in the repo and is allowed by `.vercelignore`. `lib/` holds only code that is safe to publish: everything in it is served to every visitor.
+

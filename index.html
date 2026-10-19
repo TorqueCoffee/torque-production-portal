@@ -7,6 +7,7 @@
 <!-- Pinned (ADR 0023). The integrity hash makes the browser refuse any other file at this URL.
      To upgrade: pick a version at least two weeks old, recompute the sha384 (RUNBOOK). -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="/lib/ship-rules.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Hepta+Slab:wght@400;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -740,6 +741,11 @@ html.tq-locked body>*:not(#tqGate){display:none!important}
 </div>
 
 <script>
+// Shipping rules shared with the server (lib/ship-rules.js, B2a). One copy: the label
+// endpoint repacks every order with the same file. If the file didn't load, only shipping is
+// off (loadShipOrders says so); sign-in and the rest of the portal still work.
+const SHIP_RULES_LOADED = typeof ShipRules !== 'undefined'
+const { PACK_BOX, packB2BItems, declaredWeightLb, boxParcel, packSignature } = SHIP_RULES_LOADED ? ShipRules : {}
 const TEAM_ID = 'torque2026'
 const SUPABASE_URL = 'https://gblkovtjylrfdotoktkb.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_UCzUCyiWEtzqRxQcnhpSyw_BrYBKCz-'
@@ -1807,86 +1813,9 @@ async function loadB2B() {
   btn.textContent = 'Refresh B2B'
 }
 
-// ── B2B Cubic Shipping · Step 1: box packer (pure, no side effects) ──────────
-// Packs order line items into the fewest 14x10x10 boxes, each <= weight cap.
-// weight_lb = per-UNIT nominal net weight (resolveWeightLb in api/shopify-token.js: title, then grams).
-// The 20 lb cap began as the USPS cubic ceiling and stays as the 14x10x10 box limit
-// under UPS (ADR 0020). It is applied to NET weight; the weight declared to Shippo
-// adds measured bag weight + box tare (declaredWeightLb).
-// Fit/volume is NOT modeled by design — the human eyeball-confirm step verifies
-// physical fit before any label is bought. Tested: tests/b0-ups.test.js.
-const PACK_BOX = Object.freeze({ label: '14x10x10', maxWeightLb: 20 })
-
-// Hardcoded per-SKU physical unit overrides.
-// Some products are priced/sold as one unit but physically ship as multiple boxes
-// (e.g. TCCDS-40 prices as one 40lb line item but ships as 2x 20lb boxes). Key = SKU
-// exactly as it appears in Shopify. Extend this map if more such SKUs appear; do not
-// build a general config system for a single known case — see ADR on this decision.
-const SHIP_UNIT_OVERRIDES = {
-  'TCCDS-40': { units: 2, weight_lb: 20 } // Cocoa Drops xBloom Bulk 40lb Box -> 2x 20lb boxes
-}
-
-// Applies SHIP_UNIT_OVERRIDES to a line-item list before it reaches packBoxes(), so
-// packBoxes keeps working purely on already-correct per-unit weights like every other SKU.
-function expandShipItems(items) {
-  return (items || []).map(item => {
-    const override = SHIP_UNIT_OVERRIDES[item.sku]
-    if (!override) return item
-    return { ...item, qty: (item.qty || 0) * override.units, weight_lb: override.weight_lb }
-  })
-}
-
-function packBoxes(items, opts = {}) {
-  const cap = opts.maxWeightLb ?? PACK_BOX.maxWeightLb
-  const boxLabel = opts.boxLabel ?? PACK_BOX.label
-  const EPS = 1e-9
-  const units = [], unpackable = []
-
-  for (const it of (items || [])) {
-    const qty = Math.max(0, Math.floor(Number(it.qty) || 0))
-    const w = Number(it.weight_lb)
-    if (qty === 0) continue
-    if (!Number.isFinite(w) || w <= 0) {
-      unpackable.push({ product_name: it.product_name, variant_title: it.variant_title, qty, weight_lb: it.weight_lb, reason: 'unknown_or_invalid_weight' })
-      continue
-    }
-    if (w > cap + EPS) {
-      unpackable.push({ product_name: it.product_name, variant_title: it.variant_title, qty, weight_lb: w, reason: 'unit_exceeds_box_cap' })
-      continue
-    }
-    for (let i = 0; i < qty; i++) units.push({ product_name: it.product_name, variant_title: it.variant_title, weight_lb: w })
-  }
-
-  // First-Fit Decreasing: heaviest first, into the first box that still fits.
-  units.sort((a, b) => b.weight_lb - a.weight_lb)
-  const bins = []
-  for (const u of units) {
-    let placed = false
-    for (const bin of bins) {
-      if (bin.weight_lb + u.weight_lb <= cap + EPS) { bin.units.push(u); bin.weight_lb += u.weight_lb; placed = true; break }
-    }
-    if (!placed) bins.push({ weight_lb: u.weight_lb, units: [u] })
-  }
-
-  const box_count = bins.length
-  const boxes = bins.map((bin, idx) => ({
-    box_index: idx + 1, box_count, box_label: boxLabel,
-    weight_lb: Math.round(bin.weight_lb * 100) / 100,
-    contents: packAggregate(bin.units)
-  }))
-  return { boxes, unpackable, box_count, total_weight_lb: Math.round(bins.reduce((s, b) => s + b.weight_lb, 0) * 100) / 100 }
-}
-
-// Collapse units back into {product, variant, qty} lines for the contents block.
-function packAggregate(units) {
-  const map = new Map()
-  for (const u of units) {
-    const key = `${u.product_name} ${u.variant_title}`
-    if (!map.has(key)) map.set(key, { product_name: u.product_name, variant_title: u.variant_title, qty: 0, unit_weight_lb: u.weight_lb })
-    map.get(key).qty += 1
-  }
-  return [...map.values()]
-}
+// ── B2B Cubic Shipping · Step 1: box packer ──────────────────────────────────
+// The packer (packB2BItems: SKU overrides, then First-Fit Decreasing into 14x10x10 boxes) lives
+// in lib/ship-rules.js (B2a), shared with the server's label check. Tested: tests/b0-ups.test.js.
 
 // ── B2B Cubic Shipping · label + slip printing ────────────────────────────────
 // Prints go through a single server-built native 4x6 PDF (api/ship-doc.js), opened in
@@ -1896,7 +1825,7 @@ function packAggregate(units) {
 
 // ── B2B Cubic Shipping · Step 5 Slice B: the ship UI flow ────────────────────
 // open order → pack → confirm rate → buy labels → print label+slip → fulfill →
-// tracking back. Wires the Step 1–4b backend pieces (packBoxes, /api/shippo-label,
+// tracking back. Wires the Step 1–4b backend pieces (packB2BItems, /api/shippo-label,
 // /api/ship-doc, /api/shopify-fulfill); it does NOT re-derive their behavior.
 // The in-flight shipment lives in shipState (memory) only until fulfilled — the
 // bought labels + cost rows are the durable record (Shippo + shipping_labels).
@@ -1914,11 +1843,16 @@ async function loadShipOrders() {
   const body = document.getElementById('shipBody')
   document.getElementById('shipSummary').innerHTML = ''
   body.innerHTML = '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">Loading shippable B2B orders…</div>'
+  if (!SHIP_RULES_LOADED) {
+    b2bShipOrders = []
+    body.innerHTML = `<div class="alert alert-red">The shipping rules didn't load (/lib/ship-rules.js). Reload the page; if it repeats, tell Andy.</div>`
+    return
+  }
   try {
     const res = await apiFetch('/api/shopify-token?type=b2b-ship')
     const data = await res.json()
     if (data.error) throw new Error(data.error)
-    b2bShipOrders = (data.orders || []).map(order => ({ ...order, items: expandShipItems(order.items) }))
+    b2bShipOrders = data.orders || []
   } catch (err) {
     b2bShipOrders = []
     body.innerHTML = `<div class="alert alert-red">Couldn't load B2B orders: ${escHtml(err.message)}</div>`
@@ -1955,8 +1889,8 @@ function renderShipList() {
   const body = document.getElementById('shipBody')
 
   // Pre-pack every order so the list already shows the box count — the system
-  // does the work; the human just confirms (packBoxes is pure, cheap, no I/O).
-  const rows = b2bShipOrders.map(order => ({ order, pack: packBoxes(order.items) }))
+  // does the work; the human just confirms (packB2BItems is pure, cheap, no I/O).
+  const rows = b2bShipOrders.map(order => ({ order, pack: packB2BItems(order.items) }))
   const totalBoxes = rows.reduce((s, r) => s + r.pack.box_count, 0)
   const totalBags = b2bShipOrders.reduce((s, o) => s + o.items.reduce((ss, i) => ss + (i.qty || 0), 0), 0)
 
@@ -2029,7 +1963,7 @@ async function openShipOrder(i) {
   if (shipBuyInFlight) { alert('Labels are being bought. Wait until that finishes.'); return }
   const order = b2bShipOrders[i]
   if (!order) return
-  const pack = packBoxes(order.items)
+  const pack = packB2BItems(order.items)
   shipState = {
     order, pack,
     boxes: pack.boxes.map(box => ({ box, rate: null, rateError: null, rateAlt: null, label: null, labelError: null, status: 'packed', labelOpened: false, printed: false })),
@@ -2374,28 +2308,9 @@ const SHIP_CARRIER = 'ups'
 const SHIP_WEIGHT_BASIS = 'packed'
 
 
-// Declared parcel weight (ADR 0020). UPS bills actual weight rounded up to the next whole
-// pound (1 lb minimum), so Shippo gets the packed weight, not the coffee weight:
-// ceil(measured net + carton tare + 0.05 lb packing allowance). Measured bag nets and the
-// tare are from docs/carton_weights.csv (A3). A size with no measured net (e.g. the 20 lb
-// TCCDS-40 half-box) counts at its nominal weight. Unknown carton -> null (no rate).
-const MEASURED_NET_LB = { 0.75: 0.75, 2: 2.03, 5: 5.07 }
-const CARTON_TARE_LB = { '14x10x10': 0.83 }
-const PACK_ALLOWANCE_LB = 0.05
-function declaredWeightLb(box) {
-  if (!box) return null
-  const tare = CARTON_TARE_LB[box.box_label || PACK_BOX.label]
-  if (tare == null) return null
-  let net = 0
-  for (const line of (box.contents || [])) {
-    const unit = Number(line.unit_weight_lb), qty = Number(line.qty)
-    if (!Number.isFinite(unit) || unit <= 0 || !Number.isFinite(qty) || qty <= 0) return null
-    net += qty * (MEASURED_NET_LB[unit] ?? unit)
-  }
-  if (net <= 0) return null
-  // Round to 0.001 first so float noise (20.000000004) can't push a whole pound up.
-  return Math.max(1, Math.ceil(Math.round((net + tare + PACK_ALLOWANCE_LB) * 1000) / 1000))
-}
+// Declared parcel weight (ADR 0020): declaredWeightLb, boxParcel and packSignature live in
+// lib/ship-rules.js (B2a). The server repacks the order and refuses a label whose pack doesn't
+// match (api/shippo-label.js).
 
 // Map the Shopify ship-to (b2b-ship shape) onto Shippo's address shape. Deliberately
 // no email — passing the recipient email makes Shippo send a stray shipping notice
@@ -2413,13 +2328,6 @@ function toShippoAddress(sa) {
     country: sa.country_code || 'US',
     phone: sa.phone || ''
   }
-}
-
-function boxParcel(box) {
-  const dims = String(box.box_label || PACK_BOX.label).split('x').map(Number)
-  const ok = dims.length === 3 && dims.every(d => Number.isFinite(d) && d > 0)
-  const [length, width, height] = ok ? dims : [14, 10, 10]
-  return { length, width, height, weight: declaredWeightLb(box) }
 }
 
 function shipTotal() {
@@ -2500,7 +2408,8 @@ async function buyLabels() {
           order_id: s.order.order_id,
           order_name: s.order.order_name,
           box_index: b.box.box_index,
-          box_count: b.box.box_count
+          box_count: b.box.box_count,
+          pack_sig: packSignature(s.boxes.map(x => x.box))   // the server buys only if it packs the same
         })
       })
       const data = await res.json()
@@ -2514,6 +2423,11 @@ async function buyLabels() {
         // whole address, so every unbought box goes back to the rate step, and the buy stops.
         b.priceChange = { quoted: data.quoted, amount: data.amount }
         for (const x of s.boxes) if (!x.label) { x.rate = null; x.status = 'packed' }
+        break
+      } else if (res.status === 409 && data.code === 'pack_changed') {
+        // Nothing bought: Shopify's order no longer packs the way this screen does. The other
+        // boxes would be refused too, so stop here; the order has to be reopened.
+        b.labelError = escHtml(data.error); b.status = 'failed'; b.label = null
         break
       } else if (!res.ok || !data.ok || !data.tracking_number) {
         b.labelError = escHtml(data.error || `Label purchase failed (${res.status})`)

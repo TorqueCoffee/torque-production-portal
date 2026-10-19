@@ -6,6 +6,7 @@ const path = require('path')
 const vm = require('vm')
 
 const INDEX = path.join(__dirname, '..', '..', 'index.html')
+const SHIP_RULES = path.join(__dirname, '..', '..', 'lib', 'ship-rules.js')
 
 function inlineScripts(html = fs.readFileSync(INDEX, 'utf8')) {
   const out = []
@@ -46,14 +47,19 @@ function declarationSource(src, name) {
 // Load the named declarations (in order) into a fresh sandbox and return them. `globals`
 // stands in for page state and browser APIs the code touches (shipState, fetch, confirm…).
 // Values come back from another realm: compare them with structuredClone(), not directly.
+// lib/ship-rules.js is loaded first, as the page does with <script src>, so a name that now
+// lives there (packBoxes, declaredWeightLb…) comes from the same file the page uses.
 function loadFromIndex(names, globals = {}) {
   const src = inlineScripts().join('\n')
-  const code = names.map(n => declarationSource(src, n)).join('\n') +
-    `\n;({ ${names.join(', ')} })`
   const ctx = { ...globals }
+  vm.runInNewContext(fs.readFileSync(SHIP_RULES, 'utf8'), ctx, { filename: 'lib/ship-rules.js' })
+  // Decided by name, not by a failed lookup: a lib export always comes from the lib (the page
+  // declares none of them, tests/b0-ups.test.js B2a), anything else must be in index.html.
+  const code = names.map(n => (n in ctx.ShipRules) ? `const ${n} = ShipRules.${n}` : declarationSource(src, n))
+    .join('\n') + `\n;({ ${names.join(', ')} })`
   const out = vm.runInNewContext(code, ctx)
   Object.defineProperty(out, '__ctx', { value: ctx })   // read module-level state the code set
   return out
 }
 
-module.exports = { INDEX, inlineScripts, declarationSource, loadFromIndex }
+module.exports = { INDEX, SHIP_RULES, inlineScripts, declarationSource, loadFromIndex }

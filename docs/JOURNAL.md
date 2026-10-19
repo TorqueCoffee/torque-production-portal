@@ -1,5 +1,44 @@
 # Journal
 
+## 2026-10-19 — Phase B, B2a: one copy of the ship rules; the server repacks before buying
+
+### Work done
+
+- New `lib/ship-rules.js`, loaded by the page (`<script src="/lib/ship-rules.js">`, a frozen `ShipRules` global) and `require`d by the API. It holds:
+  - from `api/shopify-token.js`: `resolveWeightLb`, `weightFromTitle`, `isShippableB2BLine`, plus a new `b2bShipItems()` that turns Shopify line items into packer items;
+  - from `index.html`: `PACK_BOX`, `SHIP_UNIT_OVERRIDES`, `expandShipItems`, `packBoxes`, `packAggregate`, `MEASURED_NET_LB`, `CARTON_TARE_LB`, `PACK_ALLOWANCE_LB`, `declaredWeightLb` and `boxParcel`.
+- `index.html` declares none of these any more; it destructures them from `ShipRules` at the top of its script. `?type=b2b-ship` builds its items with `b2bShipItems()`.
+- `api/shippo-label.js`, on `action=label`, after the "already bought" lookup and before rating:
+  - fetches the order from Shopify (new `api/_shopify.js`: token exchange and `fetchOrder`, also used by `shopify-fulfill.js` instead of its own copy);
+  - packs it with the same file;
+  - buys only if the whole pack matches what the page sent (`pack_sig`) and this box's parcel is its own (see the review below).
+  - Otherwise 409 with a reload message: a mismatch, an order edited since it was listed, a cancelled or missing order, an unweighable line. Shopify unreachable → 503. Nothing is claimed or bought.
+  - `box_count` and `pack_sig` are now required for a label.
+- `.vercelignore` allows `lib/`; ADR 0022 amended. `tests/syntax.test.js` checks `lib/*.js` and that every same-origin `<script src>` exists and is allowlisted. The test helper loads `lib/` before reading names from `index.html`.
+- Tests: 104 in `npm test` after the review (the label tests' stubs now answer the Shopify order fetch).
+- Checked in a browser against a local static server: sign-in shows, no console errors, the page's `packBoxes` is the lib's.
+- ADR 0025, RUNBOOK (deploy allowlist, where the rules live, local preview) and TESTS (S1–S8) written.
+- Not deployed. S8 (the next live B2B order) waits for the push.
+
+### Detours & fixes
+
+- **One Architect review** (Andy asked for one reviewer, one round). 11 findings: 0 Blocks ship, 6 Should fix, 5 Worth noting. Fixed:
+  - **The check was per box, so an edited order could still buy its unchanged boxes.** The test even asserted that box 1 of an edited 4-box order bought. The page now sends `pack_sig` (the whole pack); the server compares it with its own and refuses every box with `code: 'pack_changed'`, and the page stops buying the rest of the order.
+  - **Quantity came from `quantity`, which Shopify keeps at the original count after an edit or refund.** The list and the check now use `fulfillable_quantity` (falling back to `quantity`), and lines with nothing left are dropped. This also closes the B0 note that B2B packed the ordered quantity of partly fulfilled orders.
+  - **`shopify-token.js` kept its own token exchange and API version.** It now uses `api/_shopify.js`.
+  - **The token exchange was outside the timeout and the `try`.** A non-JSON error page would have thrown a raw 500. One 5 s timeout now covers the exchange and the order read, and any failure comes back as a 503 "nothing was bought".
+  - **Expand-then-pack was written out by both callers.** New `packB2BItems()` is the one entry point; the page no longer expands items when the list loads.
+  - **`boxParcel` fell back to 14x10x10 for a carton it couldn't read.** It now returns null (no rate, no label).
+  - **A failed lib load would have taken down the whole portal.** The page now checks `SHIP_RULES_LOADED`; only the Ship tab shows a "reload" message.
+  - Smaller: the lib header named a test file that doesn't exist; the test helper now picks lib or page by name instead of on a failed lookup; the "no copy in the page" test also catches `let`/`var` and indented declarations; a new test keeps `lib/` free of `process.env`, `require(` and secret names.
+- **Deferred to B2/B3:** a carton table and telling the label endpoint which packer applies (B2); checking each order once and caching the token for batch buying (B3); moving the pure lib tests to their own file (B2, with the 30 fixture orders).
+- **Rejected:** a version handshake between page and lib. Vercel revalidates static files on every load, and a mismatch already returns a "reload" refusal without charging.
+
+### Decisions captured
+
+- [`0025-shared-ship-rules-server-repack.md`](./decisions/0025-shared-ship-rules-server-repack.md)
+- ADR 0022: amendment for `lib/`.
+
 ## 2026-10-18 — Login slice, step 1: Supabase Auth sign-in, token-checked /api, migrations ready
 
 ### Work done

@@ -128,7 +128,11 @@ After 3b, every new table in `public` needs its policies written `to authenticat
 
 Push to `main` on [`TorqueCoffee/torque-production-portal`](https://github.com/TorqueCoffee/torque-production-portal). Vercel builds from that branch automatically — static `index.html` plus the `api/` serverless functions. Set the env vars above in the Vercel project before the endpoints work.
 
-`.vercelignore` is an allowlist: only `index.html`, `api/`, `package.json` (and a `package-lock.json` or `vercel.json` if one is added) are deployed, so `docs/`, `db/` and `tests/` are never served (ADR [`0022`](./decisions/0022-deploy-allowlist.md)). A new static file the page needs must be added to it.
+`.vercelignore` is an allowlist: only `index.html`, `api/`, `lib/`, `package.json` (and a `package-lock.json` or `vercel.json` if one is added) are deployed, so `docs/`, `db/` and `tests/` are never served (ADR [`0022`](./decisions/0022-deploy-allowlist.md)). A new static file the page needs must be added to it; `tests/syntax.test.js` fails if a same-origin `<script src>` is missing from it. Everything in `lib/` is public.
+
+The shipping rules (weight per item, which lines ship, the packer, the declared weight) live once, in `lib/ship-rules.js`: the page loads it with `<script src>` and the API `require`s it. The label endpoint repacks every order from Shopify with it and refuses a parcel that doesn't match (ADR [`0025`](./decisions/0025-shared-ship-rules-server-repack.md)). Change a rule there, never in `index.html`.
+
+To look at the page locally: `python3 -m http.server 8765 --bind 127.0.0.1` in the repo root, then open `http://127.0.0.1:8765`. It shows the sign-in screen; the `/api` calls need Vercel.
 
 Run `npm test` before every push.
 

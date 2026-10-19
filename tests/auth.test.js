@@ -46,6 +46,8 @@ async function stubFetch(url, opts = {}) {
   if (url.includes('/rest/v1/shipping_labels')) return { ok: true, status: 201, text: async () => '', json: async () => ({}) }
   if (url.includes('/rpc/mark_ship_labels_fulfilled')) return { ok: true, status: 200, text: async () => '1', json: async () => 1 }
   if (url.includes('/oauth/access_token')) return { ok: true, status: 200, json: async () => ({ access_token: 'shpat' }) }
+  // The order behind LABEL_BODY, which the label check repacks (B2a): 4 x 5 lb = one box, 22 lb declared.
+  if (url.includes('/orders/1.json')) return { ok: true, status: 200, json: async () => ({ order: { id: 1, name: '#8263', cancelled_at: null, line_items: [{ vendor: 'Torque Coffees', title: 'Cocoa Drop', variant_title: '5lb', quantity: 4, grams: 2270, sku: 'CD5', fulfillment_status: null }] } }) }
   return { ok: true, status: 200, json: async () => ({ data: {} }), text: async () => '{}' }
 }
 globalThis.fetch = stubFetch
@@ -63,7 +65,8 @@ const shipDoc = require('../api/ship-doc.js')
 const LABEL_BODY = {
   address_to: { name: 'Pete Smith', company: 'Best Coffee', street1: '1 Main St', city: 'Goleta', state: 'CA', zip: '93117', country: 'US' },
   parcel: { length: 14, width: 10, height: 10, weight: 22 }, carrier: 'ups', weight_basis: 'packed',
-  expected_amount: '16.43', order_id: 'gid://shopify/Order/1', order_name: '#8263', box_index: 1, box_count: 1
+  expected_amount: '16.43', order_id: 'gid://shopify/Order/1', order_name: '#8263', box_index: 1, box_count: 1,
+  pack_sig: '14x10x10@22'
 }
 const HANDLERS = [
   ['shippo-label', shippoLabel, { method: 'POST', query: { action: 'label' }, body: LABEL_BODY }],

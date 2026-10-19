@@ -11,6 +11,11 @@
 //           a page loaded before ADR 0020 sends net coffee weight and no basis, and is refused.
 //   expected_amount: the rate the operator confirmed. The label step re-rates; if the fresh
 //           price is higher, nothing is bought (409) and the new price comes back.
+//   pack_sig: the whole pack as the page sees it (packSignature in lib/ship-rules.js), required
+//           for a label. Before buying, the order is fetched from Shopify and repacked with the
+//           same file (B2a, ADR 0025). The whole pack must match pack_sig and this box's parcel
+//           must be its own; otherwise 409 { code: 'pack_changed' }, nothing bought, and the
+//           page stops buying the rest of the order.
 //   carrier: optional; anything other than 'ups' is refused (400). Every shipment is UPS
 //   Ground (ups_ground) on Torque's US UPS account. Never Ground Saver, never USPS, no fallback.
 //
@@ -19,6 +24,8 @@
 
 const fetch = globalThis.fetch || require('node-fetch')
 const { requireUser, supabaseHeaders } = require('./_auth')
+const { fetchOrder } = require('./_shopify')
+const { b2bShipItems, packB2BItems, boxParcel, packSignature } = require('../lib/ship-rules.js')
 
 const SHIPPO_BASE = 'https://api.goshippo.com'
 const SERVICE_TOKEN = 'ups_ground'   // NOT ups_ground_saver
@@ -170,6 +177,35 @@ async function confirmWithShippo(prior, auth) {
   }
 }
 
+// The pack the server itself makes for this order (B2a). The page packs from the order list it
+// loaded; the order may have been edited since, or the page may be out of date or tampered
+// with. The whole pack is compared, not only this box: an order that changed buys nothing,
+// rather than some boxes of a packing that no longer exists.
+//   { ok: true }   { ok: false, status, error, code? }
+async function checkPackedBox(orderId, boxIndex, boxCount, parcel, pageSig) {
+  const got = await fetchOrder(orderId)
+  if (!got.ok) {
+    if (got.status === 400) return { ok: false, status: 400, error: 'order_id is not a Shopify order id' }
+    if (got.status === 404) return { ok: false, status: 409, code: 'pack_changed', error: "Shopify has no such order. Nothing was bought. Reload the orders." }
+    console.warn(`checkPackedBox: Shopify order fetch failed (${got.why}); nothing bought`)
+    return { ok: false, status: 503, error: "Couldn't read the order from Shopify to check the boxes, so nothing was bought. Try again in a minute; if it repeats, tell Andy." }
+  }
+  if (got.order.cancelled_at) return { ok: false, status: 409, code: 'pack_changed', error: 'This order is cancelled in Shopify. Nothing was bought.' }
+  const pack = packB2BItems(b2bShipItems(got.order.line_items))
+  if (pack.unpackable.length) return { ok: false, status: 409, code: 'pack_changed', error: "This order has an item the packer can't weigh. Nothing was bought. Ship it by hand or fix the item in Shopify." }
+  const sig = packSignature(pack.boxes)
+  const box = pack.boxes[boxIndex - 1]
+  const want = box ? boxParcel(box) : null
+  if (pack.boxes.length && !sig) return { ok: false, status: 409, code: 'pack_changed', error: "This order's boxes can't be weighed. Nothing was bought. Tell Andy." }
+  const same = want && sig === pageSig && pack.box_count === boxCount &&
+    want.length === parcel.length && want.width === parcel.width && want.height === parcel.height && want.weight === parcel.weight
+  if (!same) {
+    console.warn(`checkPackedBox: ${orderId} box ${boxIndex}: page ${pageSig} ${JSON.stringify(parcel)}, server ${sig} ${JSON.stringify(want)}`)
+    return { ok: false, status: 409, code: 'pack_changed', error: `This order changed since the list was loaded (Shopify now packs it as ${sig || 'nothing to ship'}). Nothing was bought. Go back to the orders, refresh, and open it again.` }
+  }
+  return { ok: true }
+}
+
 module.exports = async function handler(req, res) {
   // Same-origin only: no CORS headers (the page is the only caller).
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
@@ -212,8 +248,13 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'expected_amount (the confirmed rate, e.g. "16.43") is required to buy a label' })
   }
   const boxIndex = Number(body.box_index)
-  if (action === 'label' && !(body.order_id && Number.isInteger(boxIndex) && boxIndex >= 1)) {
-    return res.status(400).json({ error: 'order_id and box_index are required to buy a label' })
+  const boxCount = Number(body.box_count)
+  if (action === 'label' && !(body.order_id && Number.isInteger(boxIndex) && boxIndex >= 1 &&
+      Number.isInteger(boxCount) && boxCount >= boxIndex)) {
+    return res.status(400).json({ error: 'order_id, box_index and box_count are required to buy a label' })
+  }
+  if (action === 'label' && !(typeof body.pack_sig === 'string' && body.pack_sig.length <= 2000)) {
+    return res.status(400).json({ error: 'This page is out of date (it sends no pack). Reload the page and open the order again.' })
   }
 
   const auth = { 'Authorization': `ShippoToken ${token}`, 'Content-Type': 'application/json' }
@@ -247,6 +288,9 @@ module.exports = async function handler(req, res) {
         }
         return res.status(409).json({ error: 'Already bought', ...confirmed })
       }
+      // The parcel must be the one the server packs for this box (B2a).
+      const check = await checkPackedBox(body.order_id, boxIndex, boxCount, parcel, body.pack_sig)
+      if (!check.ok) return res.status(check.status).json({ error: check.error, ...(check.code ? { code: check.code } : {}) })
     }
 
     // 1) Rate the shipment.
