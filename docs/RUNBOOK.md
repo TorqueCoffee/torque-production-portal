@@ -105,6 +105,19 @@ Each step can be undone on its own; the undo is under each one.
      - The variable reaches only new deployments. **Deployments** in the sidebar → the current production deployment → ⋯ → **Redeploy** → Redeploy.
      - Check: `/api/shopify-token?type=products` without a token returns 401.
      - *Undo:* in Environment Variables, ⋯ next to `PORTAL_AUTH_ENFORCE` → Delete, then redeploy the same way.
+   - **Backup before 3b.** The free plan has no daily backups. This is Supabase's CLI recipe (docs checked 2026-10-19, Backup and Restore using the CLI):
+     - Needs the Supabase CLI (`brew install supabase/tap/supabase`) and Docker Desktop running, because `supabase db dump` runs `pg_dump` in a container.
+     - Connection string: Supabase dashboard → **Connect** → Session pooler. Put the database password in place of `[YOUR-PASSWORD]`. If it's lost, reset it under Database → Settings; the portal and its functions don't use it.
+     - Save the files outside the repo (they hold `auth.users` and every table), e.g.:
+       ```bash
+       mkdir -p ~/Backups/torque-portal/$(date +%F) && cd ~/Backups/torque-portal/$(date +%F)
+       read -s DB_URL   # paste the connection string, then Return
+       supabase db dump --db-url "$DB_URL" -f roles.sql --role-only
+       supabase db dump --db-url "$DB_URL" -f schema.sql
+       supabase db dump --db-url "$DB_URL" -f data.sql --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
+       ```
+     - Check: three non-empty files; `grep -cE '^COPY "?public' data.sql` counts one COPY per public table (10).
+     - Restoring goes into a new project with `psql` (same docs page). Undoing 3b itself is the rollback SQL below, not this backup.
    - 3b. SQL editor: run [`db/2026-10-18-login-rls.sql`](../db/2026-10-18-login-rls.sql). It refuses to run if any account has never signed in or lacks the staff marker, an anonymous user exists, login-prep is missing, or the policies aren't the 36 it was written against. *Undo:* [`…-login-rls-rollback.sql`](../db/2026-10-18-login-rls-rollback.sql), which returns to the step 0 state, so the login code keeps working.
    - Then the L5 checks in [`TESTS.md`](./TESTS.md).
 
