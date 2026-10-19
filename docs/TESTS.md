@@ -129,6 +129,7 @@ Rollout order (RUNBOOK "First rollout"):
   - L5 partial PASS, publishable key only: without a token, `/api/shippo-label?action=label`, `/api/shopify-fulfill`, `/api/ship-doc` and `/api/shopify-token?type=b2b` / `b2b-ship` → 401; `/api/_auth` → 404; `?type=products` → 200 (as planned until 3a).
   - The REST and RPC checks wait for step 3b.
 - 2026-10-19: step 3a (`PORTAL_AUTH_ENFORCE=1`, redeployed). L5 API part PASS: with no token, `?type=products`, the order list, `?type=b2b` and `shippo-label` rate → 401; with a made-up token → 401.
+  - A signed-in device (floor iPad) ran Pull Orders under enforcement: 200s, no `auth:` lines, writes as `authenticated`.
 - 2026-10-18 (PDT): step 2b run (realtime publication, 4 tables). L6 PASS (Andy, on two devices): the plan loads, a change shows on the other device without a reload, six fast "+" taps store 6, Pull Orders works, Ship rates without buying, and the green planner loads.
 
 ## UPS Ground (Phase B, plan: [`Retail-USPS-UPS.md`](./Retail-USPS-UPS.md))
