@@ -117,7 +117,7 @@ Each step can be undone on its own; the undo is under each one.
        supabase db dump --db-url "$DB_URL" --dry-run 2>/dev/null | bash > schema.sql
        supabase db dump --db-url "$DB_URL" --dry-run --data-only --use-copy -x "storage.buckets_vectors" -x "storage.vector_indexes" 2>/dev/null | bash > data.sql
        ```
-     - Check: three non-empty files; `grep -cE '^COPY "?public' data.sql` counts one COPY per public table (10).
+     - Check: three non-empty files; `grep -cE '^COPY "?public' data.sql` counts one COPY per public table (11 since step 0 added `label_claims`).
      - Restoring goes into a new project with `psql` (same docs page). Undoing 3b itself is the rollback SQL below, not this backup.
    - 3b. SQL editor: run [`db/2026-10-18-login-rls.sql`](../db/2026-10-18-login-rls.sql). It refuses to run if any account has never signed in or lacks the staff marker, an anonymous user exists, login-prep is missing, or the policies aren't the 36 it was written against. *Undo:* [`…-login-rls-rollback.sql`](../db/2026-10-18-login-rls-rollback.sql), which returns to the step 0 state, so the login code keeps working.
    - Then the L5 checks in [`TESTS.md`](./TESTS.md).
