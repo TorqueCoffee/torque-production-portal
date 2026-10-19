@@ -107,7 +107,7 @@ Rollout order (RUNBOOK "First rollout"):
   - `POST /rest/v1/rpc/ship_labels_pending` → refused
   - `POST /api/shippo-label?action=rate` and `GET /api/shopify-token?type=b2b-ship` → 401
   - `GET /api/_auth` → 404. A 500 would mean Vercel built it as a function; that is not an exposure, but say so.
-- [ ] **L6 devices (Andy)**, after step 2b:
+- [x] **L6 devices (Andy)**, after step 2b:
   - The plan loads.
   - A change on one device shows on another within a couple of seconds without a reload.
   - Six fast "+" taps on one line store 6.
@@ -128,6 +128,7 @@ Rollout order (RUNBOOK "First rollout"):
 - 2026-10-18: step 1 deployed (bcc505e).
   - L5 partial PASS, publishable key only: without a token, `/api/shippo-label?action=label`, `/api/shopify-fulfill`, `/api/ship-doc` and `/api/shopify-token?type=b2b` / `b2b-ship` → 401; `/api/_auth` → 404; `?type=products` → 200 (as planned until 3a).
   - The REST and RPC checks wait for step 3b.
+- 2026-10-18 (PDT): step 2b run (realtime publication, 4 tables). L6 PASS (Andy, on two devices): the plan loads, a change shows on the other device without a reload, six fast "+" taps store 6, Pull Orders works, Ship rates without buying, and the green planner loads.
 
 ## UPS Ground (Phase B, plan: [`Retail-USPS-UPS.md`](./Retail-USPS-UPS.md))
 

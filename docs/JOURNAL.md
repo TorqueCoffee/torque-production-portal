@@ -54,6 +54,21 @@
     - Checked: the sign-in form and supabase-js 2.117.2 are served.
     - Without a token, label, fulfill, ship-doc, `b2b` and `b2b-ship` return 401; `/api/_auth` returns 404; products returns 200 (until 3a); `/docs`, `/db` and `/.npmrc` return 404.
     - Next: every device signs in, then the observation day (step 2).
+  - **Step 2 check, 2026-10-19 00:25 UTC (about 4.5 h after the deploy, a Sunday; no labels bought, only retail orders):**
+    - `auth.users`: andy@ and info@ have signed in. **elias@ and nanelle@ never have.** All 4 carry `portal_staff`, none anonymous. 3b refuses to run until all 4 have signed in.
+    - Supabase API logs (edge logs, `/rest/v1/`, OPTIONS left out): only 2 browsers since the deploy. Andy's Mac (Safari 26.5, 50 calls) and a second device (Safari 18.7.5, 55 calls, signed in as info@ at 20:50) used `authenticated`.
+    - 13 calls had no user token, all from the Safari 18.7.5 device between 20:49:21 and 20:49:24, with supabase-js 2.117.3 (the old unpinned page). That device signed in 51 s later. No token-less calls since.
+    - The server's token checks (`/auth/v1/user` from `node`): 25, all 200.
+    - One `/auth/v1/verify` (303) at 20:35 from a third browser (Safari 26.6.2): someone opened an email link, but that device has made no portal calls.
+    - Vercel logs (`vercel logs -p torque-production-portal --environment production --since 2026-10-18T19:50:00Z --json --expand`; the CLI had to be logged in, and the Vercel connector lists no projects): 43 requests, all `auth:` lines from before 20:50 UTC:
+      - 19:54:04–05: our own post-deploy curl checks (`ua="curl/8.7.1"`).
+      - 20:49:20–48: the same Safari 18.7.5 device's old tab: 3 `auth:missing` on `shopify-token` passed (`enforce=0`), and 1 on the B2B list got a 401 (`enforce=1`). It signed in at 20:50:15.
+      - None since. Only `node` `DEP0169` `url.parse()` warnings, which come from Vercel's runtime, not our code.
+    - Elias's and Nanelle's devices, and the iPhones, haven't loaded the new page, so an old tab may still be open on them.
+  - **Step 2b run, 2026-10-19 ~00:35 UTC, without waiting for Elias and Nanelle (Andy's call).** `realtime-publication.sql` was run through the Supabase connector. `supabase_realtime` now holds `activity_log`, `daily_plan`, `plan_state` and `roasting_progress`.
+    - Accepted risk: an old page still open on their devices reloads on every row event, and its counters can overwrite another device's. Each of them should reload (or close) the portal and sign in at their next use.
+    - L6 PASS (Andy): live sync between devices, six fast "+" taps store 6, Pull Orders, Ship rating and the green planner all work.
+    - Next: 3a (`PORTAL_AUTH_ENFORCE=1` and redeploy), then 3b once Elias and Nanelle have signed in (the migration refuses before that), after a backup or the Pro upgrade.
 
 ### Detours & fixes
 
