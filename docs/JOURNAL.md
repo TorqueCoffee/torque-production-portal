@@ -76,7 +76,18 @@
       - Pull Orders wrote as `authenticated`: `daily_plan` PATCHes (204) and an `activity_log` insert (201).
     - The floor device (info@, Safari 18.7.5) made no calls to the new deployment by 00:40, although Andy reported reloading it and pulling orders there. Its next use will show in the logs.
     - nanelle@ now counts as signed in for the 3b check, but only from Andy's test. Nanelle hasn't used her own device yet.
-    - Next: 3b once Elias has signed in (the migration refuses before that), after a backup or the Pro upgrade.
+    - Elias's account was signed in once by Andy in a private window (00:45:31), as with Nanelle's, so 3b's guard passes. Neither has used their own device yet.
+  - **Backup, 2026-10-19 ~01:01 UTC** (free plan, no daily backups): `~/Backups/torque-portal/2026-10-19/` on Andy's Mac, outside the repo. `roles.sql` 420 B, `schema.sql` 56 K, `data.sql` 841 K.
+    - Checked against live: 11 public tables (the 10 plus `label_claims`), 36 public + 19 `green_planner` policies, `auth.users` included. Row counts match for `daily_plan` (9), `activity_log` (1,301) and `shipping_labels` (231).
+  - **Step 3b run, 2026-10-19 ~01:02 UTC,** through the Supabase connector. `login-rls.sql` passed its checks and committed. Public policies are now 36 permissive `authenticated`, 10 restrictive "portal staff only" and 2 `green_planner_app`.
+    - L5 with the publishable key only: reads of `daily_plan`, `activity_log`, `green_coffee_settings` and `plan_state` → `[]`; an `activity_log` insert → RLS refusal; a `plan_state` PATCH matches nothing; `ship_labels_pending` and `mark_ship_labels_fulfilled` → permission denied. `/api/shippo-label` rate and `?type=b2b-ship` → 401; `/api/_auth` → 404.
+    - No signed-in device had used the database since 3b when this was written. Next: reload a signed-in device, Pull Orders, and open the green planner.
+
+### Detours & fixes (rollout, 2026-10-19)
+
+- **No Docker for the backup.** Supabase's documented `supabase db dump` runs `pg_dump` in Docker, which isn't installed. `supabase db dump --dry-run` prints the same script (Supabase's flags and filters), and it runs on Homebrew's `postgresql@17`. RUNBOOK updated.
+- **The Connect dialog was redesigned.** The Session pooler string is under "Direct: Connection string", shown as "Shared pooler" (`aws-1-us-west-1.pooler.supabase.com:5432`, user `postgres.gblkovtjylrfdotoktkb`).
+- **The database password was exposed and reset.** A `read -s` sent through the app's `!` input finished empty, so the pasted password ran as a shell command and landed in the terminal and zsh history. Andy reset the database password. The connection string was then built from the clipboard (`pbpaste`, percent-encoded), so nothing is typed. The RUNBOOK recipe uses `read -s`, which works in a normal terminal but not through the `!` input.
 
 ### Detours & fixes
 

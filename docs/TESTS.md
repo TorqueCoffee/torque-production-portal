@@ -102,7 +102,7 @@ Rollout order (RUNBOOK "First rollout"):
     - reloads wait while a field is focused (at most 60 s);
     - sign-out is refused mid-buy and mid-fulfill.
   - **Rollback** checks policies by name, so later tables don't block it.
-- [ ] **L5 live**, publishable key only, after step 3:
+- [x] **L5 live**, publishable key only, after step 3:
   - `GET /rest/v1/daily_plan` → `[]`
   - `POST /rest/v1/rpc/ship_labels_pending` → refused
   - `POST /api/shippo-label?action=rate` and `GET /api/shopify-token?type=b2b-ship` → 401
@@ -130,6 +130,7 @@ Rollout order (RUNBOOK "First rollout"):
   - The REST and RPC checks wait for step 3b.
 - 2026-10-19: step 3a (`PORTAL_AUTH_ENFORCE=1`, redeployed). L5 API part PASS: with no token, `?type=products`, the order list, `?type=b2b` and `shippo-label` rate → 401; with a made-up token → 401.
   - Andy's Mac (andy@, and nanelle@ in a private window) ran Pull Orders under enforcement: 200s, no `auth:` lines, writes as `authenticated`. The floor device didn't show in the logs.
+- 2026-10-19: step 3b run. L5 PASS (publishable key only): table reads → `[]`, `activity_log` insert refused by RLS, `ship_labels_pending` / `mark_ship_labels_fulfilled` → permission denied, `shippo-label` rate and `b2b-ship` → 401, `/api/_auth` → 404.
 - 2026-10-18 (PDT): step 2b run (realtime publication, 4 tables). L6 PASS (Andy, on two devices): the plan loads, a change shows on the other device without a reload, six fast "+" taps store 6, Pull Orders works, Ship rates without buying, and the green planner loads.
 
 ## UPS Ground (Phase B, plan: [`Retail-USPS-UPS.md`](./Retail-USPS-UPS.md))
