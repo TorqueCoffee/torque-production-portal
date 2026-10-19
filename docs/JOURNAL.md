@@ -13,7 +13,7 @@
 - `api/shopify-token.js?type=retail-ship`: LIST and HOLD orders with class, flags, delivery method, shipping charged, address and items; EXCLUDE orders only as counts. Signed-in staff only from the start (names and addresses).
 - `tests/fixtures/retail-orders.json`: the 30 Phase A acceptance orders as Shopify returns them, pulled read-only through the Shopify connector, cut to state, ZIP and company. `tests/b1-retail.test.js`: all 30 list, hold or are excluded exactly as `acceptance_fixtures.json` says, with Phase A's bags and shipping charged; plus holds the fixtures don't cover and the endpoint (paging, failure, sign-in). 112 tests pass.
 - Checked live, read-only: Shopify accepts the query. Today's 4 open orders: the pickup #8284 is excluded; #8351, #8353 and #8354 list with the right bags and free-shipping flags.
-- Not deployed. Not reviewed (Andy asked to keep this fast). No page change: B3 is Andy's design.
+- **Deployed 2026-10-19, pushed 01:43 UTC (af08ce7).** Live: the served `lib/ship-rules.js` matches the commit; `?type=retail-ship` and `b2b-ship` return 401 without a token; `/api/_retail`, `/tests/fixtures/…` and `/docs/acceptance_fixtures.json` return 404. Not reviewed (Andy asked to keep this fast). No page change: B3 is Andy's design. R6 (a signed-in call) is open.
 
 ### Detours & fixes
 

@@ -232,6 +232,7 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
 
 **Run log:**
 - 2026-10-19: R1–R5 PASS, 112/112 (`npm test`).
+- 2026-10-19: deployed (af08ce7). Lib matches the commit; `retail-ship` 401 without a token; fixtures and `_retail` 404. R6 open.
 
 ### B2a — shared ship rules (ADR [`0025`](./decisions/0025-shared-ship-rules-server-repack.md))
 One copy of the weight and packing rules in `lib/ship-rules.js`, loaded by the page and `require`d by the API. The label endpoint repacks the order from Shopify and buys only the parcel it packs itself. `tests/b0-ups.test.js` (B2a block) + `tests/syntax.test.js`, fetch stubbed:
