@@ -1,5 +1,21 @@
 # Journal
 
+## 2026-10-20 — B2B large box: 20x15x10 at 40 lb
+
+Branch `b3b-retail-pack`, then `main`.
+
+### Work done
+
+- **Uline shipped the 20 x 15 x 10" S-11378** instead of the 18x14x14. Same 32 lb per bundle of 20, so the tare stays 1.6 lb (provisional).
+- **Rates checked** (Shippo, UPS Ground on the US account, each box as its own shipment, San Francisco 94111 and Goleta 93117; nothing bought). One box beats two at every size. 8 x 5 lb in one 20x15x10 (43 lb declared) is $24.13 SF / $21.66 Goleta, against $36.84 / $36.80 for two 20 lb boxes and $33.80 / $31.73 with the 30 lb cap. The full table is in ADR 0031.
+- **Packer:** `PACK_BOX_LARGE` is now `20x15x10`, cap 40 lb, so 8 bags ship in one box (declared 43 lb, under UPS's 50 lb handling line). The 18x14x14 tare is gone. TCCDS-40 unchanged. Page comments and the "over 40 lb" warning were updated.
+- **Fit:** a 5 lb bag is 11 x 7.5 x 6". 8 per box is scaled from the 14x10x10's 4 (same height, twice the floor). Not packed yet.
+- **Tests:** `npm test` 309. Fixtures renumbered (ORDER_1 is 32 x 5 lb = four 20x15x10 at 43 lb; page flows use 9 and 17 bags); the ADR 0030 tests are now 0031 tests (cartons, 43 lb declared, over-40 unit, the 18x14x14 gets no rate, TCCDS-40).
+
+### Decisions captured
+
+- [`0031-b2b-40lb-box-20x15x10.md`](./decisions/0031-b2b-40lb-box-20x15x10.md) (supersedes 0030)
+
 ## 2026-10-20 — B2B 30 lb box (18x14x14)
 
 Branch `b3b-retail-pack`.

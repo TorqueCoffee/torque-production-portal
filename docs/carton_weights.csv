@@ -9,4 +9,4 @@ carton,contents,tare_lb,net_lb,gross_lb,billed_lb_with_0.05_allowance,basis,stat
 12x8x6,2x2lb,0.42,4.06,4.48,5,Uline tare 0.42 (box not on hand); net = bag weights (12 oz coffee only; 2.03/5.07 lb measured),provisional; 12 oz bag+card not added; weigh packed
 12x8x6,1x5lb,0.42,5.07,5.49,6,Uline tare 0.42 (box not on hand); net = bag weights (12 oz coffee only; 2.03/5.07 lb measured),provisional; 12 oz bag+card not added; weigh packed; fit unconfirmed
 14x10x10,4x5lb,0.83,20.28,21.11,22,Uline tare 0.83; packed w/ tape measured 21.27 (implies 0.99 tare),measured 21.27
-18x14x14,6x5lb,1.6,30.42,32.02,33,Uline S-4191 lists 32 lb per bundle of 20 = 1.6 lb a box (ADR 0030),provisional; box not weighed
+20x15x10,8x5lb,1.6,40.56,42.16,43,Uline S-11378 lists 32 lb per bundle of 20 = 1.6 lb a box (ADR 0031),provisional; box not weighed

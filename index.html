@@ -1911,8 +1911,8 @@ async function loadB2B() {
 }
 
 // ── B2B Cubic Shipping · Step 1: box packer ──────────────────────────────────
-// The packer (packB2BItems: SKU overrides, then First-Fit Decreasing into 30 lb boxes, with
-// boxes of 20 lb or less in the 14x10x10 and heavier ones in the 18x14x14, ADR 0030) lives
+// The packer (packB2BItems: SKU overrides, then First-Fit Decreasing into 40 lb boxes, with
+// boxes of 20 lb or less in the 14x10x10 and heavier ones in the 20x15x10, ADR 0031) lives
 // in lib/ship-rules.js (B2a), shared with the server's label check. Tested: tests/b0-ups.test.js.
 
 // ── B2B Cubic Shipping · label + slip printing ────────────────────────────────
@@ -1992,7 +1992,7 @@ function renderShipList() {
   // does the work; the human just confirms (packB2BItems is pure, cheap, no I/O).
   const rows = b2bShipOrders.map(order => ({ order, pack: packB2BItems(order.items) }))
   const totalBoxes = rows.reduce((s, r) => s + r.pack.box_count, 0)
-  // Boxes by carton, e.g. "3 × 14x10x10 · 2 × 18x14x14" (ADR 0030: two B2B sizes).
+  // Boxes by carton, e.g. "3 × 14x10x10 · 2 × 20x15x10" (ADR 0031: two B2B sizes).
   const byCarton = {}
   for (const r of rows) for (const b of r.pack.boxes) byCarton[b.box_label] = (byCarton[b.box_label] || 0) + 1
   const cartonMix = Object.entries(byCarton).map(([c, n]) => `${n} × ${c}`).join(' · ') || '—'
@@ -2182,11 +2182,11 @@ function renderShipDetail() {
     <div>${escHtml([sa.city, sa.province_code, sa.zip].filter(Boolean).join(', '))}</div>
   </div>`
 
-  // Halt-and-warn: unpackable items block the buy (>30 lb single item, or unknown weight).
+  // Halt-and-warn: unpackable items block the buy (>40 lb single item, or unknown weight).
   let warn = ''
   if (s.pack.unpackable.length) {
     const lines = s.pack.unpackable.map(u => {
-      const why = u.reason === 'unit_exceeds_box_cap' ? "over 30 lb — won't fit one box" : 'unknown weight'
+      const why = u.reason === 'unit_exceeds_box_cap' ? "over 40 lb — won't fit one box" : 'unknown weight'
       return `${escHtml(u.qty)}× ${escHtml(u.product_name)} (${escHtml(u.variant_title)}) — ${why}`
     }).join('<br>')
     warn = `<div class="alert alert-red">⚠ Some items can't be auto-packed into a box — resolve these before shipping (nothing has been charged):<div class="stale-detail">${lines}</div></div>`
