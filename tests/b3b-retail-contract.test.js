@@ -8,7 +8,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const USER_TOKEN = ['e30', Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url'), 'sig'].join('.')
-const world = { srv: null, shopify: new Map(), claims: new Set(), creates: [], emails: 0, retailNodes: new Map(), rows: new Map(), shippo: () => 'SUCCESS' }
+const world = { srv: null, shopify: new Map(), claims: new Map(), tokens: 0, creates: [], emails: 0, retailNodes: new Map(), rows: new Map(), shippo: () => 'SUCCESS' }
 globalThis.fetch = async (url, opts = {}) => {
   url = String(url)
   const headers = opts.headers || {}
@@ -34,14 +34,19 @@ globalThis.fetch = async (url, opts = {}) => {
     return reply({ data: { order: world.retailNodes.get(id) } })
   }
   if (url.includes('/rpc/ship_labels_for_order')) return reply([...(world.rows.get(body.p_order_id) || [])])
-  if (url.includes('/rpc/claim_order_fulfill')) { if (world.claims.has(body.p_order_id)) return reply(false); world.claims.add(body.p_order_id); return reply(true) }
-  if (url.includes('/rpc/release_order_fulfill')) return reply(world.claims.delete(body.p_order_id))
+  // The order's lock hands back a token; only that token releases it (null = someone else holds it).
+  if (url.includes('/rpc/claim_order_fulfill')) { if (world.claims.has(body.p_order_id)) return reply(null); const t = `tok-${++world.tokens}`; world.claims.set(body.p_order_id, t); return reply(t) }
+  if (url.includes('/rpc/release_order_fulfill')) return reply(world.claims.get(body.p_order_id) === body.p_token && world.claims.delete(body.p_order_id))
   if (url.includes('/rpc/mark_ship_labels_fulfilled')) {
     const had = world.srv.pending.filter(p => p.order_id === body.p_order_id).length
     world.srv.pending = world.srv.pending.filter(p => p.order_id !== body.p_order_id)
     return reply(had)
   }
-  if (url.startsWith('https://api.goshippo.com/transactions/')) return reply({ status: world.shippo(), tracking_number: [...world.rows.values()].flat().find(r => r.shippo_object_id === url.split('/').pop()).tracking_number })
+  if (url.startsWith('https://api.goshippo.com/transactions/')) {
+    // A retail label carries the order it was bought for as metadata.
+    const row = [...world.rows.values()].flat().find(r => r.shippo_object_id === url.split('/').pop())
+    return reply({ status: world.shippo(), tracking_number: row.tracking_number, metadata: row.order_id })
+  }
   throw new Error('unexpected ' + url)
 }
 Object.assign(process.env, { SUPABASE_URL: 'https://sb.example', SUPABASE_ANON_KEY: 'anon', SHIPPO_TOKEN: 'shippo_test_stub',
@@ -61,7 +66,7 @@ async function realFulfill(body, srv, { loseAnswer = false } = {}) {
 // Page orders (12x8x6 at 2 lb, like fixture #8333) with a Shopify order and a label row each.
 async function opened(n, { held = [], bridge = realFulfill } = {}) {
   dropToken()
-  Object.assign(world, { shopify: new Map(), claims: new Set(), creates: [], emails: 0, retailNodes: new Map(), rows: new Map(), shippo: () => 'SUCCESS' })
+  Object.assign(world, { shopify: new Map(), claims: new Map(), tokens: 0, creates: [], emails: 0, retailNodes: new Map(), rows: new Map(), shippo: () => 'SUCCESS' })
   const base = RAW.find(x => x.name === '#8333')
   const orders = Array.from({ length: n }, () => order({ parcel: P['12x8x6'] }))
   for (const o of orders) {
@@ -120,8 +125,9 @@ test('X1: held back on another device after the confirm: the real handler says h
 
 test('X1: a lost answer: the real handler fulfilled and flipped the rows; the page shows it shipped, with no second email on the next Fulfill', async () => {
   let lose = true
-  const { p } = await opened(2, { bridge: async (b, s) => { const r = await realFulfill(b, s, { loseAnswer: lose }); return r } })
-  // The first call's answer is lost; the handler ran to the end first.
+  // Every Fulfill answer is lost (the handler ran to the end first); the page's no-create check that
+  // follows (only_if_fulfilled) gets its answer.
+  const { p } = await opened(2, { bridge: async (b, s) => { const r = await realFulfill(b, s, { loseAnswer: lose && !b.only_if_fulfilled }); return r } })
   const first = p.ask() || p.go()
   await first
   assert.equal(world.creates.length, 2)                                                    // both orders created (both answers lost)
@@ -134,7 +140,7 @@ test('X1: a lost answer: the real handler fulfilled and flipped the rows; the pa
 
 test('X1: another device holds the order\'s lock: the real handler says busy and the page keeps the order open and fails it with the reason; a retry after the lock is freed ships it', async () => {
   const { p, orders } = await opened(1)
-  world.claims.add(orders[0].order_id)
+  world.claims.set(orders[0].order_id, 'another-device')
   p.ask(); await p.go()
   assert.equal(world.creates.length, 0)
   assert.equal(tile(p.html(), 'Still open'), 1)
@@ -151,7 +157,7 @@ test('X1: a label Shippo says is refunded is refused by the real handler, and th
   p.ask(); await p.go()
   assert.equal(world.creates.length, 0)
   assert.equal(tile(p.html(), 'Still open'), 1)
-  assert.match(p.html(), /Shippo doesn&#39;t show this label as live/)
+  assert.match(p.html(), /Shippo doesn&#39;t show this label as a live one of this order/)
   assert.match(p.html(), /Hold it back on Pack, then Void its label and buy again, or fulfill it by hand in Shopify\./)
 })
 

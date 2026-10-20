@@ -599,6 +599,7 @@ test('G3: label buys the chosen rate and logs a ups_ground cost row at the decla
   const txn = calls.find(c => c.url.endsWith('/transactions/'))
   assert.equal(txn.body.rate, 'rate_ups_ground_21db')
   assert.equal(txn.body.label_file_type, 'PDF_4x6')
+  assert.equal('metadata' in txn.body, false)   // only a retail label is marked with its order
   const row = calls.find(c => c.url.includes('/rest/v1/shipping_labels')).body
   assert.equal(row.service, 'ups_ground')
   assert.equal(row.is_cubic, false)

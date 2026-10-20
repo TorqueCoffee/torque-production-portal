@@ -46,18 +46,19 @@ const TXN = 'd'.repeat(32)
 
 let tokenLife = 86399
 // The happy path. `order` is the GraphQL node (null = no such order); `prior` the label rows.
-const world = ({ orderClaim = true, order = node('#8333'), prior = [], rest = { id: 8333, name: '#8333', cancelled_at: null, fulfillment_status: null, line_items: [{ fulfillment_status: null }] }, refund = { status: 'QUEUED', object_id: 'ref_1', transaction: TXN }, marked = 1 } = {}) => (url) => {
+const world = ({ orderClaim = 'tok-1', order = node('#8333'), prior = [], rest = { id: 8333, name: '#8333', cancelled_at: null, fulfillment_status: null, line_items: [{ fulfillment_status: null }] }, refund = { status: 'QUEUED', object_id: 'ref_1', transaction: TXN }, marked = 1 } = {}) => (url) => {
   if (url.includes('/oauth/access_token')) return { json: { access_token: 'tok', scope: 'read_orders', expires_in: tokenLife } }
   if (url.includes('/graphql.json')) return { json: { data: { order } } }
   if (url.includes('/orders/8333.json')) return { json: { order: rest } }
   if (url.includes('/rpc/ship_labels_for_order')) return { json: prior }
   if (url.includes('/rpc/claim_label_box') || url.includes('/rpc/release_label_box')) return { json: true }
   if (url.includes('/rpc/claim_order_fulfill')) return typeof orderClaim === 'function' ? orderClaim() : { json: orderClaim }
-  if (url.includes('/rpc/release_order_fulfill')) return { json: true }
+  if (url.includes('/rpc/release_order_fulfill')) return { json: true }   // the lock's token is checked in the void-lock test
   if (url.includes('/rpc/mark_ship_label_voided')) return { json: marked }
   if (url.endsWith('/shipments/')) return { json: { rates: [{ object_id: 'rate_1', amount: '9.10', currency: 'USD', carrier_account: UPS_ACCOUNT, servicelevel: { token: 'ups_ground', name: 'Ground' } }] } }
   if (url.endsWith('/transactions/')) return { json: { status: 'SUCCESS', tracking_number: '1ZRETAIL', label_url: 'https://deliver.goshippo.com/x.pdf', object_id: TXN } }
-  if (url.endsWith(`/transactions/${TXN}`)) return { json: { object_id: TXN, status: 'SUCCESS', tracking_number: '1ZRETAIL', label_url: 'https://deliver.goshippo.com/x.pdf' } }
+  // Bought for this order: a retail label carries its order id as metadata (B2B rows ignore it).
+  if (url.endsWith(`/transactions/${TXN}`)) return { json: { object_id: TXN, status: 'SUCCESS', tracking_number: '1ZRETAIL', label_url: 'https://deliver.goshippo.com/x.pdf', metadata: OID } }
   if (url.endsWith('/refunds/')) return { status: refund.status === 'ERROR' ? 400 : 201, json: refund }
   if (url.includes('/rest/v1/shipping_labels')) return { status: 201, json: null }
   throw new Error('unexpected ' + url)
@@ -83,6 +84,8 @@ test('B3: a LIST order with the server\'s own pack buys one UPS Ground label', a
   assert.match(gql.url, /\/admin\/api\/2025-10\/graphql\.json$/)
   assert.equal(gql.body.variables.id, OID)
   assert.equal(n('/orders/8333.json'), 0)                                  // retail never reads the REST order
+  // The label is marked with its order, so Fulfill and Void can tell it from another order's live one.
+  assert.equal(calls.find(c => c.url.endsWith('/transactions/')).body.metadata, OID)
   const parcel = calls.find(c => c.url.endsWith('/shipments/')).body.parcels[0]
   assert.deepEqual([parcel.length, parcel.width, parcel.height, parcel.weight], ['12', '8', '6', '2'])
   // Order kept: lookup -> pack check -> rate -> claim -> buy -> cost row.
@@ -512,11 +515,12 @@ test('B6: a retail void takes the order\'s lock (shared with Fulfill) before it 
   let r = await voidIt()
   assert.equal(r.code, 200, JSON.stringify(r.payload))
   assert.deepEqual([lock(), unlock()], [1, 1])
+  assert.deepEqual(calls.find(c => c.url.includes('release_order_fulfill')).body, { p_order_id: OID, p_token: 'tok-1' })   // released with its own token
   const idx = ['ship_labels_for_order', 'claim_order_fulfill', '/orders/8333.json', '/refunds/', 'mark_ship_label_voided', 'release_order_fulfill'].map(p => calls.findIndex(c => c.url.includes(p)))
   assert.deepEqual([...idx].sort((a, b) => a - b), idx)
   assert.equal(calls.filter(c => c.url.includes('ship_labels_for_order')).length, 2)   // read again once the lock is held
   // Fulfill is running on another device: nothing is voided, nothing released.
-  reset(world({ prior: RETAIL_PRIOR, orderClaim: false }))
+  reset(world({ prior: RETAIL_PRIOR, orderClaim: null }))
   r = await voidIt()
   assert.equal(r.code, 409)
   assert.equal(r.payload.code, 'busy')

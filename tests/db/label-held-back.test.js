@@ -56,6 +56,7 @@ async function as(db, who, sql) {
     throw e
   }
 }
+const insertRow = (order, box, status, hex = 'f') => `insert into public.shipping_labels (order_id, order_name, box_index, box_count, cost, shippo_object_id, status, channel) values ('${order}', '#x', ${box}, 1, 5, '${hex.repeat(32)}', '${status}', 'retail')`
 const hold = (order, held) => `select public.set_ship_label_held_back('${order}', ${held}) as n`
 const heldAt = async db => (await db.query(`select order_id, held_back_at is not null as held from public.shipping_labels order by order_id`)).rows
 
@@ -108,45 +109,83 @@ test('H1: pending still groups by order and channel (B2B and retail rows of one 
   assert.deepEqual(pend, [{ order_id: B2B, channel: 'b2b', n: 2 }, { order_id: B2B, channel: 'retail', n: 1 }, { order_id: RET, channel: 'retail', n: 1 }])
 })
 
-const claim = o => `select public.claim_order_fulfill('${o}') as ok`
-const release = o => `select public.release_order_fulfill('${o}') as ok`
+const claim = o => `select public.claim_order_fulfill('${o}') as tok`
+const release = (o, tok) => `select public.release_order_fulfill('${o}', ${tok ? `'${tok}'` : 'null'}) as ok`
+const take = async (db, o) => (await as(db, 'authenticated', claim(o)))[0].tok
 
-test('H1: one fulfiller or voider per order: a second claim fails until released or 2 minutes old', async () => {
+test('H1: one fulfiller or voider per order: a second claim fails until released or 2 minutes old; release needs the token', async () => {
   const db = await prodDb()
-  assert.deepEqual(await as(db, 'authenticated', claim(RET)), [{ ok: true }])
-  assert.deepEqual(await as(db, 'authenticated', claim(RET)), [{ ok: false }])
-  assert.deepEqual(await as(db, 'authenticated', claim(B2B)), [{ ok: true }])         // another order is free
-  assert.deepEqual(await as(db, 'authenticated', release(RET)), [{ ok: true }])
-  assert.deepEqual(await as(db, 'authenticated', claim(RET)), [{ ok: true }])
+  const t1 = await take(db, RET)
+  assert.match(t1, /^[0-9a-f-]{36}$/)
+  assert.equal(await take(db, RET), null)                                              // a second claim fails
+  assert.match(await take(db, B2B), /^[0-9a-f-]{36}$/)                                 // another order is free
+  assert.deepEqual(await as(db, 'authenticated', release(RET, '00000000-0000-0000-0000-000000000000')), [{ ok: false }])   // wrong token frees nothing
+  assert.equal(await take(db, RET), null)
+  assert.deepEqual(await as(db, 'authenticated', release(RET, t1)), [{ ok: true }])
+  const t2 = await take(db, RET)
+  assert.ok(t2 && t2 !== t1)
   await db.exec(`update public.fulfill_claims set claimed_at = now() - interval '3 minutes' where order_id = '${RET}'`)
-  assert.deepEqual(await as(db, 'authenticated', claim(RET)), [{ ok: true }])         // a stale claim is taken over
+  const t3 = await take(db, RET)                                                       // a stale claim is taken over, with a new token
+  assert.ok(t3 && t3 !== t2)
+  // The slow first holder finishing late can't free the new holder's claim.
+  assert.deepEqual(await as(db, 'authenticated', release(RET, t2)), [{ ok: false }])
+  assert.equal(await take(db, RET), null)
   await db.exec(`update public.fulfill_claims set claimed_at = now() - interval '90 seconds' where order_id = '${RET}'`)
-  assert.deepEqual(await as(db, 'authenticated', claim(RET)), [{ ok: false }])        // 90 s is still held
+  assert.equal(await take(db, RET), null)                                              // 90 s is still held
 })
 
 test('H1: the claim functions are staff only; anon is denied; the table has no direct access', async () => {
   const db = await prodDb()
-  assert.deepEqual(await as(db, 'stranger', claim(RET)), [{ ok: false }])
-  assert.deepEqual(await as(db, 'stranger', release(RET)), [{ ok: false }])
+  assert.equal((await as(db, 'stranger', claim(RET)))[0].tok, null)
+  assert.deepEqual(await as(db, 'stranger', release(RET, null)), [{ ok: false }])
   assert.equal(await as(db, 'anon', claim(RET)), 'denied')
-  assert.equal(await as(db, 'anon', release(RET)), 'denied')
+  assert.equal(await as(db, 'anon', release(RET, null)), 'denied')
   assert.equal(await as(db, 'green_planner_app', claim(RET)), 'denied')
   assert.equal(await as(db, 'authenticated', 'select * from public.fulfill_claims'), 'denied')
   assert.equal(await as(db, 'authenticated', `insert into public.fulfill_claims (order_id) values ('x')`), 'denied')
-  assert.deepEqual(await as(db, 'authenticated', claim(RET)), [{ ok: true }])
-  assert.deepEqual(await as(db, 'stranger', release(RET)), [{ ok: false }])           // a stranger can't free it
-  assert.deepEqual(await as(db, 'authenticated', claim(RET)), [{ ok: false }])
+  const t = await take(db, RET)
+  assert.ok(t)
+  assert.deepEqual(await as(db, 'stranger', release(RET, t)), [{ ok: false }])         // a stranger can't free it
+  assert.equal(await take(db, RET), null)
 })
 
 test('H1: Hold back and Include change nothing while the order is being fulfilled or voided', async () => {
   const db = await prodDb()
-  await as(db, 'authenticated', claim(RET))
+  const tok = await take(db, RET)
   assert.deepEqual(await as(db, 'authenticated', hold(RET, true)), [{ n: 0 }])
   assert.equal((await heldAt(db)).find(r => r.order_id === RET).held, false)
-  await as(db, 'authenticated', release(RET))
+  assert.equal((await db.query(`select count(*)::int as n from public.fulfill_claims where order_id = '${RET}'`)).rows[0].n, 1)   // still the fulfiller's claim
+  await as(db, 'authenticated', release(RET, tok))
   assert.deepEqual(await as(db, 'authenticated', hold(RET, true)), [{ n: 1 }])
+  assert.equal((await db.query(`select count(*)::int as n from public.fulfill_claims`)).rows[0].n, 0)                          // Hold back leaves no claim behind
   await db.exec(`insert into public.fulfill_claims (order_id, claimed_at) values ('${RET}', now() - interval '5 minutes') on conflict (order_id) do update set claimed_at = excluded.claimed_at`)
   assert.deepEqual(await as(db, 'authenticated', hold(RET, false)), [{ n: 1 }])       // a stale claim does not block
+})
+
+test('H1: one live label per box: a second purchased row is refused, a voided or fulfilled one is not; an existing duplicate stops the migration with a message', async () => {
+  const db = await prodDb()
+  await assert.rejects(as(db, 'authenticated', insertRow(RET, 1, 'purchased')), /duplicate key|unique/)
+  await as(db, 'authenticated', insertRow(RET, 1, 'voided', 'x'))                       // voided rows may repeat
+  await as(db, 'authenticated', insertRow(RET, 1, 'fulfilled', 'y'))
+  await as(db, 'authenticated', insertRow(RET, 2, 'purchased', 'z'))                    // another box is fine
+  // After a void the box can be bought again.
+  await db.exec(`update public.shipping_labels set status = 'voided' where order_id = '${RET}' and box_index = 1 and status = 'purchased'`)
+  await as(db, 'authenticated', insertRow(RET, 1, 'purchased', 'w'))
+  // A database that already has two live labels for a box is refused with a message, nothing changed.
+  const dup = await prodDb({ migrate: false })
+  await dup.exec(`insert into public.shipping_labels (order_id, order_name, box_index, box_count, cost, shippo_object_id, status, channel) values ('${RET}', '#5', 1, 1, 5, '${'9'.repeat(32)}', 'purchased', 'retail')`)
+  await assert.rejects(dup.exec(HELD), /two live \(purchased\) labels exist for one box/)
+  await dup.exec('rollback').catch(() => {})
+  assert.equal((await dup.query(`select count(*)::int as n from information_schema.columns where table_name = 'shipping_labels' and column_name = 'held_back_at'`)).rows[0].n, 0)
+})
+
+test('H1: the claim only takes real Shopify order ids; Hold back with another id changes nothing and leaves no claim', async () => {
+  const db = await prodDb()
+  for (const bad of ['', 'x', '8333', 'gid://shopify/Product/1', "gid://shopify/Order/1'; drop", 'gid://shopify/Order/']) {
+    assert.equal((await as(db, 'authenticated', `select public.claim_order_fulfill('${bad.replace(/'/g, "''")}') as tok`))[0].tok, null, bad)
+    assert.deepEqual(await as(db, 'authenticated', hold(bad.replace(/'/g, "''"), true)), [{ n: 0 }], bad)
+  }
+  assert.equal((await db.query(`select count(*)::int as n from public.fulfill_claims`)).rows[0].n, 0)
 })
 
 test('H1: signed-in users can no longer UPDATE a label row (tracking number, hold-back); the functions still can; INSERT still works', async () => {

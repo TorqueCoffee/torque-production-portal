@@ -3141,8 +3141,8 @@ function applySubscriptionSubstitution(items) {
 // Buy button stays off (RETAIL_BUY_ENABLED). The server classifies and packs; this only shows.
 // ---------------------------------------------------------------------------------------
 const RETAIL_MAX_BATCH = 25
-// Off until B3b (Pack, Fulfill) is merged, db/2026-10-19-label-channel.sql and
-// db/2026-10-19-label-void.sql are applied, and Andy says go. The first push with it on is the
+// Off until B3b (Pack, Fulfill) is merged, db/2026-10-19-label-channel.sql,
+// db/2026-10-19-label-void.sql and db/2026-10-20-label-held-back.sql are applied, and Andy says go. The first push with it on is the
 // supervised 3-label live test (ADR 0028, RUNBOOK "Retail Buy and print").
 const RETAIL_BUY_ENABLED = false
 const RETAIL_BUY_PARALLEL = 3            // label calls at once; drops to 1 if the server says "too many"
@@ -3194,10 +3194,14 @@ let retailBatch = null       // the Buying screen (B3a), or null for the queue
 // not stored here: they are the DB's pending retail labels joined to the order list, so a
 // reload shows the same cards. busy: order_ids with a Hold back / Include call in flight.
 let retailPack = null        // { busy: Set(order_id), fulfilling, msg, confirm: { ids, total } | null, progress, results: { rows } | null }
-// Orders whose Fulfill failed this session (B3b, Decision 7): order_id -> { order_name, why }. Not
-// stored anywhere; after a reload they are simply part of the open batch again, and Fulfill
-// retries them safely (the server never fulfills or emails twice).
+// Orders whose Fulfill failed this session (B3b, Decision 7): order_id -> { order_name, why, bought_at }.
+// bought_at is the label's, so the entry never stands for a label bought later (after a Void and a
+// re-buy). Not stored anywhere; after a reload they are simply part of the open batch again, and
+// Fulfill retries them safely (the server never fulfills or emails twice).
 let retailFulfillFailed = {}
+// Orders a Retry fulfill on the banner has shipped this session. Done counts a failed row as shipped
+// only from here: an entry gone from retailFulfillFailed may also mean held back or voided.
+let retailFulfillRetried = new Set()
 let retailBannerBusy = new Set()   // order_ids with a Retry fulfill or Clear running
 let retailBannerMsg = {}           // order_id -> why the last Retry / Clear did not clear it
 let retailBuyInFlight = false
@@ -3547,7 +3551,7 @@ function retailGoneRow(p) {
     <span class="rt-cell-check" aria-hidden="true">✓</span>
     <b>${escHtml(p.order_name || '—')}</b>
     <span></span>
-    <span class="mut">Not open in Shopify any more. Clear or void it in the red box at the top.</span>
+    <span class="mut">${p.unrecorded ? 'Not open in Shopify any more, and its label has no record here. Tell Andy before doing anything with it.' : 'Not open in Shopify any more. Clear or void it in the red box at the top.'}</span>
     <span></span>
     <span class="rt-chips">${p.unrecorded ? retailChip('bad', 'Bought, not recorded. Tell Andy') : retailChip('warn', 'Label bought') + retailVoidButton(p.order_id)}</span>
   </div>`
@@ -3883,9 +3887,9 @@ function retailPackAndFulfill() {
 }
 
 // ---- B6: Void a label (docs/RETAIL_UI_HANDOFF.md 3.7; ADR 0026, 0029) ---------------------------
-// Only where the label is bought and not going out in this batch: a Bought row on the queue, a
-// held-back Pack card, a gone order. Never an included card (Hold back first) and never an
-// unrecorded order (its label is unknown). The server refunds the label in Shippo and marks the
+// Where the label is bought: a Bought row on the queue (Decision 6), a held-back Pack card, a gone
+// order. Never an included Pack card (Hold back first) and never an unrecorded order (its label is
+// unknown). The server takes the order's lock, so a Void can't run while another device fulfills. The server refunds the label in Shippo and marks the
 // row voided, which frees the order to be bought again.
 function retailVoidButton(id, off) {
   return `<button class="btn btn-secondary btn-sm rt-tap" data-id="${escHtml(id)}" onclick="retailVoid(this.dataset.id)" ${off || retailBuyInFlight || retailPackLocked() || retailVoiding ? 'disabled' : ''}>Void</button>`
@@ -3901,6 +3905,8 @@ async function retailVoid(id) {
   renderRetail()
   try {
     const { res, data } = await retailCall('/api/shippo-label?action=void', { order_id: id, box_index: 1 })
+    // The label is gone, so a failed Fulfill or a Retry from this session no longer stands for it.
+    if (res.ok && data.ok) { delete retailFulfillFailed[id]; retailFulfillRetried.delete(id) }
     if (res.ok && data.ok && data.row_marked) {
       alert(`Voided. ${name} is back in the queue.`)
       retailVoiding = false
@@ -3980,7 +3986,7 @@ async function retailSetHeld(id, held) {
   try {
     const { data, error } = await sb.rpc('set_ship_label_held_back', { p_order_id: id, p_held: !!held })
     if (error) throw error
-    if (data !== 1) throw new Error('the portal changed no label')
+    if (data !== 1) throw new Error('the portal changed no label. Another device may be fulfilling or voiding it right now; try again in a moment')
     const pend = await retailRefreshPending()
     if (!pend.ok) pk.msg = `${name} was changed, but the list couldn't be read again (${pend.why}). Tap Refresh to see it.`
   } catch (e) {
@@ -3999,9 +4005,10 @@ async function retailFulfillPost(extra) {
   const { res, data } = await retailCall('/api/shopify-fulfill', { kind: 'retail', ...extra })
   return { res, out: data }
 }
-// A fulfill answer -> { shipped, emailed, already } or { shipped: false, why }.
+// A fulfill answer -> { shipped, emailed, already, costMissed } or { shipped: false, why }. costMissed:
+// Shopify was written but the label record was not flipped (it still reads bought here).
 function retailFulfillOutcome(res, out) {
-  if (res.ok && out.ok) return { shipped: true, emailed: !!out.emailed, already: !!out.alreadyFulfilled }
+  if (res.ok && out.ok) return { shipped: true, emailed: !!out.emailed, already: !!out.alreadyFulfilled, costMissed: !out.alreadyFulfilled && out.cost_updated === false }
   return { shipped: false, why: out.error || `status ${res.status}`, code: out.code || '' }
 }
 // Fulfill N orders: open the confirm for the included cards (the ids are fixed here, and the
@@ -4053,25 +4060,46 @@ async function retailFulfillRun(ids) {
       }
       return false
     }, row => { if (row.result) pk.progress.done++; renderRetail() })
-    await retailRefreshPending()
+    const pend = await retailRefreshPending()
     for (const r of rows) {
-      // A lost answer to a fulfill that went through: the server flips the label rows right after
-      // writing Shopify, so a row no longer pending was fulfilled. Its email went out; the count can't know.
-      if (r.result.noAnswer && !retailPending[r.id]) r.result = { shipped: true, emailed: false, already: true, recovered: true }
+      // A lost answer: a label no longer pending may have been fulfilled, or voided on another
+      // device. Only Shopify can say, so ask it with the call that never creates or emails; only
+      // "already fulfilled" counts. Its email went out; the count can't know.
+      if (r.result.noAnswer && pend.ok && !retailPending[r.id]) {
+        try {
+          const { res, out } = await retailFulfillPost({ order_id: r.id, notifyCustomer: false, only_if_fulfilled: true })
+          if (res.ok && out.ok && out.alreadyFulfilled) r.result = { shipped: true, emailed: false, already: true, recovered: true }
+        } catch (e) { /* still unknown: it stays failed, and Fulfill again is safe */ }
+      }
+    }
+  } finally {
+    // Whatever stopped the run, Done shows every order: one with no answer is failed, not lost.
+    for (const r of rows) {
+      if (!r.result) r.result = { shipped: false, noAnswer: true, why: 'The run stopped before this order was answered. Fulfill again; it never sends a second email.' }
       // Held back on another device since the confirm: the server refused it, and it is not an error.
       if (r.result.shipped || r.result.code === 'held_back') delete retailFulfillFailed[r.id]
-      else retailFulfillFailed[r.id] = { order_name: r.order ? r.order.order_name : r.id, why: r.result.why }
+      else retailFulfillFailed[r.id] = { order_name: r.order ? r.order.order_name : r.id, why: r.result.why, bought_at: retailPending[r.id] ? retailPending[r.id].bought_at : null }
+      retailFulfillRetried.delete(r.id)
     }
     pk.results = { rows: rows.map(r => ({ id: r.id, order: r.order, name: r.order ? r.order.order_name : r.id, ...r.result })) }
-  } finally {
     pk.fulfilling = false
     pk.progress = null
   }
   renderRetail()
 }
-// The Done rows as they are now: a failed order that a Retry on the banner has since fulfilled counts as shipped.
+// The Done rows as they are now: a failed order that a Retry on the banner has since shipped counts
+// as shipped; one a Retry found held back counts as held. Anything else stays as it was answered.
 function retailDoneRows() {
-  return retailPack.results.rows.map(r => (!r.shipped && r.code !== 'held_back' && !retailFulfillFailed[r.id]) ? { ...r, shipped: true, emailed: false, already: true, retried: true } : r)
+  return retailPack.results.rows.map(r => {
+    if (r.shipped || r.code === 'held_back' || retailFulfillFailed[r.id]) return r
+    if (retailFulfillRetried.has(r.id)) return { ...r, shipped: true, emailed: false, already: true, retried: true }
+    return retailPending[r.id] && retailPending[r.id].held_back_at ? { ...r, code: 'held_back' } : r
+  })
+}
+// A failed entry still stands for the label on record: the same bought_at (not a label bought after a Void).
+function retailFailedLive(id) {
+  const f = retailFulfillFailed[id], p = retailPending[id]
+  return !!(f && p && !p.unrecorded && p.bought_at === f.bought_at)
 }
 
 // ---- B3b: the red banner (docs/RETAIL_UI_HANDOFF.md 3.7; ADR 0029) ------------------------------
@@ -4086,13 +4114,17 @@ function retailGoneIds() {
 }
 function retailBannerLocked() { return retailBuyInFlight || retailPackLocked() || retailLoading }
 async function retailRetryFulfill(id) {
-  if (retailBannerBusy.has(id) || retailBannerLocked() || !retailFulfillFailed[id]) return
+  if (retailBannerBusy.has(id) || retailBannerLocked() || !retailFailedLive(id)) return
   retailBannerBusy.add(id); delete retailBannerMsg[id]
   renderRetail()
   try {
     const { res, out } = await retailFulfillPost({ order_id: id })
     const r = retailFulfillOutcome(res, out)
-    if (r.shipped || r.code === 'held_back') { delete retailFulfillFailed[id]; await loadRetailOrders() }    // the order leaves the list too
+    if (r.shipped || r.code === 'held_back') {
+      delete retailFulfillFailed[id]
+      if (r.shipped) retailFulfillRetried.add(id)
+      await loadRetailOrders()    // the order leaves the list too
+    }
     else retailFulfillFailed[id] = { ...retailFulfillFailed[id], why: r.why }
   } catch (e) {
     retailFulfillFailed[id] = { ...retailFulfillFailed[id], why: `No answer from the server (${e.message || 'network'}). Retry again; it never sends a second email.` }
@@ -4124,7 +4156,7 @@ async function retailClearGone(id) {
 function retailRedBanner() {
   const off = retailBannerLocked()
   const btn = (fn, id, text) => `<button class="btn btn-secondary btn-sm rt-tap" data-id="${escHtml(id)}" onclick="${fn}(this.dataset.id)" ${off || retailBannerBusy.has(id) ? 'disabled' : ''}>${escHtml(text)}</button>`
-  const failed = Object.entries(retailFulfillFailed).filter(([id]) => retailPending[id] && !retailPending[id].unrecorded).map(([id, f]) =>
+  const failed = Object.entries(retailFulfillFailed).filter(([id]) => retailFailedLive(id)).map(([id, f]) =>
     `<div class="rt-banner-row"><span>Paid, not fulfilled: <b>${escHtml(f.order_name)}</b>. Label bought, tracking not written to Shopify, so the customer has no email. <span class="mut">${escHtml(f.why)}</span></span>${btn('retailRetryFulfill', id, 'Retry fulfill')}</div>`)
   const gone = retailGoneIds().map(id =>
     `<div class="rt-banner-row"><span>Paid, not open in Shopify: <b>${escHtml(retailPending[id].order_name || '—')}</b>. Its label is bought. Fulfilled by hand: Clear. Cancelled or changed: Void.${retailBannerMsg[id] ? ` <span class="rt-msg">${escHtml(retailBannerMsg[id])}</span>` : ''}</span>${btn('retailClearGone', id, 'Clear')}${retailVoidButton(id, off || retailBannerBusy.has(id))}</div>`)
@@ -4270,6 +4302,7 @@ function renderRetailDone() {
   const emails = rows.filter(r => r.shipped && r.emailed).length
   const already = rows.filter(r => r.shipped && r.already && !r.recovered && !r.retried)
   const recovered = rows.filter(r => r.recovered || r.retried)
+  const costMissed = rows.filter(r => r.shipped && r.costMissed)
   const failed = rows.filter(r => !r.shipped && r.code !== 'held_back')
   const failedIds = new Set(failed.map(r => r.id))
   const heldNames = new Map(retailPackCards().filter(c => c.held).map(c => [c.order.order_id, c.order.order_name]))
@@ -4291,6 +4324,7 @@ function renderRetailDone() {
       ${shipped ? '<span>Tracking written to Shopify and the orders closed.</span><span>One cost row per label saved with carton and billed lb.</span>' : '<span>No order was fulfilled in this batch.</span>'}
       ${already.length ? `<span>${already.length} ${already.length !== 1 ? 'were' : 'was'} already fulfilled in Shopify (${escHtml(already.map(r => r.name).join(', '))}), so no second email was sent.</span>` : ''}
       ${recovered.length ? `<span>${escHtml(recovered.map(r => r.name).join(', '))} went through after the answer was lost or a retry; Shopify sent each one email, which the count above doesn't include.</span>` : ''}
+      ${costMissed.length ? `<span class="rt-msg">Fulfilled in Shopify, but the portal's label record wasn't updated for ${escHtml(costMissed.map(r => r.name).join(', '))}. Tell Andy. If one shows in Resume batch, Fulfill only closes it out (no second email).</span>` : ''}
       ${shipped && !open ? '<span class="mut">Put the packed parcels at the UPS pickup spot. Nothing else to do.</span>' : shipped ? '<span class="mut">Put the shipped parcels at the UPS pickup spot. The open orders are listed above.</span>' : ''}
     </div>
     <div class="rt-pc-btns">

@@ -18,12 +18,22 @@
 --     ship_labels_pending() also returns held_back_at. A changed return type needs DROP +
 --     CREATE; both happen in this transaction. Bodies and the staff condition are as in the
 --     channel migration.
---   * fulfill_claims, claim_order_fulfill(order), release_order_fulfill(order): one fulfiller or
---     voider per order at a time, like claim_label_box for buying. Fulfill and Void both take it,
---     so two devices can't fulfill one order together, and a Void can't refund a label while
---     Fulfill is emailing its tracking number. A claim older than 2 minutes can be taken over
---     (the calls it guards time out well before that). set_ship_label_held_back changes
---     nothing (returns 0) while the order's claim is fresh.
+--   * fulfill_claims, claim_order_fulfill(order) -> token, release_order_fulfill(order, token): one
+--     fulfiller or voider per order at a time, like claim_label_box for buying. Fulfill and Void
+--     both take it, so two devices can't fulfill one order together, and a Void can't refund a
+--     label while Fulfill is emailing its tracking number. A claim older than 2 minutes can be
+--     taken over (the calls it guards time out well before that); the claim hands back a token and
+--     release deletes only that token's claim, so a slow request that finishes after a takeover
+--     can't free the new holder's lock. set_ship_label_held_back takes the same claim for the
+--     moment of its update (inside its own transaction, so it waits for or loses to a Fulfill that
+--     is claiming, and a Fulfill can't read the label between its check and its commit): it
+--     changes nothing (returns 0) while the order's claim is fresh.
+--   * One live label per box: a partial unique index on (order_id, box_index) where status is
+--     'purchased'. The cost-row insert is open to any signed-in staff session, so without it a
+--     second 'purchased' row for a box (planted or by mistake) would make Fulfill refuse the order
+--     ("2 live labels") and Void pick the wrong row. The label endpoint never writes a second live
+--     row for a box (it hands back the one that exists), and a void marks its row 'voided' first.
+--   * The order lock only takes real Shopify order ids (gid://shopify/Order/<digits>).
 --   * The UPDATE policy on shipping_labels is dropped and UPDATE revoked from signed-in users:
 --     every write to an existing row goes through the SECURITY DEFINER functions (hold back,
 --     void, mark fulfilled), so a staff session can no longer rewrite a tracking number or clear a
@@ -51,35 +61,43 @@ begin
              where table_schema = 'public' and table_name = 'shipping_labels' and column_name = 'held_back_at') then
     raise exception 'shipping_labels.held_back_at already exists: this migration has run.';
   end if;
+  if exists (select 1 from public.shipping_labels where status = 'purchased' group by order_id, box_index having count(*) > 1) then
+    raise exception 'two live (purchased) labels exist for one box: look at them (select order_id, box_index, count(*) from public.shipping_labels where status = ''purchased'' group by 1, 2 having count(*) > 1), void or fix the extra one, then run this again.';
+  end if;
 end $$;
 
 alter table public.shipping_labels add column held_back_at timestamptz;
+create unique index shipping_labels_one_live_per_box on public.shipping_labels (order_id, box_index) where status = 'purchased';
 
 create table public.fulfill_claims (
   order_id   text primary key,
-  claimed_at timestamptz not null default now()
+  claimed_at timestamptz not null default now(),
+  token      uuid not null default gen_random_uuid()
 );
 alter table public.fulfill_claims enable row level security;
 revoke all on public.fulfill_claims from public, anon, authenticated;
 
 create function public.claim_order_fulfill(p_order_id text)
- returns boolean
+ returns uuid
  language plpgsql security definer set search_path to 'public', 'pg_temp'
 as $function$
-declare n integer;
+declare t uuid;
 begin
   if not coalesce(((select auth.jwt()) -> 'app_metadata' ->> 'portal_staff')::boolean, false) then
-    return false;
+    return null;
+  end if;
+  if p_order_id is null or p_order_id !~ '^gid://shopify/Order/[0-9]+$' then
+    return null;
   end if;
   insert into public.fulfill_claims (order_id) values (p_order_id)
-  on conflict (order_id) do update set claimed_at = now()
-    where public.fulfill_claims.claimed_at < now() - interval '2 minutes';
-  get diagnostics n = row_count;
-  return n = 1;
+  on conflict (order_id) do update set claimed_at = now(), token = gen_random_uuid()
+    where public.fulfill_claims.claimed_at < now() - interval '2 minutes'
+  returning token into t;
+  return t;                                  -- null: someone else holds a fresh claim
 end
 $function$;
 
-create function public.release_order_fulfill(p_order_id text)
+create function public.release_order_fulfill(p_order_id text, p_token uuid)
  returns boolean
  language plpgsql security definer set search_path to 'public', 'pg_temp'
 as $function$
@@ -88,7 +106,7 @@ begin
   if not coalesce(((select auth.jwt()) -> 'app_metadata' ->> 'portal_staff')::boolean, false) then
     return false;
   end if;
-  delete from public.fulfill_claims where order_id = p_order_id;
+  delete from public.fulfill_claims where order_id = p_order_id and token = p_token;
   get diagnostics n = row_count;
   return n = 1;
 end
@@ -98,13 +116,21 @@ create function public.set_ship_label_held_back(p_order_id text, p_held boolean)
  returns integer
  language plpgsql security definer set search_path to 'public', 'pg_temp'
 as $function$
-declare n integer;
+declare n integer; t uuid;
 begin
   if not coalesce(((select auth.jwt()) -> 'app_metadata' ->> 'portal_staff')::boolean, false) then
     return 0;
   end if;
-  -- Someone is fulfilling or voiding this order right now: change nothing.
-  if exists (select 1 from public.fulfill_claims fc where fc.order_id = p_order_id and fc.claimed_at > now() - interval '2 minutes') then
+  if p_order_id is null or p_order_id !~ '^gid://shopify/Order/[0-9]+$' then
+    return 0;
+  end if;
+  -- Take the order's claim for the length of this statement: if someone is fulfilling or voiding
+  -- it (a fresh claim), change nothing; if one is claiming right now, this waits for it.
+  insert into public.fulfill_claims (order_id) values (p_order_id)
+  on conflict (order_id) do update set claimed_at = now(), token = gen_random_uuid()
+    where public.fulfill_claims.claimed_at < now() - interval '2 minutes'
+  returning token into t;
+  if t is null then
     return 0;
   end if;
   update public.shipping_labels sl
@@ -113,6 +139,7 @@ begin
      and sl.channel = 'retail'
      and sl.status = 'purchased';
   get diagnostics n = row_count;
+  delete from public.fulfill_claims where order_id = p_order_id and token = t;
   return n;
 end
 $function$;
@@ -157,8 +184,8 @@ revoke update on public.shipping_labels from authenticated;
 
 revoke execute on function public.set_ship_label_held_back(text, boolean) from public, anon;
 grant execute on function public.set_ship_label_held_back(text, boolean) to authenticated;
-revoke execute on function public.claim_order_fulfill(text), public.release_order_fulfill(text) from public, anon;
-grant execute on function public.claim_order_fulfill(text), public.release_order_fulfill(text) to authenticated;
+revoke execute on function public.claim_order_fulfill(text), public.release_order_fulfill(text, uuid) from public, anon;
+grant execute on function public.claim_order_fulfill(text), public.release_order_fulfill(text, uuid) to authenticated;
 revoke execute on function public.ship_labels_for_order(text) from public, anon;
 grant execute on function public.ship_labels_for_order(text) to authenticated;
 revoke execute on function public.ship_labels_pending() from public, anon;
@@ -177,6 +204,9 @@ begin
      or has_table_privilege('authenticated', 'public.shipping_labels', 'update') then
     raise exception 'postcondition: signed-in users can still UPDATE shipping_labels';
   end if;
+  if not exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'shipping_labels_one_live_per_box') then
+    raise exception 'postcondition: the one-live-label-per-box index is missing';
+  end if;
   if exists (select 1 from pg_proc where proname in ('set_ship_label_held_back', 'claim_order_fulfill', 'release_order_fulfill') and pronamespace = 'public'::regnamespace and not (prosecdef and proconfig is not null)) then
     raise exception 'postcondition: a new function is not SECURITY DEFINER with a fixed search_path';
   end if;
@@ -184,14 +214,14 @@ begin
      or has_function_privilege('anon', 'public.ship_labels_for_order(text)', 'execute')
      or has_function_privilege('anon', 'public.set_ship_label_held_back(text, boolean)', 'execute')
      or has_function_privilege('anon', 'public.claim_order_fulfill(text)', 'execute')
-     or has_function_privilege('anon', 'public.release_order_fulfill(text)', 'execute') then
+     or has_function_privilege('anon', 'public.release_order_fulfill(text, uuid)', 'execute') then
     raise exception 'postcondition: anon can run a function';
   end if;
   if not (has_function_privilege('authenticated', 'public.ship_labels_pending()', 'execute')
       and has_function_privilege('authenticated', 'public.ship_labels_for_order(text)', 'execute')
       and has_function_privilege('authenticated', 'public.set_ship_label_held_back(text, boolean)', 'execute')
       and has_function_privilege('authenticated', 'public.claim_order_fulfill(text)', 'execute')
-      and has_function_privilege('authenticated', 'public.release_order_fulfill(text)', 'execute')) then
+      and has_function_privilege('authenticated', 'public.release_order_fulfill(text, uuid)', 'execute')) then
     raise exception 'postcondition: signed-in users cannot run a function';
   end if;
 end $$;

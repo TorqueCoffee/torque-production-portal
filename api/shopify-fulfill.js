@@ -125,7 +125,7 @@ async function retailGate(orderId, userToken) {
 
   // Shippo has the last word on the label: a row can be planted, or the label voided by hand in
   // the Shippo dashboard while its row still reads 'purchased'.
-  const live2 = await labelIsLive(row)
+  const live2 = await labelIsLive(row, orderId)
   if (!live2.ok) return { status: live2.status, body: { error: live2.error, ...(live2.code ? { code: live2.code } : {}) } }
   return { row }
 }
@@ -158,27 +158,40 @@ module.exports = async function handler(req, res) {
   // No kind: an order with a live retail label is retail whatever the body says, so the page's
   // tracking numbers can't stand in for the label's. A lookup that fails leaves B2B as it was.
   if (!retail) {
-    const lab = await rpc('ship_labels_for_order', { p_order_id: String(orderId) }, session.token, LOOKUP_TIMEOUT_MS)
-    if (lab.ok && Array.isArray(lab.data) && lab.data.some(x => x && x.status === 'purchased' && x.channel === 'retail')) retail = true
+    // Looked up under the spelling the rows are stored under, whatever spelling the request used.
+    const n = orderNumericId(orderId)
+    const canon = n ? `gid://shopify/Order/${String(BigInt(n))}` : String(orderId)
+    const lab = await rpc('ship_labels_for_order', { p_order_id: canon }, session.token, LOOKUP_TIMEOUT_MS)
+    if (lab.ok && Array.isArray(lab.data) && lab.data.some(x => x && x.status === 'purchased' && x.channel === 'retail')) { retail = true; orderId = canon }
   }
   // Retail: the customer email is always on. Only Clear (only_if_fulfilled) says otherwise, and it creates nothing.
   const notifyCustomer = retail && body.only_if_fulfilled !== true ? true : body.notifyCustomer !== false
 
   const { SHOPIFY_STORE_HANDLE } = process.env
-  let locked = false
+  // Everything below answers into `reply`, so the order's lock is released before the answer is
+  // sent (code after the response is not guaranteed to run on a serverless function).
+  const reply = {}
+  const realRes = res
+  await (async res => {
+  let lock = null          // { token }: the order's lock, while we hold it
+  let createSent = false   // the fulfillmentCreate has gone out and not come back
+  const ctrlToken = new AbortController()
   try {
     if (retail) {
       // One fulfiller, voider or hold-back per order at a time. Taken before anything is read, so
       // what is read is still true when the fulfillment is written; released below, whatever happens.
       const got = await rpc('claim_order_fulfill', { p_order_id: orderId }, session.token, LOOKUP_TIMEOUT_MS)
-      if (!got.ok) {
+      if (!got.ok || got.status === 404) {
         console.warn(`shopify-fulfill: order lock failed (${got.why}); nothing fulfilled`)
         return res.status(503).json({ error: "Couldn't take the order's lock (is db/2026-10-20-label-held-back.sql applied?), so nothing was fulfilled. Try again in a minute.", emailed: false })
       }
-      if (got.data !== true) return res.status(409).json({ code: 'busy', error: 'Another device is fulfilling or voiding this order right now. Nothing was fulfilled. Try again in a moment.', emailed: false })
-      locked = true
+      if (typeof got.data !== 'string' || !got.data) return res.status(409).json({ code: 'busy', error: 'Another device is fulfilling or voiding this order right now. Nothing was fulfilled. Try again in a moment.', emailed: false })
+      lock = { token: got.data }
     }
-    const tk = await getToken()
+    // The Shopify token exchange has its own timer too (it runs under the lock).
+    const tokenTimer = setTimeout(() => ctrlToken.abort(), settings.shopifyTimeoutMs)
+    let tk
+    try { tk = await getToken(ctrlToken.signal) } finally { clearTimeout(tokenTimer) }
     if (tk.error) return res.status(500).json({ error: 'Shopify token exchange failed', detail: tk.error })
     const gql = async (query, variables) => {
       const ctrl = new AbortController()
@@ -198,7 +211,7 @@ module.exports = async function handler(req, res) {
 
     // 1) Look up the order's fulfillment orders (idempotency guard).
     const foRes = await gql(
-      `query($id: ID!) { order(id: $id) { id name email cancelledAt displayFulfillmentStatus fulfillmentOrders(first: 50) { edges { node { id status } } } } }`,
+      `query($id: ID!) { order(id: $id) { id name ${retail ? 'email ' : ''}cancelledAt displayFulfillmentStatus fulfillmentOrders(first: 50) { edges { node { id status } } } } }`,
       { id: orderId }
     )
     const order = foRes.data && foRes.data.order
@@ -231,14 +244,16 @@ module.exports = async function handler(req, res) {
       // Already fulfilled (by a retry, or by hand in Shopify) — do not create or notify again,
       // but do flip the label rows so the order stops showing as "paid, not fulfilled".
       const flip = await markLabelsFulfilled(orderId, session.token)
-      return res.status(200).json({ ok: true, order: order.name, alreadyFulfilled: true, notified: false, emailed: false, ...flip })
+      return res.status(200).json({ ok: true, order: order.name, alreadyFulfilled: true, notified: false, ...(retail ? { emailed: false } : {}), ...flip })
     }
 
     // Clear on the red banner only closes out an order Shopify already shows fulfilled. A
     // partly fulfilled order also drops out of the ship list; it must not be fulfilled here
     // (silently, with no customer email) by a button that means "done by hand".
     if (body.only_if_fulfilled === true) {
-      return res.status(409).json({ error: 'Shopify still has unfulfilled items on this order, so nothing was changed. Fulfill the rest in Shopify, or open the order here and tap Finish →.' })
+      return res.status(409).json({ error: retail
+        ? 'Shopify still has unfulfilled items on this order, so nothing was changed. Fulfill the rest in Shopify, or use Resume batch and tap Fulfill.'
+        : 'Shopify still has unfulfilled items on this order, so nothing was changed. Fulfill the rest in Shopify, or open the order here and tap Finish →.' })
     }
 
     // Retail (B3b): the tracking number is the DB label's, after the label, held-back, UPS and
@@ -263,6 +278,7 @@ module.exports = async function handler(req, res) {
     // in the customer's shipping email.
     const trackingInfo = { company, numbers }
 
+    createSent = true
     const mRes = await gql(
       `mutation($fulfillment: FulfillmentInput!) {
         fulfillmentCreate(fulfillment: $fulfillment) {
@@ -278,6 +294,7 @@ module.exports = async function handler(req, res) {
         }
       }
     )
+    createSent = false
     const payload = mRes.data && mRes.data.fulfillmentCreate
     const userErrors = (payload && payload.userErrors) || []
     if (!payload || !payload.fulfillment || userErrors.length) {
@@ -288,18 +305,29 @@ module.exports = async function handler(req, res) {
     const { cost_updated, cost_rows_updated } = await markLabelsFulfilled(orderId, session.token)
 
     return res.status(200).json({
-      ok: true, order: order.name, notified: notifyCustomer, emailed: notifyCustomer && !!order.email,
+      ok: true, order: order.name, notified: notifyCustomer, ...(retail ? { emailed: notifyCustomer && !!order.email } : {}),
       fulfillment_id: payload.fulfillment.id, status: payload.fulfillment.status,
       tracking: payload.fulfillment.trackingInfo,
       cost_updated, cost_rows_updated
     })
   } catch (err) {
     // Shopify didn't answer in time: the fulfillment may or may not exist. Fulfilling again is safe.
-    if (err && err.name === 'AbortError') return res.status(504).json({ error: "Shopify didn't answer in time. Nothing may have been fulfilled; tap Fulfill again (it never sends a second email).", emailed: false })
+    if (err && err.name === 'AbortError') {
+      return res.status(504).json({ error: createSent
+        ? "Shopify didn't answer in time and the order may be fulfilled. Wait two minutes, then tap Fulfill again (it never sends a second email)."
+        : "Shopify didn't answer in time. Nothing may have been fulfilled; tap Fulfill again (it never sends a second email).", ...(retail ? { emailed: false } : {}) })
+    }
     return res.status(500).json({ error: err.message })
   } finally {
-    if (locked) await rpc('release_order_fulfill', { p_order_id: orderId }, session.token, LOOKUP_TIMEOUT_MS)
+    // After a create that never came back the lock is kept: it goes stale by itself in 2 minutes, so
+    // a Void can't refund the label while Shopify may still be committing the fulfillment.
+    if (lock && !createSent) {
+      const freed = await rpc('release_order_fulfill', { p_order_id: orderId, p_token: lock.token }, session.token, LOOKUP_TIMEOUT_MS)
+      if (!freed.ok) console.warn(`shopify-fulfill: lock release failed (${freed.why}); it goes stale in 2 minutes`)
+    }
   }
+  })({ status(c) { reply.code = c; return this }, json(b) { reply.body = b; return this } })
+  return realRes.status(reply.code || 500).json(reply.body || { error: 'No answer was produced' })
 }
 
 module.exports.settings = settings

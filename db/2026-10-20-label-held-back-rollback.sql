@@ -11,8 +11,9 @@ begin;
 
 drop function if exists public.set_ship_label_held_back(text, boolean);
 drop function if exists public.claim_order_fulfill(text);
-drop function if exists public.release_order_fulfill(text);
+drop function if exists public.release_order_fulfill(text, uuid);
 drop table if exists public.fulfill_claims;
+drop index if exists public.shipping_labels_one_live_per_box;
 
 -- The UPDATE door the migration closed, as login-rls left it.
 grant update on public.shipping_labels to authenticated;
@@ -55,5 +56,26 @@ revoke execute on function public.ship_labels_pending() from public, anon;
 grant execute on function public.ship_labels_pending() to authenticated;
 
 alter table public.shipping_labels drop column if exists held_back_at;
+
+-- Postconditions: the old shapes are back and nothing of the migration is left.
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'shipping_labels' and column_name = 'held_back_at')
+     or to_regclass('public.fulfill_claims') is not null
+     or to_regclass('public.shipping_labels_one_live_per_box') is not null
+     or exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname in ('set_ship_label_held_back', 'claim_order_fulfill', 'release_order_fulfill')) then
+    raise exception 'postcondition: part of the held-back migration is still there';
+  end if;
+  if pg_get_function_result('public.ship_labels_pending()'::regprocedure) like '%held_back_at%'
+     or pg_get_function_result('public.ship_labels_for_order(text)'::regprocedure) like '%held_back_at%' then
+    raise exception 'postcondition: a lookup still returns held_back_at';
+  end if;
+  if has_function_privilege('anon', 'public.ship_labels_pending()', 'execute') or has_function_privilege('anon', 'public.ship_labels_for_order(text)', 'execute') then
+    raise exception 'postcondition: anon can run a lookup';
+  end if;
+  if not has_table_privilege('authenticated', 'public.shipping_labels', 'update') then
+    raise exception 'postcondition: UPDATE on shipping_labels was not restored';
+  end if;
+end $$;
 
 commit;

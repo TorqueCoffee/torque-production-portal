@@ -1,6 +1,6 @@
 # 0004 — shipping_labels security model: server-written, no public read, constraint-based dedup
 
-- **Status**: Accepted
+- **Status**: Accepted (amended: ADR 0023 moved the writes to signed-in staff; ADR 0029 / `db/2026-10-20-label-held-back.sql` closes UPDATE, so staff can INSERT only and every change to a row goes through a SECURITY DEFINER function)
 - **Date**: 2026-06-30
 
 ## Context

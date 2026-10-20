@@ -41,7 +41,7 @@ const FULFILLED = { ...OPEN, displayFulfillmentStatus: 'FULFILLED', fulfillmentO
 // The happy path. `shopify` is the order the fulfillment read returns (mutable: a create
 // flips it to fulfilled, as Shopify does); `rows` the label rows; `retail` the retail read node.
 function world({ shopify = OPEN, rows = [LABEL], retail = retailNode('#8333'), labelsReply, retailReply, marked = 1, claim, txn, createReply } = {}) {
-  const state = { shopify, claimed: new Set() }
+  const state = { shopify, claimed: new Set(), token: null, tokens: 0 }
   const fn = (url, body) => {
     if (url.includes('/oauth/access_token')) return { json: { access_token: 'tok', scope: 'read_orders', expires_in: 86399 } }
     if (url.includes('/graphql.json')) {
@@ -57,11 +57,15 @@ function world({ shopify = OPEN, rows = [LABEL], retail = retailNode('#8333'), l
     if (url.includes('/rpc/mark_ship_labels_fulfilled')) return typeof marked === 'function' ? marked() : { json: marked }
     if (url.includes('/rpc/claim_order_fulfill')) {
       if (claim) return claim(body)
-      if (state.claimed.has(body.p_order_id)) return { json: false }
-      state.claimed.add(body.p_order_id); return { json: true }
+      if (state.claimed.has(body.p_order_id)) return { json: null }                              // someone else holds it
+      state.claimed.add(body.p_order_id); state.token = `tok-${++state.tokens}`; return { json: state.token }
     }
-    if (url.includes('/rpc/release_order_fulfill')) { const had = state.claimed.delete(body.p_order_id); return { json: had } }
-    if (url.startsWith('https://api.goshippo.com/transactions/')) return txn ? txn() : { json: { object_id: 'a'.repeat(32), status: 'SUCCESS', tracking_number: '1Z999AA10123456784' } }
+    if (url.includes('/rpc/release_order_fulfill')) {
+      const ok = state.claimed.has(body.p_order_id) && body.p_token === state.token
+      if (ok) state.claimed.delete(body.p_order_id)
+      return { json: ok }
+    }
+    if (url.startsWith('https://api.goshippo.com/transactions/')) return txn ? txn() : { json: { object_id: 'a'.repeat(32), status: 'SUCCESS', tracking_number: '1Z999AA10123456784', metadata: OID } }
     throw new Error('unexpected ' + url)
   }
   fn.state = state
@@ -92,8 +96,9 @@ test('F1: a retail fulfill takes its tracking from the DB, ignores the body, cre
   assert.equal(rpc('mark_ship_labels_fulfilled')[0].body.p_order_id, OID)
   // The label record was read as the signed-in user.
   assert.equal(rpc('ship_labels_for_order')[0].headers.Authorization, `Bearer ${USER_TOKEN}`)
-  assert.equal(rpc('claim_order_fulfill').length, 1)                                        // the order's lock was taken first and released
+  assert.equal(rpc('claim_order_fulfill').length, 1)                                        // the order's lock was taken first and released, with its token
   assert.equal(rpc('release_order_fulfill').length, 1)
+  assert.equal(rpc('release_order_fulfill')[0].body.p_token, 'tok-1')
   assert.ok(calls.findIndex(c => c.url.includes('claim_order_fulfill')) < calls.findIndex(c => c.url.includes('/graphql.json')))
   // An order that is fully open with a label bought passes the list rules (not NOT_UNFULFILLED).
   assert.ok(calls.some(c => c.url.includes('/graphql.json') && !c.body.query.includes('first: 50') && !c.body.query.includes('fulfillmentCreate')))
@@ -280,7 +285,8 @@ test('F1: no kind (or any other kind) and no live retail label is the B2B path: 
   assert.equal(rpc('claim_order_fulfill').length, 0)
   assert.equal(calls.filter(c => c.url.includes('goshippo.com')).length, 0)
   assert.equal(creates().length, 1)
-  assert.equal(r.payload.emailed, true)   // the same Shopify email, now reported
+  assert.equal('emailed' in r.payload, false)   // a B2B answer is as it was
+  assert.doesNotMatch(calls.find(c => c.url.includes('/graphql.json')).body.query, /\bemail\b/)   // and so is its query
   reset(world({ rows: [{ ...LABEL, channel: 'b2b' }] }))
   r = await fulfill({ order_id: OID, tracking: [{ number: '1Z999AA10123456784' }] })   // a B2B label row: still B2B
   assert.equal(r.code, 200)
@@ -304,7 +310,7 @@ test('F1: no kind (or any other kind) and no live retail label is the B2B path: 
 const released = () => rpc('release_order_fulfill').length
 const claimed = () => rpc('claim_order_fulfill').length
 
-test('F2: the order\'s lock is taken before anything is read and released on every path', async () => {
+test('F2: the order\'s lock is taken before anything is read and released on every path the create did not start', async () => {
   const cases = [
     ['created', world(), 200],
     ['held back', world({ rows: [{ ...LABEL, held_back_at: 'x' }] }), 409],
@@ -312,8 +318,7 @@ test('F2: the order\'s lock is taken before anything is read and released on eve
     ['already fulfilled', world({ shopify: FULFILLED }), 200],
     ['cancelled', world({ shopify: { ...OPEN, cancelledAt: 'x' } }), 409],
     ['pack changed', world({ rows: [{ ...LABEL, weight_lb: 9 }] }), 409],
-    ['shopify 502', world({ createReply: () => ({ json: { data: { fulfillmentCreate: { fulfillment: null, userErrors: [{ message: 'no' }] } } } }) }), 502],
-    ['shopify throws', world({ createReply: () => ({ throw: 'socket hang up' }) }), 500]
+    ['shopify 502', world({ createReply: () => ({ json: { data: { fulfillmentCreate: { fulfillment: null, userErrors: [{ message: 'no' }] } } } }) }), 502]
   ]
   for (const [why, w, code] of cases) {
     reset(w)
@@ -324,10 +329,17 @@ test('F2: the order\'s lock is taken before anything is read and released on eve
     assert.ok(calls.findIndex(c => c.url.includes('claim_order_fulfill')) === 1 || calls[0].url.includes('claim_order_fulfill'), why)
     assert.equal(calls.at(-1).url.includes('release_order_fulfill'), true, `${why}: released last`)
   }
+  // A create that throws may have reached Shopify: the lock is kept (it goes stale in 2 minutes),
+  // so a Void can't refund the label while the fulfillment may still be committing.
+  reset(world({ createReply: () => ({ throw: 'socket hang up' }) }))
+  const r = await fulfill(RETAIL)
+  assert.equal(r.code, 500)
+  assert.equal(claimed(), 1)
+  assert.equal(released(), 0)
 })
 
 test('F2: a busy lock (another device fulfilling or voiding) is a 409 busy, with no Shopify read and nothing released', async () => {
-  reset(world({ claim: () => ({ json: false }) }))
+  reset(world({ claim: () => ({ json: null }) }))
   const r = await fulfill(RETAIL)
   assert.equal(r.code, 409)
   assert.equal(r.payload.code, 'busy')
@@ -448,8 +460,8 @@ test('F6: Shopify taking too long (read or create) is a 504 that says fulfilling
   reset(world({ createReply: abort }))
   let r = await fulfill(RETAIL)
   assert.equal(r.code, 504)
-  assert.match(r.payload.error, /tap Fulfill again \(it never sends a second email\)/)
-  assert.equal(released(), 1)
+  assert.match(r.payload.error, /Wait two minutes, then tap Fulfill again \(it never sends a second email\)/)
+  assert.equal(released(), 0)   // the create may have gone through: the lock is kept until it goes stale
   // The fulfillment was created, then the label flip hangs: the fulfill still succeeds.
   reset(world({ marked: () => ({ throw: 'aborted', name: 'AbortError' }) }))
   r = await fulfill(RETAIL)
@@ -486,7 +498,7 @@ test('F8: the order id is read one way: "8333", a gid, and junk', async () => {
   }
 })
 
-test('F9: a Shopify call that never answers is cut off by its own timer (504), and the lock is released', async () => {
+test('F9: a Shopify call that never answers is cut off by its own timer (504); the lock is released unless the create was sent', async () => {
   const keep = shopifyFulfill.settings.shopifyTimeoutMs
   shopifyFulfill.settings.shopifyTimeoutMs = 20
   try {
@@ -496,12 +508,14 @@ test('F9: a Shopify call that never answers is cut off by its own timer (504), a
     assert.equal(r.code, 504)
     assert.equal(creates().length, 0)
     assert.equal(released(), 1)
-    // The create itself hangs: the fulfillment may exist, so the answer says to fulfill again.
-    reset((url, body, h) => (url.includes('/graphql.json') && body.query.includes('fulfillmentCreate') ? { hang: true } : w(url, body, h)))
+    // The create itself hangs: the fulfillment may exist, so the answer says to wait, then fulfill
+    // again, and the lock is kept (it goes stale in 2 minutes).
+    const w2 = world()
+    reset((url, body, h) => (url.includes('/graphql.json') && body.query.includes('fulfillmentCreate') ? { hang: true } : w2(url, body, h)))
     r = await fulfill(RETAIL)
     assert.equal(r.code, 504)
-    assert.match(r.payload.error, /Nothing may have been fulfilled/)
-    assert.equal(released(), 1)
+    assert.match(r.payload.error, /may be fulfilled\. Wait two minutes/)
+    assert.equal(released(), 0)
   } finally {
     shopifyFulfill.settings.shopifyTimeoutMs = keep
   }

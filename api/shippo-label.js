@@ -40,9 +40,9 @@ const { requireUser, supabaseHeaders } = require('./_auth')
 const { fetchOrder, orderNumericId } = require('./_shopify')
 const { fetchRetailOrder, checkRetailOrder } = require('./_retail')
 const { rpc } = require('./_supabase')
+const { getTransaction, transactionMatches, SHIPPO_BASE } = require('./_shippo')
 const { b2bShipItems, packB2BItems, boxParcel, packSignature, UPS_LINE_MAX, cleanText, isPoBox } = require('../lib/ship-rules.js')
 
-const SHIPPO_BASE = 'https://api.goshippo.com'
 const SERVICE_TOKEN = 'ups_ground'   // NOT ups_ground_saver
 // The US UPS account on the Shippo login. A second UPS account (Canada, 588f0f77…) exists
 // on the same login; pinning keeps every rate on this one.
@@ -108,6 +108,7 @@ function cleanParcel(p) {
 // whatever breaks the lookup (Supabase down, a refused token) usually breaks the cost-row
 // insert too, so a label bought then exists nowhere in the DB and the next tap buys it again.
 const LOOKUP_TIMEOUT_MS = 5000
+const REFUND_TIMEOUT_MS = 8000
 async function existingLabel(orderId, boxIndex, userToken) {
   const r = await rpc('ship_labels_for_order', { p_order_id: String(orderId) }, userToken, LOOKUP_TIMEOUT_MS)
   if (!r.ok) return { ok: false, why: r.why === 'not configured' ? 'SUPABASE_URL/SUPABASE_ANON_KEY not configured' : r.why }
@@ -133,23 +134,14 @@ function tokenSecondsLeft(token) {
 }
 
 // A shipping_labels row checked against Shippo: the transaction must exist, have succeeded and
-// carry the same tracking number. Returns Shippo's own values, or null.
-async function confirmWithShippo(prior, auth) {
-  const id = String(prior.shippo_object_id || '')
-  if (!/^[0-9a-f]{32}$/i.test(id)) return null
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS)
-  try {
-    const r = await fetch(`${SHIPPO_BASE}/transactions/${id}`, { headers: auth, signal: ctrl.signal })
-    if (r.status !== 200) return null
-    const t = await r.json()
-    if (!t || t.status !== 'SUCCESS' || !t.tracking_number || t.tracking_number !== prior.tracking_number) return null
-    return { tracking_number: t.tracking_number, tracking_url: t.tracking_url_provider || null, label_url: t.label_url || null, shippo_object_id: t.object_id || id }
-  } catch (e) {
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
+// carry the same tracking number. Returns Shippo's own values, or null. `orderId` is the
+// canonical id the caller asked about.
+async function confirmWithShippo(prior, auth, orderId) {
+  const got = await getTransaction(prior.shippo_object_id, auth)
+  // A retail label must also have been bought for this order (the buy sends the order id as metadata).
+  if (!got.ok || !transactionMatches(got.t, prior, prior.channel === 'retail' ? orderId : null)) return null
+  const t = got.t
+  return { tracking_number: t.tracking_number, tracking_url: t.tracking_url_provider || null, label_url: t.label_url || null, shippo_object_id: t.object_id || String(prior.shippo_object_id) }
 }
 
 // The pack the server itself makes for this order (B2a), with the packer `kind` names (B3).
@@ -254,8 +246,8 @@ async function voidLabel(req, res, session, auth) {
         console.warn(`voidLabel: fulfill lock failed (${got.why}); nothing voided`)
         return res.status(503).json({ error: "Couldn't take the order's lock (is db/2026-10-20-label-held-back.sql applied?), so nothing was voided. Try again in a minute." })
       }
-      if (got.data !== true) return res.status(409).json({ code: 'busy', error: 'Another device is fulfilling or voiding this order right now. Nothing was voided. Try again in a moment.' })
-      voidLock = orderId
+      if (typeof got.data !== 'string' || !got.data) return res.status(409).json({ code: 'busy', error: 'Another device is fulfilling or voiding this order right now. Nothing was voided. Try again in a moment.' })
+      voidLock = { orderId, token: got.data }
       const again = await existingLabel(orderId, boxIndex, session.token)
       if (!again.ok) return res.status(503).json({ error: "Couldn't read this box's label record, so nothing was voided. Try again in a minute." })
       row = again.label
@@ -276,16 +268,29 @@ async function voidLabel(req, res, session, auth) {
     if (got.order.fulfillment_status != null || lines.some(l => l.fulfillment_status)) {
       return res.status(409).json({ error: 'This order is already fulfilled in Shopify (the customer has the tracking number). Nothing was voided.' })
     }
-    const confirmed = await confirmWithShippo(row, auth)
+    const confirmed = await confirmWithShippo(row, auth, orderId)
     if (!confirmed) {
       console.warn(`voidLabel: row for ${orderId} box ${boxIndex} not confirmed by Shippo; nothing voided`)
       return res.status(409).json({ error: "Shippo doesn't confirm this label, so nothing was voided. Tell Andy." })
     }
-    const refundRes = await fetch(`${SHIPPO_BASE}/refunds/`, {
-      method: 'POST', headers: auth,
-      body: JSON.stringify({ transaction: confirmed.shippo_object_id, async: false })
-    })
-    const refund = await refundRes.json().catch(() => null)
+    // A timer on the refund: it runs under the order's lock, which goes stale after 2 minutes.
+    const refundCtrl = new AbortController()
+    const refundTimer = setTimeout(() => refundCtrl.abort(), REFUND_TIMEOUT_MS)
+    let refundRes, refund
+    try {
+      refundRes = await fetch(`${SHIPPO_BASE}/refunds/`, {
+        method: 'POST', headers: auth, signal: refundCtrl.signal,
+        body: JSON.stringify({ transaction: confirmed.shippo_object_id, async: false })
+      })
+      refund = await refundRes.json().catch(() => null)
+    } catch (e) {
+      // No answer: the refund may or may not have gone through. The lock is kept (it goes stale by
+      // itself) so Fulfill can't run while it is unknown; Shippo's own status will say REFUNDED.
+      voidLock = null
+      return res.status(504).json({ error: "Shippo didn't answer the void. The label may or may not be refunded: check it in Shippo before trying again." })
+    } finally {
+      clearTimeout(refundTimer)
+    }
     if (!refundRes.ok || !refund || !REFUND_OK.includes(refund.status)) {
       console.warn(`voidLabel: refund refused for ${confirmed.shippo_object_id}: ${refundRes.status} ${JSON.stringify(refund).slice(0, 300)}`)
       return res.status(502).json({ error: 'Shippo refused the void. The label is still live; nothing was changed.', status: refund && refund.status, detail: refund })
@@ -301,7 +306,10 @@ async function voidLabel(req, res, session, auth) {
   } catch (err) {
     return res.status(500).json({ error: err.message })
   } finally {
-    if (voidLock) await rpc('release_order_fulfill', { p_order_id: voidLock }, session.token, LOOKUP_TIMEOUT_MS)
+    if (voidLock) {
+      const freed = await rpc('release_order_fulfill', { p_order_id: voidLock.orderId, p_token: voidLock.token }, session.token, LOOKUP_TIMEOUT_MS)
+      if (!freed.ok) console.warn(`voidLabel: lock release failed (${freed.why}); it goes stale in 2 minutes`)
+    }
   }
 }
 
@@ -390,7 +398,7 @@ module.exports = async function handler(req, res) {
         // The row is only a claim: anyone who can insert into shipping_labels could plant one and
         // stop the real purchase, then have the page print their label and email their tracking
         // number. Hand back only what Shippo itself confirms for that transaction.
-        const confirmed = await confirmWithShippo(prior, auth)
+        const confirmed = await confirmWithShippo(prior, auth, orderId)
         if (!confirmed) {
           console.warn(`existingLabel: row for ${orderId} box ${boxIndex} not confirmed by Shippo; nothing bought`)
           return res.status(409).json({ error: "This box has a label record that Shippo doesn't confirm. Nothing was bought. Tell Andy." })
@@ -492,7 +500,9 @@ module.exports = async function handler(req, res) {
     // a Safari tab. See ADR 0009.
     const txnRes = await fetch(`${SHIPPO_BASE}/transactions/`, {
       method: 'POST', headers: auth,
-      body: JSON.stringify({ rate: upsRate.object_id, label_file_type: 'PDF_4x6', async: false })
+      // A retail label is marked with its order (metadata), so Fulfill and Void can check that a
+      // transaction is this order's label and not someone else's live one. B2B sends nothing new.
+      body: JSON.stringify({ rate: upsRate.object_id, label_file_type: 'PDF_4x6', async: false, ...(kind === 'retail' ? { metadata: orderId } : {}) })
     })
     let txn = null
     try { txn = await txnRes.json() } catch (e) { txn = null }
