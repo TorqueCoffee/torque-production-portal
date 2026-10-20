@@ -1,5 +1,22 @@
 # Journal
 
+## 2026-10-20 — B2B 30 lb box (18x14x14)
+
+Branch `b3b-retail-pack`.
+
+### Work done
+
+- **Found:** the B2B packer never chose a 30 lb box. It had one carton, the 14x10x10 at 20 lb net; `b2b-30lb` only appeared as a planned carton value in `docs/cost_report_spec.md`.
+- **Packer** (`lib/ship-rules.js`): First-Fit Decreasing at 30 lb net, then a box of 20 lb or less is a `14x10x10` and a heavier one an `18x14x14` (Uline S-4191). Units over 30 lb are still unpackable. `PACK_BOX_LARGE` added; `packBoxes` lost its unused `opts`.
+- **Tare:** 1.6 lb for the 18x14x14, from Uline's bundle weight (32 lb / 20). Added to `CARTON_TARE_LB` and `docs/carton_weights.csv` as provisional. A full box declares 33 lb.
+- **TCCDS-40** stays two 20 lb boxes (Andy, may move to 30 lb later): its override is `solo`, so each half ships alone in a 14x10x10.
+- **Page:** the Boxes summary card lists boxes by carton ("2 × 18x14x14 · 2 × 14x10x10"); the unpackable warning says over 30 lb. Each box card already showed its carton.
+- **Tests:** `npm test` 309 (305 before). The B2B fixtures were renumbered for the new pack (ORDER_1 is 24 x 5 lb = four 18x14x14 at 33 lb; the page flows use 7 and 13 bags), plus four new tests for the cartons, the declared weight, the over-30 unit and TCCDS-40. Checked the summary card on the local static server with sample orders injected in the console.
+
+### Decisions captured
+
+- [`0030-b2b-30lb-box.md`](./decisions/0030-b2b-30lb-box.md)
+
 ## 2026-10-20 — Phase B, B3b and B6 UI: Pack, Hold back, Fulfill, Done, the red banner, Void
 
 Branch `b3b-retail-pack` (cut from `b2-retail-packer` at 8e38f83). **Deployed 2026-10-19:** Andy fast-forwarded `main` to 62ba154 (production `dpl_BZKvRUhhgbY8gaPEzf41Rj8MVcLy`, Ready). Checked on `production.torque.coffee`: the B3b page with buying off; without a token, fulfill, label, void and rate answer 401; `/api/_shippo` and `db/` are 404. Then `RETAIL_BUY_ENABLED = true` was committed for the supervised live test (Andy pushes it and runs the test at once). B3a (6d410c6, 8e38f83) is on `origin/main` (checked after a fetch, 2026-10-19), so B3b sits directly on top of it. The SQL below is tested on PGlite and **applied in production on 2026-10-19** (see Detours). `RETAIL_BUY_ENABLED` is still `false`.

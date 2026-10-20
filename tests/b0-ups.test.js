@@ -51,9 +51,9 @@ async function call(handler, { method = 'POST', query = {}, body, headers = { au
 const SB_AUTH = { getSession: async () => ({ data: { session: { access_token: USER_TOKEN } }, error: null }) }
 
 const ADDR = { name: 'Pete Smith', company: 'Best Coffee', street1: '1 Main St', street2: '', city: 'Goleta', state: 'CA', zip: '93117', country: 'US', phone: '' }
-const PARCEL = { length: 14, width: 10, height: 10, weight: 22 }
+const PARCEL = { length: 18, width: 14, height: 14, weight: 33 }
 const OK_BODY = { address_to: ADDR, parcel: PARCEL, carrier: 'ups', weight_basis: 'packed' }
-const PACK_SIG_1 = '14x10x10@22,14x10x10@22,14x10x10@22,14x10x10@22'   // ORDER_1 below, as the page packs it
+const PACK_SIG_1 = '18x14x14@33,18x14x14@33,18x14x14@33,18x14x14@33'   // ORDER_1 below, as the page packs it
 const LABEL_BODY = { ...OK_BODY, expected_amount: '16.43', order_id: 'gid://shopify/Order/1', order_name: '#8263', box_index: 1, box_count: 4, pack_sig: PACK_SIG_1 }
 const rate = (token, amount, account = UPS_ACCOUNT) =>
   ({ object_id: `rate_${token}_${account.slice(0, 4)}`, amount: String(amount), currency: 'USD', zone: null, estimated_days: 1, carrier_account: account, servicelevel: { token, name: token } })
@@ -64,8 +64,8 @@ const MIXED_RATES = [
   rate('ups_ground', 16.43)
 ]
 // The order behind LABEL_BODY as Shopify returns it; the label check repacks it (B2a):
-// 16 x 5 lb = 4 boxes of 20 lb net, 22 lb declared.
-const ORDER_1 = { id: 1, name: '#8263', cancelled_at: null, line_items: [{ vendor: 'Torque Coffees', title: 'Cocoa Drop', variant_title: '5lb', quantity: 16, grams: 2270, sku: 'CD5', fulfillment_status: null }] }
+// 24 x 5 lb = 4 boxes of 30 lb net in the 18x14x14, 33 lb declared (ADR 0030).
+const ORDER_1 = { id: 1, name: '#8263', cancelled_at: null, line_items: [{ vendor: 'Torque Coffees', title: 'Cocoa Drop', variant_title: '5lb', quantity: 24, grams: 2270, sku: 'CD5', fulfillment_status: null }] }
 const shopifyOrder = (url, order = ORDER_1) => {
   if (url.includes('/oauth/access_token')) return { json: { access_token: 'tok' } }
   if (url.includes('/orders/1.json')) return { json: { order } }
@@ -190,9 +190,10 @@ test('G2: declared weight is null (no rate) for an unknown carton or bad content
 test('G2: real order shape -> packer -> declared weight (#6486, 21 x 5 lb)', () => {
   const items = [{ product_name: 'Cocoa Drop', variant_title: '5lb', qty: 21, sku: 'X', weight_lb: resolveWeightLb({ title: 'Cocoa Drop', variant_title: '5lb', grams: 2270 }) }]
   const pack = C.packBoxes(C.expandShipItems(items))
-  assert.deepEqual(host(pack.boxes.map(b => b.weight_lb)), [20, 20, 20, 20, 20, 5])
-  assert.deepEqual(host(pack.boxes.map(C.declaredWeightLb)), [22, 22, 22, 22, 22, 6])
-  assert.deepEqual(host(C.boxParcel(pack.boxes[0])), { length: 14, width: 10, height: 10, weight: 22 })
+  assert.deepEqual(host(pack.boxes.map(b => b.weight_lb)), [30, 30, 30, 15])
+  assert.deepEqual(host(pack.boxes.map(C.declaredWeightLb)), [33, 33, 33, 17])
+  assert.deepEqual(host(C.boxParcel(pack.boxes[0])), { length: 18, width: 14, height: 14, weight: 33 })
+  assert.deepEqual(host(C.boxParcel(pack.boxes[3])), { length: 14, width: 10, height: 10, weight: 17 })
 })
 
 test('G2: La Mora 5lb (340 g in Shopify) packs and declares as 5 lb bags', () => {
@@ -206,13 +207,46 @@ test('G2: TCCDS-40 ships as two 20 lb boxes declared at 21 lb', () => {
   assert.deepEqual(host(pack.boxes.map(C.declaredWeightLb)), [21, 21])
 })
 
+// ── ADR 0030: the 30 lb box (18x14x14) ──────────────────────────────────────────────────
+const fives = (qty) => C.packBoxes(C.expandShipItems([{ product_name: 'Cocoa Drop', variant_title: '5lb', qty, sku: 'X', weight_lb: 5 }]))
+const cartons = (pack) => host(pack.boxes.map(b => `${b.box_label}:${b.weight_lb}`))
+
+test('0030: boxes over 20 lb go in the 18x14x14, up to 30 lb; 20 lb or less stay in the 14x10x10', () => {
+  assert.deepEqual(cartons(fives(4)), ['14x10x10:20'])
+  assert.deepEqual(cartons(fives(5)), ['18x14x14:25'])
+  assert.deepEqual(cartons(fives(6)), ['18x14x14:30'])                        // was two 14x10x10s
+  assert.deepEqual(cartons(fives(8)), ['18x14x14:30', '14x10x10:10'])
+  assert.deepEqual(cartons(fives(13)), ['18x14x14:30', '18x14x14:30', '14x10x10:5'])
+})
+
+test('0030: the 18x14x14 declares measured coffee + 1.6 lb tare, and its parcel carries its size', () => {
+  assert.equal(C.declaredWeightLb(box([[5, 6]], '18x14x14')), 33)          // 30.42 + 1.65 = 32.07
+  assert.equal(C.declaredWeightLb(box([[5, 5]], '18x14x14')), 27)          // 25.35 + 1.65 = 27.00
+  assert.deepEqual(host(C.boxParcel(fives(6).boxes[0])), { length: 18, width: 14, height: 14, weight: 33 })
+})
+
+test('0030: one unit over 30 lb still cannot be packed', () => {
+  const pack = C.packBoxes([{ product_name: 'Big', variant_title: 'Default', qty: 1, sku: 'Y', weight_lb: 31 }])
+  assert.equal(pack.boxes.length, 0)
+  assert.equal(pack.unpackable[0].reason, 'unit_exceeds_box_cap')
+})
+
+test('0030: TCCDS-40 halves stay alone in 14x10x10s; nothing is packed with them', () => {
+  const pack = C.packBoxes(C.expandShipItems([
+    { product_name: 'Cocoa Drops xBloom Bulk 40lb Box', variant_title: 'Default Title', qty: 1, sku: 'TCCDS-40', weight_lb: 40 },
+    { product_name: 'Cocoa Drop', variant_title: '5lb', qty: 2, sku: 'X', weight_lb: 5 }
+  ]))
+  assert.deepEqual(cartons(pack), ['14x10x10:20', '14x10x10:20', '14x10x10:10'])
+  assert.deepEqual(host(pack.boxes[0].contents.map(l => l.product_name)), ['Cocoa Drops xBloom Bulk 40lb Box'])
+})
+
 test('G2: client address carries no email', () => {
   const a = C.toShippoAddress({ name: 'A', company: 'B', address1: '1 St', city: 'X', province_code: 'CA', zip: '92104', country_code: 'US', phone: '', email: 'a@b.c' })
   assert.equal('email' in a, false)
 })
 
 // ── G2 client flow: the payloads getRates / buyLabels / fulfillOrder actually send ─────
-function shipFlow(qty = 5) {
+function shipFlow(qty = 7) {
   const pack = C.packBoxes(C.expandShipItems([{ product_name: 'Cocoa Drop', variant_title: '5lb', qty, sku: 'X', weight_lb: 5 }]))
   const shipState = {
     order: { order_id: 'gid://shopify/Order/1', order_name: '#9001', shipping_address: { name: 'Pete', company: 'Best Coffee', address1: '1 Main St', city: 'Goleta', province_code: 'CA', zip: '93117', country_code: 'US', phone: '' } },
@@ -236,16 +270,16 @@ test('G2: rate and label requests carry UPS, packed basis, the same declared wei
   await F.getRates()
   await F.buyLabels()
   const rates = apiCalls('/api/shippo-label?action=rate'), labels = apiCalls('/api/shippo-label?action=label')
-  assert.equal(rates.length, 2); assert.equal(labels.length, 2)               // boxes [20, 5]
-  assert.deepEqual(rates.map(c => c.body.parcel.weight), [22, 6])
-  assert.deepEqual(labels.map(c => c.body.parcel.weight), [22, 6])
+  assert.equal(rates.length, 2); assert.equal(labels.length, 2)               // boxes [30, 5]
+  assert.deepEqual(rates.map(c => c.body.parcel.weight), [33, 6])
+  assert.deepEqual(labels.map(c => c.body.parcel.weight), [33, 6])
   for (const c of [...rates, ...labels]) { assert.equal(c.body.carrier, 'ups'); assert.equal(c.body.weight_basis, 'packed') }
   assert.deepEqual(labels.map(c => c.body.expected_amount), ['16.43', '16.43'])
   assert.equal(shipState.phase, 'bought')
 })
 
 test('G2: a price change buys nothing, stops the order, and asks for a re-rate', async () => {
-  const { F, shipState } = shipFlow(11)                                       // boxes [20, 20, 15]
+  const { F, shipState } = shipFlow(13)                                       // boxes [30, 30, 5]
   reset((url) => url.startsWith('/api/shippo-label?action=rate')
     ? { json: { ok: true, amount: '16.43', currency: 'USD' } }
     : { status: 409, json: { error: 'Price changed', quoted: '16.43', amount: '18.10' } })
@@ -270,7 +304,7 @@ test('G2: a price change buys nothing, stops the order, and asks for a re-rate',
 })
 
 test('G2: a nested Get rates mid-buy cannot put a Buy button on screen', async () => {
-  const { F, shipState } = shipFlow(11)
+  const { F, shipState } = shipFlow(13)
   let after = null
   reset((url) => {
     if (url.startsWith('/api/shippo-label?action=rate')) return { json: { ok: true, amount: '16.43', currency: 'USD' } }
@@ -287,7 +321,7 @@ test('G2: a nested Get rates mid-buy cannot put a Buy button on screen', async (
 })
 
 test('G2: leaving or reopening an order mid-buy is refused (the second-loop double charge)', async () => {
-  const { F, shipState } = shipFlow(11)
+  const { F, shipState } = shipFlow(13)
   const G = loadFromIndex(['backToShipList', 'openShipOrder', 'loadShipOrders'], {
     shipBuyInFlight: false, shipState, b2bShipOrders: [shipState.order],
     alert(m) { G.__alerts = (G.__alerts || 0) + 1 }, confirm: () => true, renderShip() {}, packBoxes() { throw new Error('reopened') }
@@ -334,7 +368,7 @@ test('G2: Clear closes out a hand-fulfilled order only when Shopify says it is f
 })
 
 test('G2: while labels are being bought nothing can start a second buy (no double charge)', async () => {
-  const { F, shipState } = shipFlow(11)
+  const { F, shipState } = shipFlow(13)
   let duringBuy = null
   reset((url) => {
     if (url.startsWith('/api/shippo-label?action=rate')) return { json: { ok: true, amount: '16.43', currency: 'USD' } }
@@ -359,7 +393,7 @@ test('G2: while labels are being bought nothing can start a second buy (no doubl
 })
 
 test('G2: the buy button counts only boxes still to buy', async () => {
-  const { F, shipState } = shipFlow(11)
+  const { F, shipState } = shipFlow(13)
   shipState.boxes[0].label = { tracking_number: '1Z29G1830300998096', recovered: true }
   reset(() => ({ json: { ok: true, amount: '16.43', currency: 'USD' } }))
   await F.getRates()
@@ -413,7 +447,7 @@ test('G3: rate pins the US UPS account, real origin phone, phone fallback, no em
   assert.equal(sent.address_from.zip, '92104')
   assert.deepEqual(Object.keys(sent.address_to).sort(), ['city', 'company', 'country', 'name', 'phone', 'state', 'street1', 'street2', 'zip'])
   assert.equal(sent.address_to.phone, '6192305400')
-  assert.equal(sent.parcels[0].weight, '22')
+  assert.equal(sent.parcels[0].weight, '33')
   assert.equal(r.payload.service, 'ups_ground')
   assert.equal(r.payload.amount, '16.43')        // the US-account ups_ground, not Saver/USPS/CA
 })
@@ -603,7 +637,7 @@ test('G3: label buys the chosen rate and logs a ups_ground cost row at the decla
   const row = calls.find(c => c.url.includes('/rest/v1/shipping_labels')).body
   assert.equal(row.service, 'ups_ground')
   assert.equal(row.is_cubic, false)
-  assert.equal(row.weight_lb, 22)
+  assert.equal(row.weight_lb, 33)
   assert.equal('channel' in row, false)   // B2B takes the column default (ADR 0028), so it works before the migration too
   assert.equal(row.cost, '16.43')
   assert.equal(row.dest_zip, '93117')
@@ -772,13 +806,13 @@ test('B2a: the order list and the label check build the same items from Shopify 
     { vendor: 'Baratza', title: 'Grinder', quantity: 1, grams: 3000 },
     { vendor: 'Torque Coffees', title: 'Gum Drop', variant_title: '12oz', quantity: 2, grams: 340, fulfillment_status: 'fulfilled' }
   ])
-  assert.deepEqual(items, [{ sku: 'CD5', product_name: 'Cocoa Drop', variant_title: '5lb', qty: 16, grams: 2270, weight_lb: 5 }])
+  assert.deepEqual(items, [{ sku: 'CD5', product_name: 'Cocoa Drop', variant_title: '5lb', qty: 24, grams: 2270, weight_lb: 5 }])
 })
 
 test('B2a: a label is bought only for the parcel the server packs (weight, carton, box count)', async () => {
   for (const [why, body] of [
-    ['weight', { ...LABEL_BODY, parcel: { ...PARCEL, weight: 21 } }],
-    ['heavier', { ...LABEL_BODY, parcel: { ...PARCEL, weight: 23 } }],
+    ['weight', { ...LABEL_BODY, parcel: { ...PARCEL, weight: 32 } }],
+    ['heavier', { ...LABEL_BODY, parcel: { ...PARCEL, weight: 34 } }],
     ['carton', { ...LABEL_BODY, parcel: { ...PARCEL, height: 8 } }],
     ['box count', { ...LABEL_BODY, box_count: 3 }],
     ['box count', { ...LABEL_BODY, box_index: 5, box_count: 5 }]
@@ -799,19 +833,19 @@ test('B2a: a label is bought only for the parcel the server packs (weight, carto
 test('B2a: an order edited after the list loaded buys no box at all, not only the boxes that changed', async () => {
   // A real Shopify edit or refund: `quantity` stays 16, `fulfillable_quantity` drops to 15. Box 4
   // now holds 15 lb (17 declared); boxes 1-3 are unchanged, but the whole order is refused.
-  const edited = { ...ORDER_1, line_items: [{ ...ORDER_1.line_items[0], quantity: 16, fulfillable_quantity: 15 }] }
+  const edited = { ...ORDER_1, line_items: [{ ...ORDER_1.line_items[0], quantity: 24, fulfillable_quantity: 23 }] }
   for (const box_index of [1, 4]) {
     reset(shippoOk(MIXED_RATES, [], edited))
     const r = await call(shippoLabel, { query: { action: 'label' }, body: { ...LABEL_BODY, box_index } })
     assert.equal(r.code, 409)
     assert.equal(r.payload.code, 'pack_changed')
-    assert.match(r.payload.error, /14x10x10@22,14x10x10@22,14x10x10@22,14x10x10@17/)
+    assert.match(r.payload.error, /18x14x14@33,18x14x14@33,18x14x14@33,18x14x14@27/)
     assert.equal(bought(), 0)
   }
   // The same order listed after the edit matches and buys.
   reset(shippoOk(MIXED_RATES, [], edited))
-  const fresh = '14x10x10@22,14x10x10@22,14x10x10@22,14x10x10@17'
-  assert.equal((await call(shippoLabel, { query: { action: 'label' }, body: { ...LABEL_BODY, box_index: 4, pack_sig: fresh, parcel: { ...PARCEL, weight: 17 } } })).code, 200)
+  const fresh = '18x14x14@33,18x14x14@33,18x14x14@33,18x14x14@27'
+  assert.equal((await call(shippoLabel, { query: { action: 'label' }, body: { ...LABEL_BODY, box_index: 4, pack_sig: fresh, parcel: { ...PARCEL, weight: 27 } } })).code, 200)
   // Everything already fulfilled: nothing left to ship, nothing bought.
   reset(shippoOk(MIXED_RATES, [], { ...ORDER_1, line_items: [{ ...ORDER_1.line_items[0], fulfillable_quantity: 0 }] }))
   assert.equal((await call(shippoLabel, { query: { action: 'label' }, body: LABEL_BODY })).code, 409)
@@ -819,7 +853,7 @@ test('B2a: an order edited after the list loaded buys no box at all, not only th
   // The TCCDS-40 override applies on the server too: one 40 lb line = 2 boxes of 20 lb.
   const bulk = { ...ORDER_1, line_items: [{ vendor: 'Torque Coffees', title: 'Cocoa Drops xBloom Bulk 40lb Box', variant_title: 'Default Title', quantity: 1, grams: 18144, sku: 'TCCDS-40' }] }
   reset(shippoOk(MIXED_RATES, [], bulk))
-  assert.equal((await call(shippoLabel, { query: { action: 'label' }, body: { ...LABEL_BODY, box_count: 2, box_index: 2, pack_sig: '14x10x10@21,14x10x10@21', parcel: { ...PARCEL, weight: 21 } } })).code, 200)
+  assert.equal((await call(shippoLabel, { query: { action: 'label' }, body: { ...LABEL_BODY, box_count: 2, box_index: 2, pack_sig: '14x10x10@21,14x10x10@21', parcel: { length: 14, width: 10, height: 10, weight: 21 } } })).code, 200)
 })
 
 test('B2a: a page that sends no pack is told to reload; nothing reaches Shopify or Shippo', async () => {
@@ -832,7 +866,7 @@ test('B2a: a page that sends no pack is told to reload; nothing reaches Shopify 
 })
 
 test('B2a: a pack_changed refusal stops the page buying the rest of the order', async () => {
-  const { F, shipState } = shipFlow(11)                                       // boxes [20, 20, 15]
+  const { F, shipState } = shipFlow(13)                                       // boxes [30, 30, 5]
   reset((url) => url.startsWith('/api/shippo-label?action=rate')
     ? { json: { ok: true, amount: '16.43', currency: 'USD' } }
     : { status: 409, json: { code: 'pack_changed', error: 'This order changed since the list was loaded' } })
@@ -840,7 +874,7 @@ test('B2a: a pack_changed refusal stops the page buying the rest of the order', 
   await F.buyLabels()
   const labels = apiCalls('/api/shippo-label?action=label')
   assert.equal(labels.length, 1)                                              // stopped after box 1
-  assert.equal(labels[0].body.pack_sig, '14x10x10@22,14x10x10@22,14x10x10@17')
+  assert.equal(labels[0].body.pack_sig, '18x14x14@33,18x14x14@33,14x10x10@6')
   assert.match(shipState.boxes[0].labelError, /order changed/)
   assert.equal(shipState.phase, 'partial')
 })
