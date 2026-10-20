@@ -3201,12 +3201,14 @@ let retailBannerBusy = new Set()   // order_ids with a Retry fulfill or Clear ru
 let retailBannerMsg = {}           // order_id -> why the last Retry / Clear did not clear it
 let retailBuyInFlight = false
 let retailReprinting = false
+let retailVoiding = false    // a Void call is running (B6)
 // Orders bought this week whose cost row couldn't be written (cost_logged: false). The DB has no
 // row, so after Back or a reload they would look unbought, and once the claim goes stale the
 // server could buy them again. Kept on this device (localStorage) and merged into
 // retailPending on every load until the DB has the row. order_id -> { order_name, at }
 const RETAIL_UNRECORDED_KEY = 'tq.retail.unrecorded'
 const RETAIL_UNRECORDED_DAYS = 7
+const RETAIL_VOIDED_UNRECORDED = 'voided, not recorded'
 let retailUnrecorded = retailReadUnrecorded()
 
 // The carton the server packed this order into ("8x6x3"), or null.
@@ -3369,8 +3371,11 @@ function retailMergeUnrecorded(pending, fromDb) {
   const cutoff = Date.now() - RETAIL_UNRECORDED_DAYS * 86400000
   let changed = false
   for (const [id, u] of Object.entries(retailUnrecorded)) {
-    if ((fromDb && out[id] && !out[id].unrecorded) || !u || typeof u !== 'object' || !(Number(u.at) > cutoff)) { delete retailUnrecorded[id]; changed = true; continue }
-    out[id] = { order_id: id, order_name: String(u.order_name || ''), labels_bought: 1, box_count: 1, channel: 'retail', unrecorded: true }
+    // A label voided in Shippo whose row could not be marked (B6) still reads 'purchased' in the DB,
+    // so the DB having the row does not settle it: it stays flagged until Andy fixes the row.
+    const stuck = !!u && u.why === RETAIL_VOIDED_UNRECORDED
+    if ((fromDb && out[id] && !out[id].unrecorded && !stuck) || !u || typeof u !== 'object' || !(Number(u.at) > cutoff)) { delete retailUnrecorded[id]; changed = true; continue }
+    out[id] = { ...(stuck ? out[id] : null), order_id: id, order_name: String(u.order_name || (out[id] && out[id].order_name) || ''), labels_bought: 1, box_count: 1, channel: 'retail', unrecorded: true }
   }
   if (changed) retailSaveUnrecorded()
   return out
@@ -3504,17 +3509,25 @@ function retailSlip(o) {
 // Bought, not fulfilled: a row on the queue with Reprint (label and slip, never a purchase).
 function retailBoughtRow(o) {
   const id = escHtml(o.order_id)
+  const p = retailPending[o.order_id]
+  const unrec = !!(p && p.unrecorded)
+  const voided = unrec && retailUnrecorded[o.order_id] && retailUnrecorded[o.order_id].why === RETAIL_VOIDED_UNRECORDED
+  const chip = voided ? retailChip('bad', 'Voided, not recorded. Do not buy or ship. Tell Andy')
+    : unrec ? retailChip('bad', 'Bought, not recorded. Do not buy again. Tell Andy') + `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailClearUnrecorded(this.dataset.id)" ${retailBuyInFlight ? 'disabled' : ''}>Shippo shows none</button>`
+    : (p && p.held_back_at ? retailChip('warn', 'Held back') : retailChip('ok', 'Label bought'))
+  // Reprint and Void need a recorded label; an unrecorded one has no row to reprint or void.
+  const tools = unrec ? '' : `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailReprintBought(this.dataset.id)" ${retailBuyInFlight || retailReprinting ? 'disabled' : ''}>Reprint</button>${retailVoidButton(o.order_id)}`
   return `<div class="rt-row dis">
     <span class="rt-cell-check" aria-hidden="true">✓</span>
     <b>${escHtml(o.order_name)}</b>
     <span>${escHtml(retailShipTo(o))}</span>
     <span class="rt-lines">${retailLines(o)}</span>
     <span>${escHtml(retailCartonLabel(o) || '—')}</span>
-    <span class="rt-chips">${retailPending[o.order_id] && retailPending[o.order_id].unrecorded ? retailChip('bad', 'Bought, not recorded. Do not buy again. Tell Andy') + `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailClearUnrecorded(this.dataset.id)" ${retailBuyInFlight ? 'disabled' : ''}>Shippo shows none</button>` : (retailPending[o.order_id] && retailPending[o.order_id].held_back_at ? retailChip('warn', 'Held back') : retailChip('ok', 'Label bought'))}${retailPending[o.order_id] && retailPending[o.order_id].unrecorded ? '' : `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailReprintBought(this.dataset.id)" ${retailBuyInFlight || retailReprinting ? 'disabled' : ''}>Reprint</button>`}</span>
+    <span class="rt-chips">${chip}${tools}</span>
   </div>`
 }
 // A bought order Shopify no longer lists as open (fulfilled by hand, cancelled, edited onto
-// hold). Clear is on the red banner at the top of the tab (B3b); Void comes with B6.
+// hold). Clear is on the red banner at the top of the tab (B3b); Void is here and there (B6).
 function retailGoneRow(p) {
   return `<div class="rt-row dis">
     <span class="rt-cell-check" aria-hidden="true">✓</span>
@@ -3522,7 +3535,7 @@ function retailGoneRow(p) {
     <span></span>
     <span class="mut">Not open in Shopify any more. Clear or void it in the red box at the top.</span>
     <span></span>
-    <span class="rt-chips">${p.unrecorded ? retailChip('bad', 'Bought, not recorded. Tell Andy') : retailChip('warn', 'Label bought')}</span>
+    <span class="rt-chips">${p.unrecorded ? retailChip('bad', 'Bought, not recorded. Tell Andy') : retailChip('warn', 'Label bought') + retailVoidButton(p.order_id)}</span>
   </div>`
 }
 
@@ -3844,6 +3857,53 @@ function retailPackAndFulfill() {
   return retailOpenPack()
 }
 
+// ---- B6: Void a label (docs/RETAIL_UI_HANDOFF.md 3.7; ADR 0026, 0029) ---------------------------
+// Only where the label is bought and not going out in this batch: a Bought row on the queue, a
+// held-back Pack card, a gone order. Never an included card (Hold back first) and never an
+// unrecorded order (its label is unknown). The server refunds the label in Shippo and marks the
+// row voided, which frees the order to be bought again.
+function retailVoidButton(id, off) {
+  return `<button class="btn btn-secondary btn-sm rt-tap" data-id="${escHtml(id)}" onclick="retailVoid(this.dataset.id)" ${off || retailBuyInFlight || retailPackLocked() || retailVoiding ? 'disabled' : ''}>Void</button>`
+}
+async function retailVoid(id) {
+  if (retailBuyInFlight || retailPackLocked() || retailVoiding) return
+  const p = retailPending[id]
+  if (!p || p.unrecorded) return
+  const o = retailOrders.find(x => x.order_id === id)
+  const name = (o && o.order_name) || p.order_name || 'this order'
+  if (!confirm(`Void ${name}'s label? Only if UPS hasn't scanned it. The order goes back to the queue to buy again.`)) return
+  retailVoiding = true
+  renderRetail()
+  try {
+    const res = await apiFetch('/api/shippo-label?action=void', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order_id: id, box_index: 1 }) })
+    let data = {}
+    try { data = await res.json() } catch (e) { data = {} }
+    data = data || {}
+    if (res.ok && data.ok && data.row_marked) {
+      alert(`Voided. ${name} is back in the queue.`)
+      retailVoiding = false
+      await loadRetailOrders()
+    } else if (res.ok && data.ok) {
+      // Refunded in Shippo, but the row still says bought. Keep it flagged on this device so it is
+      // neither fulfilled nor bought again until Andy has fixed the record.
+      alert(data.error || `The label is voided in Shippo, but the portal's record wasn't updated. Tell Andy before rebuying ${name}.`)
+      retailRemember({ order_id: id, order_name: name }, RETAIL_VOIDED_UNRECORDED)
+      retailPending = retailMergeUnrecorded(retailPending, true)
+    } else if (res.status === 502) {
+      alert(`Shippo refused the void, likely already scanned by UPS. The label stays on. Log this order in the incident log.${data.error ? ' ' + data.error : ''}`)
+    } else if ([404, 409, 503].includes(res.status)) {
+      alert(`${data.error || 'status ' + res.status} Nothing was voided.`)
+    } else {
+      alert(`${data.error || 'status ' + res.status}. Nothing may have been voided; check Shippo before trying again.`)
+    }
+  } catch (e) {
+    alert('No answer. Nothing may have been voided; check Shippo before trying again.')
+  } finally {
+    retailVoiding = false
+  }
+  renderRetail()
+}
+
 // ---- B3b: Pack, Hold back, Include (docs/RETAIL_UI_HANDOFF.md 3.4; ADR 0029) ----------------
 // The batch has no id: it is every retail label that is bought and not fulfilled (ship_labels_pending,
 // channel retail), joined to the order list for ship-to, coffees, carton and note. Hold back is
@@ -4056,7 +4116,7 @@ function retailRedBanner() {
   const failed = Object.entries(retailFulfillFailed).filter(([id]) => retailPending[id] && !retailPending[id].unrecorded).map(([id, f]) =>
     `<div class="rt-banner-row"><span>Paid, not fulfilled: <b>${escHtml(f.order_name)}</b>. Label bought, tracking not written to Shopify, so the customer has no email. <span class="mut">${escHtml(f.why)}</span></span>${btn('retailRetryFulfill', id, 'Retry fulfill')}</div>`)
   const gone = retailGoneIds().map(id =>
-    `<div class="rt-banner-row"><span>Paid, not open in Shopify: <b>${escHtml(retailPending[id].order_name || '—')}</b>. Its label is bought. Fulfilled by hand: Clear. Cancelled or changed: Void.${retailBannerMsg[id] ? ` <span class="rt-msg">${escHtml(retailBannerMsg[id])}</span>` : ''}</span>${btn('retailClearGone', id, 'Clear')}</div>`)
+    `<div class="rt-banner-row"><span>Paid, not open in Shopify: <b>${escHtml(retailPending[id].order_name || '—')}</b>. Its label is bought. Fulfilled by hand: Clear. Cancelled or changed: Void.${retailBannerMsg[id] ? ` <span class="rt-msg">${escHtml(retailBannerMsg[id])}</span>` : ''}</span>${btn('retailClearGone', id, 'Clear')}${retailVoidButton(id, off || retailBannerBusy.has(id))}</div>`)
   return failed.length || gone.length ? `<div class="alert alert-red rt-banner"><b>Needs attention</b>${failed.join('')}${gone.join('')}</div>` : ''
 }
 
@@ -4179,7 +4239,7 @@ function retailPackCard(c, off) {
     <div class="rt-pc-btns">
       <button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailReprintBought(this.dataset.id)" ${off || retailReprinting ? 'disabled' : ''}>Reprint</button>
       <button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" data-held="${c.held ? '0' : '1'}" onclick="retailSetHeld(this.dataset.id, this.dataset.held === '1')" ${dis}>${c.held ? 'Include' : 'Hold back'}</button>
-      ${c.held ? retailChip('warn', 'Stays open') : ''}
+      ${c.held ? retailChip('warn', 'Stays open') + retailVoidButton(o.order_id, off || retailPack.busy.has(o.order_id)) : ''}
     </div>
   </div>`
 }

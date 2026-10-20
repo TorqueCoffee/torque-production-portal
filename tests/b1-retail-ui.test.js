@@ -34,12 +34,12 @@ function queue(extraGlobals = {}) {
     'retailMsg', 'retailShowHold', 'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders',
     'retailSelectAllIds', 'retailBilledLb', 'retailApplySubscriptions', 'retailToggle', 'retailToggleAll', 'retailToggleHold', 'retailChip',
     'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail',
-    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailBoughtRow', 'retailGoneRow',
-    'retailFulfillFailed', 'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRedBanner', 'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
+    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailVoiding', 'RETAIL_VOIDED_UNRECORDED', 'retailVoidButton', 'retailBoughtRow', 'retailGoneRow',
+    'retailFulfillFailed', 'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRedBanner', 'retailVoidButton', 'retailVoid', 'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
   const el = { innerHTML: '' }
   const all = { checked: false, indeterminate: false }
   const { elements = {}, ...globals } = extraGlobals
-  const ctx = { SHIP_RULES_LOADED: true, scheduleData: [], applySubscriptionSubstitution: x => x, Date, URL, console,
+  const ctx = { SHIP_RULES_LOADED: true, scheduleData: [], applySubscriptionSubstitution: x => x, Date, URL, console, retailUnrecorded: {},
     document: { getElementById: id => (id === 'retailBody' ? el : id === 'retailAll' ? all : elements[id] || null) }, ...globals }
   const code = names.map(n => declarationSource(src, n).replace(/^const RETAIL_AGE_CHIP_DAYS/, 'let RETAIL_AGE_CHIP_DAYS')).join('\n') + `
 ;({ set(o) { if ('orders' in o) retailOrders = o.orders; if ('excluded' in o) retailExcluded = o.excluded; if ('loadedAt' in o) retailLoadedAt = o.loadedAt;
@@ -314,7 +314,9 @@ test('B3a: the Retail block calls only the list, rate/label (never void), the ba
   const block = html.slice(html.indexOf('// RETAIL tab (B1): the queue'), html.indexOf('// MIX GUIDE'))
   assert.ok(block.length > 5000)
   assert.deepEqual([...new Set(block.match(/\/api\/[\w-]+/g))].sort(), ['/api/ship-doc', '/api/shippo-label', '/api/shopify-fulfill', '/api/shopify-token'])
-  assert.doesNotMatch(block, /action=void|'void'/)                                         // no void yet (B6, S5)
+  // The one void call is the Void button's (B6), straight to the void action, one order at a time.
+  assert.deepEqual(block.match(/apiFetch\('\/api\/shippo-label\?action=void'/g).length, 1)
+  assert.doesNotMatch(block, /retailPost\('void'/)
   // The one Shopify write is the retail Fulfill, always kind retail (B3b); nothing else calls it.
   assert.deepEqual(block.match(/apiFetch\('\/api\/shopify-fulfill'/g).length, 1)
   assert.match(block, /\/api\/shippo-label\?action=\$\{action\}/)

@@ -267,8 +267,8 @@ test('L3: supabase-js is pinned to an exact version with an integrity hash', () 
 
 test('L3: every /api call goes through apiFetch', () => {
   // 11th: the Retail queue (B1 UI); 12th and 13th: the Retail batch PDF and rate/label (B3a);
-  // 14th: the Retail Fulfill (B3b).
-  assert.equal((page.match(/apiFetch\(['`]\/api\//g) || []).length, 14)
+  // 14th: the Retail Fulfill (B3b); 15th: the Retail Void (B6).
+  assert.equal((page.match(/apiFetch\(['`]\/api\//g) || []).length, 15)
   assert.equal((page.match(/(?<![\w.])fetch\(\s*['"`]\/api/g) || []).length, 0)
   // The bare fetches left are apiFetch's own and sbFetch's (the wrapper supabase-js uses).
   assert.equal((page.match(/(?<![\w.])fetch\(/g) || []).length, 3)

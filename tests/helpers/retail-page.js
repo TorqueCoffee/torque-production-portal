@@ -7,8 +7,8 @@ const { inlineScripts, declarationSource } = require('./index-html')
 const NAMES = ['escHtml', 'safeUrl', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'RETAIL_MAX_BATCH', 'RETAIL_BUY_ENABLED', 'RETAIL_BUY_PARALLEL', 'RETAIL_BUSY_WAIT_MS', 'RETAIL_AGE_CHIP_DAYS',
   'RETAIL_CARTONS', 'RETAIL_CARTON_DESC', 'RETAIL_HOLD_TEXT', 'RETAIL_HOLD_DETAIL_TEXT', 'RETAIL_EXCLUDED_TEXT', 'RETAIL_ROW_TEXT', 'RETAIL_ROW_CHIP',
   'retailOrders', 'retailExcluded', 'retailLoadedAt', 'retailLoadSeq', 'retailLoading', 'retailError', 'retailSel', 'retailMsg', 'retailShowHold',
-  'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailPack',
-  'RETAIL_UNRECORDED_KEY', 'RETAIL_UNRECORDED_DAYS', 'retailReadUnrecorded', 'retailSaveUnrecorded', 'retailUnrecorded', 'retailMergeUnrecorded', 'retailRemember', 'retailForget', 'retailClearUnrecorded', 'retailApplyShipTo',
+  'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailVoiding', 'retailPack',
+  'RETAIL_UNRECORDED_KEY', 'RETAIL_UNRECORDED_DAYS', 'RETAIL_VOIDED_UNRECORDED', 'retailReadUnrecorded', 'retailSaveUnrecorded', 'retailUnrecorded', 'retailMergeUnrecorded', 'retailRemember', 'retailForget', 'retailClearUnrecorded', 'retailApplyShipTo',
   'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders', 'retailSelectAllIds', 'retailBilledLb', 'retailApplySubscriptions',
   'loadRetailOrders', 'loadRetailPending', 'retailApplyPending', 'retailToggle', 'retailToggleAll', 'retailChip', 'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow',
   'RETAIL_ROW_BAD', 'retailMoney', 'retailShippoAddress', 'retailPacificDate', 'retailSlip', 'retailBoughtRow', 'retailGoneRow', 'retailBuyAndPrint', 'retailAfterBuy', 'retailPdfTab',
@@ -16,7 +16,7 @@ const NAMES = ['escHtml', 'safeUrl', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'RETAI
   'retailPdfButton', 'retailReprintBought', 'retailCloseBatch', 'retailBackToQueue', 'retailPackAndFulfill',
   'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailOpenPack', 'retailBackFromPack', 'retailSetHeld',
   'retailPackCard', 'renderRetailPack', 'retailResumeBanner', 'renderRetailBatch', 'renderRetail',
-  'retailFulfillFailed', 'retailFulfillPost', 'retailFulfillOutcome', 'retailFulfillAsk', 'retailFulfillBack', 'retailFulfillGo', 'retailFulfillRun', 'retailReprintBatch', 'renderRetailDone', 'renderRetailConfirm',
+  'retailVoidButton', 'retailVoid', 'retailFulfillFailed', 'retailFulfillPost', 'retailFulfillOutcome', 'retailFulfillAsk', 'retailFulfillBack', 'retailFulfillGo', 'retailFulfillRun', 'retailReprintBatch', 'renderRetailDone', 'renderRetailConfirm',
   'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRetryFulfill', 'retailClearGone', 'retailRedBanner']
 
 const P = { '8x6x3': { length: 8, width: 6, height: 3, weight: 1 }, '12x8x6': { length: 12, width: 8, height: 6, weight: 2 }, '14x10x10': { length: 14, width: 10, height: 10, weight: 5 } }
@@ -103,7 +103,7 @@ function page({ srv = server(), enabled = true, popup = true, storage = {}, conf
   buy: retailBuyAndPrint, toggleAll: retailToggleAll, row: retailRowAction, reprint: retailReprintBought, load: loadRetailOrders, groups: retailGroups,
   back: retailBackToQueue, packAndFulfill: retailPackAndFulfill, openPack: retailOpenPack, backFromPack: retailBackFromPack, setHeld: retailSetHeld,
   cards: retailPackCards, batchOpen: retailBatchOpen, render: renderRetail,
-  ask: retailFulfillAsk, askBack: retailFulfillBack, go: retailFulfillGo, run: retailFulfillRun, reprintBatch: retailReprintBatch, retry: retailRetryFulfill, clear: retailClearGone${extra.length ? ', ' + extra.map(n => `${n}: typeof ${n} === 'undefined' ? undefined : ${n}`).join(', ') : ''} })`
+  ask: retailFulfillAsk, askBack: retailFulfillBack, go: retailFulfillGo, run: retailFulfillRun, reprintBatch: retailReprintBatch, retry: retailRetryFulfill, clear: retailClearGone, voidLabel: retailVoid, get voiding() { return retailVoiding }, get unrecorded() { return retailUnrecorded }${extra.length ? ', ' + extra.map(n => `${n}: typeof ${n} === 'undefined' ? undefined : ${n}`).join(', ') : ''} })`
   const api = vm.runInNewContext(code, ctx)
   api.html = () => el.innerHTML
   api.opened = opened

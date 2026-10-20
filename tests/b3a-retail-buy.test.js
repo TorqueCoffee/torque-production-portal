@@ -9,14 +9,14 @@ const { inlineScripts, declarationSource } = require('./helpers/index-html')
 const NAMES = ['escHtml', 'safeUrl', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'RETAIL_MAX_BATCH', 'RETAIL_BUY_ENABLED', 'RETAIL_BUY_PARALLEL', 'RETAIL_BUSY_WAIT_MS', 'RETAIL_AGE_CHIP_DAYS',
   'RETAIL_CARTONS', 'RETAIL_CARTON_DESC', 'RETAIL_HOLD_TEXT', 'RETAIL_HOLD_DETAIL_TEXT', 'RETAIL_EXCLUDED_TEXT', 'RETAIL_ROW_TEXT', 'RETAIL_ROW_CHIP',
   'retailOrders', 'retailExcluded', 'retailLoadedAt', 'retailLoadSeq', 'retailLoading', 'retailError', 'retailSel', 'retailMsg', 'retailShowHold',
-  'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting',
-  'RETAIL_UNRECORDED_KEY', 'RETAIL_UNRECORDED_DAYS', 'retailReadUnrecorded', 'retailSaveUnrecorded', 'retailUnrecorded', 'retailMergeUnrecorded', 'retailRemember', 'retailForget', 'retailClearUnrecorded', 'retailApplyShipTo',
+  'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailVoiding',
+  'RETAIL_UNRECORDED_KEY', 'RETAIL_UNRECORDED_DAYS', 'RETAIL_VOIDED_UNRECORDED', 'retailReadUnrecorded', 'retailSaveUnrecorded', 'retailUnrecorded', 'retailMergeUnrecorded', 'retailRemember', 'retailForget', 'retailClearUnrecorded', 'retailApplyShipTo',
   'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders', 'retailSelectAllIds', 'retailBilledLb', 'retailApplySubscriptions',
   'loadRetailOrders', 'loadRetailPending', 'retailToggle', 'retailToggleAll', 'retailChip', 'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow',
   'RETAIL_ROW_BAD', 'retailMoney', 'retailShippoAddress', 'retailPacificDate', 'retailSlip', 'retailBoughtRow', 'retailGoneRow', 'retailBuyAndPrint', 'retailPdfTab',
   'retailRun', 'retailPost', 'retailRequest', 'retailTooMany', 'retailQuote', 'retailBuyOne', 'retailRowAction', 'retailPdfRows', 'retailOpenPdf', 'retailPdfFresh',
   'retailPdfButton', 'retailReprintBought', 'retailBackToQueue', 'retailCloseBatch', 'retailAfterBuy', 'retailPackAndFulfill', 'retailApplyPending',
-  'retailFulfillFailed', 'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRedBanner', 'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner', 'retailOpenPack', 'retailBackFromPack', 'retailSetHeld',
+  'retailFulfillFailed', 'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRedBanner', 'retailVoidButton', 'retailVoid', 'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner', 'retailOpenPack', 'retailBackFromPack', 'retailSetHeld',
   'renderRetailBatch', 'renderRetail']
 
 const P = { '8x6x3': { length: 8, width: 6, height: 3, weight: 1 }, '12x8x6': { length: 12, width: 8, height: 6, weight: 2 }, '14x10x10': { length: 14, width: 10, height: 10, weight: 5 } }
