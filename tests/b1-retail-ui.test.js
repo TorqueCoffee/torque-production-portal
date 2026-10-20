@@ -313,8 +313,10 @@ test('B3a: the Retail block calls only the list, rate/label (never void), the ba
   const html = fs.readFileSync(require('./helpers/index-html').INDEX, 'utf8')
   const block = html.slice(html.indexOf('// RETAIL tab (B1): the queue'), html.indexOf('// MIX GUIDE'))
   assert.ok(block.length > 5000)
-  assert.deepEqual([...new Set(block.match(/\/api\/[\w-]+/g))].sort(), ['/api/ship-doc', '/api/shippo-label', '/api/shopify-token'])
-  assert.doesNotMatch(block, /shopify-fulfill|action=void|'void'/)                         // no Shopify write, no void (B3b, B6)
+  assert.deepEqual([...new Set(block.match(/\/api\/[\w-]+/g))].sort(), ['/api/ship-doc', '/api/shippo-label', '/api/shopify-fulfill', '/api/shopify-token'])
+  assert.doesNotMatch(block, /action=void|'void'/)                                         // no void yet (B6, S5)
+  // The one Shopify write is the retail Fulfill, always kind retail (B3b); nothing else calls it.
+  assert.deepEqual(block.match(/apiFetch\('\/api\/shopify-fulfill'/g).length, 1)
   assert.match(block, /\/api\/shippo-label\?action=\$\{action\}/)
   assert.deepEqual([...new Set(block.match(/retailPost\('(\w+)'/g))].sort(), ["retailPost('label'", "retailPost('rate'"])
   assert.doesNotMatch(block, /\)\.(insert|update|upsert|delete)\(/)                          // no table write (retailSel.delete is a Set)

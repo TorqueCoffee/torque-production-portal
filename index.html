@@ -340,9 +340,21 @@ td select{padding:6px 8px;border:2px solid var(--black);border-radius:6px;font-s
 .rt-pc .rt-lines{flex:1;padding:0}
 .rt-pc-note{padding:6px 8px;border-radius:8px;background:var(--amber-light);color:var(--orange-dark);font-style:italic;overflow-wrap:anywhere;white-space:pre-wrap}
 .rt-pc-btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.rt-pc-btns .btn:disabled,.rt-lead .btn:disabled,.rt-resume .btn:disabled{opacity:.4;cursor:not-allowed}
+.rt-pc-btns .btn:disabled,.rt-lead .btn:disabled,.rt-resume .btn:disabled,.rt-confirm .btn:disabled{opacity:.4;cursor:not-allowed}
 .rt-lead{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:12px 18px;margin-bottom:14px;background:#FFF5D2;border:2px solid var(--black);border-radius:var(--r-card);font-size:14px}
 .rt-lead > div{flex:1;min-width:220px}
+.rt-confirm{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 20px;margin-bottom:14px;background:var(--cream-hi);border:3px solid var(--black);border-radius:var(--r-card)}
+.rt-confirm > div{flex:1;min-width:220px;font-family:var(--font-display);font-size:18px}
+.rt-confirm .rt-small{font-family:inherit;font-size:13px}
+.rt-fulfill{min-height:52px;padding:0 28px;font-size:15px}
+.rt-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:14px}
+@media(max-width:560px){.rt-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rt-stat{display:flex;flex-direction:column;gap:4px;padding:18px 20px;background:var(--cream-hi);border:2px solid var(--black);border-radius:var(--r-card)}
+.rt-stat.warn{background:var(--amber-light);border-color:var(--orange-dark)}
+.rt-stat b{font-family:var(--font-display);font-size:40px;line-height:1}
+.rt-stat span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5E5148}
+.rt-done{display:flex;flex-direction:column;gap:8px;padding:16px 20px;margin-bottom:14px;background:var(--cream-hi);border:2px solid var(--black);border-radius:var(--r-card);font-size:14px}
+.rt-done b{font-family:var(--font-display);font-size:18px}
 .rt-resume{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 18px;margin-bottom:14px;background:var(--amber-light);border:2px solid var(--orange-dark);border-radius:var(--r-card);font-size:14px}
 .rt-resume > span{flex:1;min-width:220px}
 
@@ -3176,7 +3188,11 @@ let retailBatch = null       // the Buying screen (B3a), or null for the queue
 // The Pack screen (B3b, ADR 0029), or null. Never open together with retailBatch. The cards are
 // not stored here: they are the DB's pending retail labels joined to the order list, so a
 // reload shows the same cards. busy: order_ids with a Hold back / Include call in flight.
-let retailPack = null        // { busy: Set(order_id), fulfilling, msg }
+let retailPack = null        // { busy: Set(order_id), fulfilling, msg, confirm: { ids, total } | null, progress, results: { rows } | null }
+// Orders whose Fulfill failed this session (B3b, Decision 7): order_id -> { order_name, why }. Not
+// stored anywhere; after a reload they are simply part of the open batch again, and Fulfill
+// retries them safely (the server never fulfills or emails twice).
+let retailFulfillFailed = {}
 let retailBuyInFlight = false
 let retailReprinting = false
 // Orders bought this week whose cost row couldn't be written (cost_logged: false). The DB has no
@@ -3855,7 +3871,7 @@ function retailPackCounts() {
 async function retailOpenPack() {
   if (retailBuyInFlight || (retailBatch && retailBatch.printing)) return
   retailBatch = null
-  retailPack = { busy: new Set(), fulfilling: false, msg: '' }
+  retailPack = { busy: new Set(), fulfilling: false, msg: '', confirm: null, progress: null, results: null }
   await loadRetailOrders()
 }
 function retailBackFromPack() {
@@ -3867,7 +3883,7 @@ function retailBackFromPack() {
 // after the DB says one row changed and the pending list has been read again.
 async function retailSetHeld(id, held) {
   const pk = retailPack
-  if (!pk || pk.fulfilling || retailLoading || pk.busy.has(id)) return
+  if (!pk || pk.fulfilling || pk.confirm || pk.results || retailLoading || pk.busy.has(id)) return
   const o = retailOrders.find(x => x.order_id === id)
   const name = o ? o.order_name : 'this order'
   const verb = held ? 'hold back' : 'include'
@@ -3884,6 +3900,132 @@ async function retailSetHeld(id, held) {
     pk.msg = `Couldn't ${verb} ${name}: ${e.message || e}. Nothing changed.`
   } finally {
     pk.busy.delete(id)
+  }
+  renderRetail()
+}
+
+// ---- B3b: Fulfill and Done (docs/RETAIL_UI_HANDOFF.md 3.5, 3.6; ADR 0029) ----------------------
+// One tap opens the confirm, a second sends. The server takes the tracking number from the label
+// row, rechecks the pack, and fulfills once: a retry after a lost answer finds the order
+// fulfilled and sends no second email (api/shopify-fulfill.js).
+async function retailFulfillPost(extra) {
+  const res = await apiFetch('/api/shopify-fulfill', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'retail', ...extra })
+  })
+  let out = {}
+  try { out = await res.json() } catch (e) { out = {} }
+  return { res, out: out || {} }
+}
+// A fulfill answer -> { shipped, emailed, already } or { shipped: false, why }.
+function retailFulfillOutcome(res, out) {
+  if (res.ok && out.ok) return { shipped: true, emailed: !!out.emailed, already: !!out.alreadyFulfilled }
+  return { shipped: false, why: out.error || `status ${res.status}`, code: out.code || '' }
+}
+// Fulfill N orders: open the confirm for the included cards (the ids are fixed here, and the
+// cards stay locked until the confirm is closed).
+function retailFulfillAsk() {
+  const pk = retailPack
+  if (!pk || pk.fulfilling || pk.results || retailLoading || retailBuyInFlight) return
+  const cards = retailPackCards()
+  const ids = cards.filter(c => !c.held).map(c => c.order.order_id)
+  if (!ids.length) return
+  pk.confirm = { ids, total: cards.length }
+  pk.msg = ''
+  renderRetail()
+}
+function retailFulfillBack() {
+  if (!retailPack || retailPack.fulfilling) return
+  retailPack.confirm = null
+  renderRetail()
+}
+// Fulfill and send: the ids snapshotted when the confirm opened. A second tap does nothing.
+function retailFulfillGo() {
+  const pk = retailPack
+  if (!pk || pk.fulfilling || !pk.confirm || retailLoading) return
+  return retailFulfillRun(pk.confirm.ids)
+}
+// Fulfill these orders, three at a time (one at a time after a 429 or 503, each tried again after
+// 1.5, 3 and 4.5 s, three times at most, as Buy does). A failure never stops the rest. Hold back,
+// Include, Reprint, Back, Refresh, Sign out and a second Fulfill wait until it ends.
+async function retailFulfillRun(ids) {
+  const pk = retailPack
+  if (!pk || pk.fulfilling) return
+  pk.fulfilling = true; pk.confirm = null; pk.msg = ''
+  pk.progress = { done: 0, total: ids.length }
+  const byId = new Map(retailOrders.map(o => [o.order_id, o]))
+  const rows = ids.map(id => ({ id, order: byId.get(id) || null, tries: 0, result: null }))
+  let limit = RETAIL_BUY_PARALLEL
+  renderRetail()
+  try {
+    const queue = rows.slice()
+    let next = 0
+    const worker = async k => {
+      while (next < queue.length) {
+        if (k >= limit) return
+        const row = queue[next++]
+        const wait = (row.waitUntil || 0) - Date.now()
+        if (wait > 0) await new Promise(r => setTimeout(r, wait))
+        try {
+          const { res, out } = await retailFulfillPost({ order_id: row.id })
+          if (res.status === 429 || res.status === 503) {
+            limit = 1
+            row.tries++
+            if (row.tries <= 3) { row.waitUntil = Date.now() + RETAIL_BUSY_WAIT_MS * row.tries; queue.push(row); continue }
+            row.result = { shipped: false, why: out.error || 'Shopify is busy. Try again in a minute.' }
+          } else row.result = retailFulfillOutcome(res, out)
+        } catch (e) {
+          // No answer: the order may or may not be fulfilled. Fulfilling again is safe.
+          row.result = { shipped: false, why: `No answer from the server (${e.message || 'network'}). Fulfill again; it never sends a second email.` }
+        }
+        pk.progress.done++
+        renderRetail()
+      }
+    }
+    while (next < queue.length) await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, queue.length - next)) }, (_, k) => worker(k)))
+    retailApplyPending(await loadRetailPending())
+    for (const r of rows) {
+      // Held back on another device since the confirm: the server refused it, and it is not an error.
+      if (r.result.shipped || r.result.code === 'held_back') delete retailFulfillFailed[r.id]
+      else retailFulfillFailed[r.id] = { order_name: r.order ? r.order.order_name : r.id, why: r.result.why }
+    }
+    pk.results = { rows: rows.map(r => ({ id: r.id, order: r.order, name: r.order ? r.order.order_name : r.id, ...r.result })) }
+  } finally {
+    pk.fulfilling = false
+    pk.progress = null
+  }
+  renderRetail()
+}
+
+// Reprint this batch: each shipped order's saved label (now 'fulfilled') and slip in one PDF, 25
+// at most. The tab opens inside the tap. Never buys.
+async function retailReprintBatch() {
+  const pk = retailPack
+  if (!pk || !pk.results || retailBuyInFlight || retailReprinting) return
+  const all = pk.results.rows.filter(r => r.shipped)
+  const shipped = all.slice(0, RETAIL_MAX_BATCH)
+  if (!shipped.length) return
+  const win = retailPdfTab('Building the labels and slips…')
+  retailReprinting = true
+  renderRetail()
+  try {
+    const got = await Promise.all(shipped.map(async r => {
+      const { data, error } = await sb.rpc('ship_labels_for_order', { p_order_id: r.id })
+      if (error) throw error
+      const live = (data || []).filter(x => x.status === 'fulfilled' && Number(x.box_index) === 1)
+      return live.length === 1 && live[0].label_url && r.order ? { order: r.order, label: { label_url: live[0].label_url } } : { missing: r.name }
+    }))
+    const rows = got.filter(g => !g.missing), missing = got.filter(g => g.missing).map(g => g.missing)
+    if (!rows.length) throw new Error('no saved label files for these orders. Reprint them from Shippo')
+    await retailOpenPdf(win, null, rows)
+    const notes = []
+    if (missing.length) notes.push(`No label file for ${missing.join(', ')}. Reprint ${missing.length !== 1 ? 'them' : 'it'} from Shippo.`)
+    if (all.length > shipped.length) notes.push(`Reprinted the first ${shipped.length} of ${all.length}.`)
+    pk.msg = notes.join(' ')
+  } catch (e) {
+    if (win) { try { win.close() } catch (x) {} }
+    alert(`Couldn't reprint: ${e.message || e}. Nothing was bought.`)
+  } finally {
+    retailReprinting = false
   }
   renderRetail()
 }
@@ -3977,13 +4119,55 @@ function retailPackCard(c, off) {
     </div>
   </div>`
 }
+// The confirm sheet (D10): in the page, not a browser confirm().
+function renderRetailConfirm() {
+  const c = retailPack.confirm
+  const n = c.ids.length, held = c.total - n
+  return `<div class="rt-confirm"><div><b>${n} of ${c.total} packed. Send ${n} customer email${n !== 1 ? 's' : ''}?</b>
+    <div class="mut rt-small">Writes UPS tracking to Shopify for ${n} order${n !== 1 ? 's' : ''}; Shopify sends one shipping email each. ${held} held back ${held === 1 ? 'stays' : 'stay'} open in the queue.</div></div>
+    <button class="btn btn-secondary rt-tap" onclick="retailFulfillBack()">Back</button>
+    <button class="btn btn-primary rt-tap" onclick="retailFulfillGo()">Fulfill and send</button>
+  </div>`
+}
+// Done (D11): the counts, what is still open, and the two exits.
+function renderRetailDone() {
+  const rows = retailPack.results.rows
+  const shipped = rows.filter(r => r.shipped).length
+  const emails = rows.filter(r => r.shipped && r.emailed).length
+  const already = rows.filter(r => r.shipped && r.already).length
+  const failed = rows.filter(r => !r.shipped && r.code !== 'held_back')
+  const failedIds = new Set(failed.map(r => r.id))
+  const heldNames = new Map(retailPackCards().filter(c => c.held).map(c => [c.order.order_id, c.order.order_name]))
+  for (const r of rows) if (!r.shipped && r.code === 'held_back') heldNames.set(r.id, r.name)     // refused as held back since the confirm
+  const held = [...heldNames].filter(([id]) => !failedIds.has(id))
+  const open = failed.length + held.length
+  const stat = (n, label, warn) => `<div class="rt-stat${warn ? ' warn' : ''}"><b>${n}</b><span>${escHtml(label)}</span></div>`
+  const line = (name, text, sub) => `<div class="rt-resume"><span><b>${escHtml(name)}</b> ${escHtml(text)} <span class="mut">${escHtml(sub)}</span></span>
+    <button class="btn btn-secondary rt-tap" onclick="retailBackFromPack()">Show in queue</button></div>`
+  const lines = held.map(([, name]) => line(name, 'was held back and is back in the queue, unselected.', 'Its label stays bought; it is listed as bought and can be fulfilled in the next batch.')).join('') +
+    failed.map(r => line(r.name, `was not fulfilled: ${r.why}`, 'Its label is bought and the customer has no email yet. Retry it from the red banner, or Fulfill it again from Resume batch.')).join('')
+  const msg = retailPack.msg ? `<div class="alert alert-red">${escHtml(retailPack.msg)}</div>` : ''
+  return `<div class="rt-title"><h2>Batch done</h2></div>
+    <div class="rt-stats">${stat(shipped, 'Shipped')}${stat(emails, 'Customer emails sent')}${stat(shipped, 'Parcels for pickup')}${stat(open, 'Still open', open > 0)}</div>
+    ${lines}${msg}
+    <div class="rt-done"><b>Done for you</b>
+      ${shipped ? '<span>Tracking written to Shopify and the orders closed.</span><span>One cost row per label saved with carton and billed lb.</span>' : '<span>No order was fulfilled in this batch.</span>'}
+      ${already ? `<span>${already} ${already !== 1 ? 'were' : 'was'} already fulfilled in Shopify (${escHtml(rows.filter(r => r.already).map(r => r.name).join(', '))}), so no second email was sent.</span>` : ''}
+      ${shipped && !open ? '<span class="mut">Put the packed parcels at the UPS pickup spot. Nothing else to do.</span>' : shipped ? '<span class="mut">Put the shipped parcels at the UPS pickup spot. The open orders are listed above.</span>' : ''}
+    </div>
+    <div class="rt-pc-btns">
+      <button class="btn btn-primary rt-tap" onclick="retailBackFromPack()">Back to queue</button>
+      <button class="btn btn-secondary rt-tap" onclick="retailReprintBatch()" ${retailReprinting || !shipped ? 'disabled' : ''}>${retailReprinting ? 'Making the PDF…' : 'Reprint this batch'}</button>
+    </div>`
+}
 function renderRetailPack() {
   const pk = retailPack
+  if (pk.results) return renderRetailDone()
   const cards = retailPackCards()
   const { toFulfill, held } = retailPackCounts()
-  const off = retailLoading || pk.fulfilling      // loading or fulfilling: nothing can be tapped
+  const off = retailLoading || pk.fulfilling || !!pk.confirm      // loading, confirming or fulfilling: no card can be tapped
   const head = `<div class="rt-title">
-    <h2>Pack and fulfill</h2>
+    <h2>${pk.fulfilling ? `Fulfilling ${pk.progress.total} order${pk.progress.total !== 1 ? 's' : ''}` : 'Pack and fulfill'}</h2>
     <span class="rt-chip rt-chip-ok">${toFulfill} to fulfill</span>
     <span class="rt-chip${held ? ' rt-chip-warn' : ''}">${held} held back</span>
     <button class="btn btn-secondary btn-sm rt-tap" onclick="loadRetailOrders()" ${off ? 'disabled' : ''}>${retailLoading ? 'Refreshing…' : 'Refresh'}</button>
@@ -3992,13 +4176,16 @@ function renderRetailPack() {
   const err = retailError ? `<div class="alert alert-red">Couldn't load retail orders: ${escHtml(retailError)} <button class="btn btn-secondary btn-sm rt-tap" onclick="loadRetailOrders()" ${off ? 'disabled' : ''}>Try again</button></div>` : ''
   const pendWarn = retailPendingError ? `<div class="alert alert-red">Couldn't check which orders have a label (${escHtml(retailPendingError)}). What is shown may be out of date; tap Refresh.</div>` : ''
   const msg = pk.msg ? `<div class="alert alert-red">${escHtml(pk.msg)}</div>` : ''
-  const lead = `<div class="rt-lead"><div><b>Every order starts included.</b> <span class="mut">Pack, check the order number on label and slip, and tap Hold back only for one you cannot send.</span></div></div>`
+  const lead = `<div class="rt-lead"><div><b>Every order starts included.</b> <span class="mut">Pack, check the order number on label and slip, and tap Hold back only for one you cannot send.</span></div>
+    <button class="btn btn-primary rt-tap rt-fulfill" onclick="retailFulfillAsk()" ${off || !toFulfill ? 'disabled' : ''}>Fulfill ${toFulfill} order${toFulfill !== 1 ? 's' : ''}</button></div>`
+  const running = pk.fulfilling ? `<div class="rt-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pk.progress.done / pk.progress.total * 100)}"><span style="width:${Math.round(pk.progress.done / pk.progress.total * 100)}%"></span></div>
+    <div class="mut rt-small" style="margin-bottom:12px">${pk.progress.done} of ${pk.progress.total} done · Nothing to click while this runs</div>` : ''
   let grid
   if (!retailLoadedAt) grid = '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">Loading the open batch…</div>'
   else if (!cards.length) grid = '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">No bought orders waiting to be packed.</div>'
   else grid = `<div class="rt-packgrid">${cards.map(c => retailPackCard(c, off)).join('')}</div>`
   const foot = `<div class="mut rt-small">Cards are sorted by carton so the same size packs together. Reprint opens just that order's label and slip. A held-back order stays bought and open until you tap Include.</div>`
-  return head + err + pendWarn + msg + lead + grid + foot
+  return head + err + pendWarn + msg + running + lead + (pk.confirm ? renderRetailConfirm() : '') + grid + foot
 }
 // The queue's banner for a batch left open (D12): bought, not held back, still open in Shopify.
 function retailResumeBanner() {
@@ -4393,7 +4580,7 @@ async function signIn(e) {
 }
 
 async function signOut() {
-  if (shipBuyInFlight || retailBuyInFlight || (retailBatch && retailBatch.printing) || (shipState && shipState.phase === 'fulfilling')) {
+  if (shipBuyInFlight || retailBuyInFlight || retailPackLocked() || (retailBatch && retailBatch.printing) || (shipState && shipState.phase === 'fulfilling')) {
     alert('An order is being shipped. Wait until it finishes, then sign out.'); return
   }
   if (!confirm('Sign out of this device?')) return
@@ -4411,7 +4598,7 @@ function onAuthChange(event, session) {
   if (!appStarted) return showSignIn()
   // Signed out after the app ran: reload so nothing from the session stays in memory, unless
   // a label buy is mid-loop (its labels are recoverable from the DB either way, ADR 0011).
-  if (shipBuyInFlight || retailBuyInFlight) return showSignIn('Signed out. Sign in again to finish.')
+  if (shipBuyInFlight || retailBuyInFlight || retailPackLocked()) return showSignIn('Signed out. Sign in again to finish.')
   location.reload()
 }
 // Deferred: awaiting supabase calls inside this callback can deadlock supabase-js's auth lock.
