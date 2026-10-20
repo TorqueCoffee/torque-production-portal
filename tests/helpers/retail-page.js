@@ -16,7 +16,8 @@ const NAMES = ['escHtml', 'safeUrl', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'RETAI
   'retailPdfButton', 'retailReprintBought', 'retailCloseBatch', 'retailBackToQueue', 'retailPackAndFulfill',
   'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailOpenPack', 'retailBackFromPack', 'retailSetHeld',
   'retailPackCard', 'renderRetailPack', 'retailResumeBanner', 'renderRetailBatch', 'renderRetail',
-  'retailFulfillFailed', 'retailFulfillPost', 'retailFulfillOutcome', 'retailFulfillAsk', 'retailFulfillBack', 'retailFulfillGo', 'retailFulfillRun', 'retailReprintBatch', 'renderRetailDone', 'renderRetailConfirm']
+  'retailFulfillFailed', 'retailFulfillPost', 'retailFulfillOutcome', 'retailFulfillAsk', 'retailFulfillBack', 'retailFulfillGo', 'retailFulfillRun', 'retailReprintBatch', 'renderRetailDone', 'renderRetailConfirm',
+  'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRetryFulfill', 'retailClearGone', 'retailRedBanner']
 
 const P = { '8x6x3': { length: 8, width: 6, height: 3, weight: 1 }, '12x8x6': { length: 12, width: 8, height: 6, weight: 2 }, '14x10x10': { length: 14, width: 10, height: 10, weight: 5 } }
 let seq = 0
@@ -97,12 +98,12 @@ function page({ srv = server(), enabled = true, popup = true, storage = {}, conf
   const names = [...NAMES, ...extra]
   const code = names.map(n => declarationSource(src, n).replace(/^const (RETAIL_BUY_ENABLED|RETAIL_BUY_PARALLEL|RETAIL_BUSY_WAIT_MS)/, 'let $1')).join('\n') + `
 ;({ set(o) { if ('orders' in o) { retailOrders = o.orders; retailLoadedAt = Date.now() } if ('pending' in o) retailPending = o.pending; if ('sel' in o) retailSel = new Set(o.sel) },
-  get batch() { return retailBatch }, get pack() { return retailPack }, get pending() { return retailPending }, get pendingError() { return retailPendingError }, get inFlight() { return retailBuyInFlight }, get failed() { return retailFulfillFailed },
+  get batch() { return retailBatch }, get pack() { return retailPack }, get pending() { return retailPending }, get pendingError() { return retailPendingError }, get inFlight() { return retailBuyInFlight }, get failed() { return retailFulfillFailed }, get bannerMsg() { return retailBannerMsg },
   get sel() { return [...retailSel] }, get loading() { return retailLoading },
   buy: retailBuyAndPrint, toggleAll: retailToggleAll, row: retailRowAction, reprint: retailReprintBought, load: loadRetailOrders, groups: retailGroups,
   back: retailBackToQueue, packAndFulfill: retailPackAndFulfill, openPack: retailOpenPack, backFromPack: retailBackFromPack, setHeld: retailSetHeld,
   cards: retailPackCards, batchOpen: retailBatchOpen, render: renderRetail,
-  ask: retailFulfillAsk, askBack: retailFulfillBack, go: retailFulfillGo, run: retailFulfillRun, reprintBatch: retailReprintBatch${extra.length ? ', ' + extra.map(n => `${n}: typeof ${n} === 'undefined' ? undefined : ${n}`).join(', ') : ''} })`
+  ask: retailFulfillAsk, askBack: retailFulfillBack, go: retailFulfillGo, run: retailFulfillRun, reprintBatch: retailReprintBatch, retry: retailRetryFulfill, clear: retailClearGone${extra.length ? ', ' + extra.map(n => `${n}: typeof ${n} === 'undefined' ? undefined : ${n}`).join(', ') : ''} })`
   const api = vm.runInNewContext(code, ctx)
   api.html = () => el.innerHTML
   api.opened = opened

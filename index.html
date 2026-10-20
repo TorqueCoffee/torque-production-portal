@@ -355,6 +355,10 @@ td select{padding:6px 8px;border:2px solid var(--black);border-radius:6px;font-s
 .rt-stat span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5E5148}
 .rt-done{display:flex;flex-direction:column;gap:8px;padding:16px 20px;margin-bottom:14px;background:var(--cream-hi);border:2px solid var(--black);border-radius:var(--r-card);font-size:14px}
 .rt-done b{font-family:var(--font-display);font-size:18px}
+.rt-banner{flex-direction:column;gap:10px}
+.rt-banner-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rt-banner-row > span{flex:1;min-width:220px}
+.rt-banner .btn:disabled{opacity:.4;cursor:not-allowed}
 .rt-resume{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 18px;margin-bottom:14px;background:var(--amber-light);border:2px solid var(--orange-dark);border-radius:var(--r-card);font-size:14px}
 .rt-resume > span{flex:1;min-width:220px}
 
@@ -3193,6 +3197,8 @@ let retailPack = null        // { busy: Set(order_id), fulfilling, msg, confirm:
 // stored anywhere; after a reload they are simply part of the open batch again, and Fulfill
 // retries them safely (the server never fulfills or emails twice).
 let retailFulfillFailed = {}
+let retailBannerBusy = new Set()   // order_ids with a Retry fulfill or Clear running
+let retailBannerMsg = {}           // order_id -> why the last Retry / Clear did not clear it
 let retailBuyInFlight = false
 let retailReprinting = false
 // Orders bought this week whose cost row couldn't be written (cost_logged: false). The DB has no
@@ -3508,13 +3514,13 @@ function retailBoughtRow(o) {
   </div>`
 }
 // A bought order Shopify no longer lists as open (fulfilled by hand, cancelled, edited onto
-// hold). Clear and Void for these come with B3b and B6.
+// hold). Clear is on the red banner at the top of the tab (B3b); Void comes with B6.
 function retailGoneRow(p) {
   return `<div class="rt-row dis">
     <span class="rt-cell-check" aria-hidden="true">✓</span>
     <b>${escHtml(p.order_name || '—')}</b>
     <span></span>
-    <span class="mut">Not open in Shopify any more. Check this order in Shopify.</span>
+    <span class="mut">Not open in Shopify any more. Clear or void it in the red box at the top.</span>
     <span></span>
     <span class="rt-chips">${p.unrecorded ? retailChip('bad', 'Bought, not recorded. Tell Andy') : retailChip('warn', 'Label bought')}</span>
   </div>`
@@ -3996,6 +4002,64 @@ async function retailFulfillRun(ids) {
   renderRetail()
 }
 
+// ---- B3b: the red banner (docs/RETAIL_UI_HANDOFF.md 3.7; ADR 0029) ------------------------------
+// Two kinds of order that were paid for and are not fulfilled, shown on the queue, Pack and Done:
+//   failed: this session's Fulfill failed. Retry fulfill is the same safe call (the server sends
+//     no second email). Gone after a reload by design (Decision 7): the order is in the open batch.
+//   gone: bought, but Shopify no longer lists the order as open (fulfilled by hand, cancelled,
+//     edited onto hold). Clear closes it out only if Shopify shows it fulfilled (never creates a
+//     fulfillment, never emails); a cancelled or changed one is voided instead.
+function retailGoneIds() {
+  return Object.keys(retailPending).filter(id => !retailPending[id].unrecorded && !retailOrders.some(o => o.order_id === id))
+}
+function retailBannerLocked() { return retailBuyInFlight || retailPackLocked() || retailLoading }
+async function retailRetryFulfill(id) {
+  if (retailBannerBusy.has(id) || retailBannerLocked() || !retailFulfillFailed[id]) return
+  retailBannerBusy.add(id); delete retailBannerMsg[id]
+  renderRetail()
+  try {
+    const { res, out } = await retailFulfillPost({ order_id: id })
+    const r = retailFulfillOutcome(res, out)
+    if (r.shipped || r.code === 'held_back') { delete retailFulfillFailed[id]; retailApplyPending(await loadRetailPending()) }
+    else retailFulfillFailed[id] = { ...retailFulfillFailed[id], why: r.why }
+  } catch (e) {
+    retailFulfillFailed[id] = { ...retailFulfillFailed[id], why: `No answer from the server (${e.message || 'network'}). Retry again; it never sends a second email.` }
+  } finally {
+    retailBannerBusy.delete(id)
+  }
+  renderRetail()
+}
+// Clear: only an order Shopify already shows fulfilled. The server refuses (409) anything with
+// open items, so this can never fulfill or email; notifyCustomer is off as well.
+async function retailClearGone(id) {
+  if (retailBannerBusy.has(id) || retailBannerLocked() || !retailGoneIds().includes(id)) return
+  retailBannerBusy.add(id); delete retailBannerMsg[id]
+  renderRetail()
+  try {
+    const { res, out } = await retailFulfillPost({ order_id: id, notifyCustomer: false, only_if_fulfilled: true })
+    if (res.ok && out.ok && out.alreadyFulfilled) {
+      const pend = await loadRetailPending()
+      retailApplyPending(pend)
+      if (!pend.ok) retailBannerMsg[id] = `Shopify shows it fulfilled, but the list couldn't be read again (${pend.why}). Tap Refresh orders.`
+      else if (retailPending[id]) retailBannerMsg[id] = "Shopify shows it fulfilled, but the portal's label record wasn't updated. Tell Andy."
+    } else retailBannerMsg[id] = out.error || `Shopify did not confirm it is fulfilled (status ${res.status}). Nothing was changed.`
+  } catch (e) {
+    retailBannerMsg[id] = `No answer from the server (${e.message || 'network'}). Nothing was changed.`
+  } finally {
+    retailBannerBusy.delete(id)
+  }
+  renderRetail()
+}
+function retailRedBanner() {
+  const off = retailBannerLocked()
+  const btn = (fn, id, text) => `<button class="btn btn-secondary btn-sm rt-tap" data-id="${escHtml(id)}" onclick="${fn}(this.dataset.id)" ${off || retailBannerBusy.has(id) ? 'disabled' : ''}>${escHtml(text)}</button>`
+  const failed = Object.entries(retailFulfillFailed).filter(([id]) => retailPending[id] && !retailPending[id].unrecorded).map(([id, f]) =>
+    `<div class="rt-banner-row"><span>Paid, not fulfilled: <b>${escHtml(f.order_name)}</b>. Label bought, tracking not written to Shopify, so the customer has no email. <span class="mut">${escHtml(f.why)}</span></span>${btn('retailRetryFulfill', id, 'Retry fulfill')}</div>`)
+  const gone = retailGoneIds().map(id =>
+    `<div class="rt-banner-row"><span>Paid, not open in Shopify: <b>${escHtml(retailPending[id].order_name || '—')}</b>. Its label is bought. Fulfilled by hand: Clear. Cancelled or changed: Void.${retailBannerMsg[id] ? ` <span class="rt-msg">${escHtml(retailBannerMsg[id])}</span>` : ''}</span>${btn('retailClearGone', id, 'Clear')}</div>`)
+  return failed.length || gone.length ? `<div class="alert alert-red rt-banner"><b>Needs attention</b>${failed.join('')}${gone.join('')}</div>` : ''
+}
+
 // Reprint this batch: each shipped order's saved label (now 'fulfilled') and slip in one PDF, 25
 // at most. The tab opens inside the tap. Never buys.
 async function retailReprintBatch() {
@@ -4147,7 +4211,7 @@ function renderRetailDone() {
   const lines = held.map(([, name]) => line(name, 'was held back and is back in the queue, unselected.', 'Its label stays bought; it is listed as bought and can be fulfilled in the next batch.')).join('') +
     failed.map(r => line(r.name, `was not fulfilled: ${r.why}`, 'Its label is bought and the customer has no email yet. Retry it from the red banner, or Fulfill it again from Resume batch.')).join('')
   const msg = retailPack.msg ? `<div class="alert alert-red">${escHtml(retailPack.msg)}</div>` : ''
-  return `<div class="rt-title"><h2>Batch done</h2></div>
+  return retailRedBanner() + `<div class="rt-title"><h2>Batch done</h2></div>
     <div class="rt-stats">${stat(shipped, 'Shipped')}${stat(emails, 'Customer emails sent')}${stat(shipped, 'Parcels for pickup')}${stat(open, 'Still open', open > 0)}</div>
     ${lines}${msg}
     <div class="rt-done"><b>Done for you</b>
@@ -4185,7 +4249,7 @@ function renderRetailPack() {
   else if (!cards.length) grid = '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">No bought orders waiting to be packed.</div>'
   else grid = `<div class="rt-packgrid">${cards.map(c => retailPackCard(c, off)).join('')}</div>`
   const foot = `<div class="mut rt-small">Cards are sorted by carton so the same size packs together. Reprint opens just that order's label and slip. A held-back order stays bought and open until you tap Include.</div>`
-  return head + err + pendWarn + msg + running + lead + (pk.confirm ? renderRetailConfirm() : '') + grid + foot
+  return retailRedBanner() + head + err + pendWarn + msg + running + lead + (pk.confirm ? renderRetailConfirm() : '') + grid + foot
 }
 // The queue's banner for a batch left open (D12): bought, not held back, still open in Shopify.
 function retailResumeBanner() {
@@ -4275,7 +4339,7 @@ function renderRetail() {
   const key = el => [el.tagName, el.getAttribute('data-id'), el.getAttribute('onclick') || el.getAttribute('onchange')].join('|')
   const focused = f && f !== document.body && body.contains && body.contains(f) ? key(f) : null
   const pendWarn = retailPendingError ? `<div class="alert alert-red">Couldn't check which orders already have a label (${escHtml(retailPendingError)}). Orders this device knows are bought still show in Bought; check Shippo before buying an order again.</div>` : ''
-  body.innerHTML = title + pendWarn + retailResumeBanner() + bar + table + hold + foot
+  body.innerHTML = retailRedBanner() + title + pendWarn + retailResumeBanner() + bar + table + hold + foot
   const all = document.getElementById('retailAll')
   if (all) all.indeterminate = retailSel.size > 0 && !allOn
   if (focused) { const el = [...body.querySelectorAll('input,button,a')].find(e => key(e) === focused); if (el) el.focus() }

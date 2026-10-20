@@ -35,7 +35,7 @@ function queue(extraGlobals = {}) {
     'retailSelectAllIds', 'retailBilledLb', 'retailApplySubscriptions', 'retailToggle', 'retailToggleAll', 'retailToggleHold', 'retailChip',
     'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail',
     'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailBoughtRow', 'retailGoneRow',
-    'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
+    'retailFulfillFailed', 'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRedBanner', 'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
   const el = { innerHTML: '' }
   const all = { checked: false, indeterminate: false }
   const { elements = {}, ...globals } = extraGlobals
@@ -274,7 +274,7 @@ test('B1 UI: ticking a box keeps keyboard focus on it, and the sticky bar sits u
     'retailShowHold', 'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders', 'retailSelectAllIds', 'retailBilledLb',
     'retailToggle', 'retailToggleHold', 'retailChip', 'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail',
     'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting',
-    'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
+    'retailFulfillFailed', 'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRedBanner', 'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
   const rows = [order(), order(), order()]
   const api = vm.runInNewContext(names.map(n => declarationSource(src, n)).join('\n') +
     `\n;({ init(o) { retailOrders = o; retailLoadedAt = Date.now() }, render: renderRetail, toggle: retailToggle })`, { document: doc, Date, URL, console })

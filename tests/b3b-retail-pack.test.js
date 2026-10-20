@@ -44,7 +44,7 @@ test('P1: gone orders (not in the list) and unrecorded ones get no card', async 
   await p.openPack()
   assert.deepEqual(names(p.html()), [a.order_name])
   assert.equal(p.pending[lost.order_id].unrecorded, true)
-  assert.doesNotMatch(p.html(), new RegExp(gone.order_name))
+  assert.match(p.html().split('rt-packgrid')[0], new RegExp(`Paid, not open in Shopify: <b>${gone.order_name}</b>`))   // it goes to the red banner, not to a card
   // A gone or unrecorded row is not "an open batch to fulfill" in the counts either.
   assert.match(p.html(), /1 to fulfill/)
 })

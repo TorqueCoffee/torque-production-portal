@@ -16,7 +16,7 @@ const NAMES = ['escHtml', 'safeUrl', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'RETAI
   'RETAIL_ROW_BAD', 'retailMoney', 'retailShippoAddress', 'retailPacificDate', 'retailSlip', 'retailBoughtRow', 'retailGoneRow', 'retailBuyAndPrint', 'retailPdfTab',
   'retailRun', 'retailPost', 'retailRequest', 'retailTooMany', 'retailQuote', 'retailBuyOne', 'retailRowAction', 'retailPdfRows', 'retailOpenPdf', 'retailPdfFresh',
   'retailPdfButton', 'retailReprintBought', 'retailBackToQueue', 'retailCloseBatch', 'retailAfterBuy', 'retailPackAndFulfill', 'retailApplyPending',
-  'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner', 'retailOpenPack', 'retailBackFromPack', 'retailSetHeld',
+  'retailFulfillFailed', 'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRedBanner', 'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner', 'retailOpenPack', 'retailBackFromPack', 'retailSetHeld',
   'renderRetailBatch', 'renderRetail']
 
 const P = { '8x6x3': { length: 8, width: 6, height: 3, weight: 1 }, '12x8x6': { length: 12, width: 8, height: 6, weight: 2 }, '14x10x10': { length: 14, width: 10, height: 10, weight: 5 } }
