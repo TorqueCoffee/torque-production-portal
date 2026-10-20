@@ -2,7 +2,7 @@
 
 ## 2026-10-20 — Phase B, B3b and B6 UI: Pack, Hold back, Fulfill, Done, the red banner, Void
 
-Branch `b3b-retail-pack` (cut from `b2-retail-packer` at 8e38f83). **Not pushed, merged or deployed.** B3a (6d410c6, 8e38f83) is on `origin/main` (checked after a fetch, 2026-10-19), so B3b sits directly on top of it. The SQL below is written and tested on PGlite, **not applied**. `RETAIL_BUY_ENABLED` is still `false`.
+Branch `b3b-retail-pack` (cut from `b2-retail-packer` at 8e38f83). **Not pushed, merged or deployed.** B3a (6d410c6, 8e38f83) is on `origin/main` (checked after a fetch, 2026-10-19), so B3b sits directly on top of it. The SQL below is tested on PGlite and **applied in production on 2026-10-19** (see Detours). `RETAIL_BUY_ENABLED` is still `false`.
 
 ### Work done
 
@@ -35,6 +35,7 @@ Branch `b3b-retail-pack` (cut from `b2-retail-packer` at 8e38f83). **Not pushed,
 
 ### Detours & fixes
 
+- **The S1 version of the held-back SQL was already applied in production** (found 2026-10-19, when the round-2 file refused with "held_back_at already exists"). Read-only check: `held_back_at` (no row held), `set_ship_label_held_back`, the S1 lookups (no `dest_zip` in `ship_labels_for_order`), no `fulfill_claims`, the UPDATE policy still in place. The current rollback doesn't fit that state (it recreates the UPDATE policy, which still exists), so the path was the S1 rollback (`git show 2627adb:db/2026-10-20-label-held-back-rollback.sql`), then the current migration. Andy ran both the same day; checked read-only afterwards: the lock functions (`claim_order_fulfill` → uuid), `fulfill_claims`, `shipping_labels_one_live_per_box`, the new lookup shapes, SECURITY DEFINER with `public, pg_temp`, EXECUTE for authenticated and not anon, and no UPDATE policy. Still listed: an old table-level UPDATE grant to anon (RLS refuses it: no policy allows anon anything).
 - **A mutation run left the page in a mutated state** after a hung test (a mutation that removed a lock guard made the test never end). The run now has a timeout, and the file is checked against git before a commit.
 - **A scratch script was overwritten by a review subagent** that used the same filename; the repo was untouched (it worked on a copy). New scripts get their own names.
 - **The first Fulfill test faked "lost answer" wrongly** (it never flipped the label rows), so the page's wrong handling passed. The real ordering is now in the tests.
