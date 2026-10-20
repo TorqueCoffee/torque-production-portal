@@ -1,5 +1,46 @@
 # Journal
 
+## 2026-10-20 — Phase B, B3b and B6 UI: Pack, Hold back, Fulfill, Done, the red banner, Void
+
+Branch `b3b-retail-pack` (cut from `b2-retail-packer` at 8e38f83). **Not pushed, merged or deployed. B3a (6d410c6, 8e38f83) is still not on `origin/main`** (Andy said it was merged; git says no), so B3b can't merge before it. The SQL below is written and tested on PGlite, **not applied**. `RETAIL_BUY_ENABLED` is still `false`.
+
+### Work done
+
+- **Plan:** `docs/B3B_EXECUTION_PLAN.md`, slices S1–S6, Andy's seven answers (2026-10-19). Commits: S1 2627adb, S2 4aee6ac, S3 e783b69, S4 4156805, S5 65a05e8, review round 1 fixes e2484dd, then the docs and round 2.
+- **S1, DB and server:** `db/2026-10-20-label-held-back.sql` (+ rollback): `held_back_at`, `set_ship_label_held_back`, the lookups return `weight_lb`, `dest_zip`, `held_back_at`. `api/shopify-fulfill.js` `kind: 'retail'`: tracking from the label row, repack recheck, `emailed`.
+- **S2:** the Pack screen (cards from the DB's pending labels joined to the order list), Hold back and Include (never optimistic), per-card Reprint, the Resume banner, the Buy block while a batch is open, all-bought goes to Pack.
+- **S3:** the in-page Fulfill confirm (2 taps), the run (3 at a time, one at a time after 429/503), Done, Reprint this batch.
+- **S4:** the red banner: Retry fulfill (this session's failures only) and Clear (`only_if_fulfilled`, notify off, never creates).
+- **S5:** Void on Bought rows, held-back cards and gone orders; each server answer has its own message.
+- **Review round 1** (fresh Saboteur, Security Auditor, Architect): nothing certain to block on the happy path; Andy asked for every must- and should-fix item, and accepted the three out-of-scope changes (force the retail path when a retail label exists, drop the UPDATE policy, add a lock).
+  - **Fulfill trusted the DB row as if it were Shippo's word** (two reviewers): a planted row, or a label voided by hand in Shippo, would have its tracking number emailed. Fulfill now asks Shippo (`api/_shippo.js`) that the transaction is SUCCESS with the same number, and refuses otherwise.
+  - **No mutual exclusion** (two reviewers): two devices could both fulfill; a Void on another device could refund a label while Fulfill was emailing its number. New per-order lock (`fulfill_claims`, `claim_order_fulfill`, `release_order_fulfill`), taken by Fulfill before it reads anything, by a retail Void, and checked by Hold back.
+  - **A request with no `kind` skipped every retail check** (Security): any staff token could fulfill a retail order with a number of its own choosing. An order with a live retail label is now retail whatever the body says. (The B2B tracking-number trust itself is unchanged.)
+  - **The ZIP wasn't rechecked** (two reviewers): an address fixed in Shopify after the label would email tracking for a parcel going to the old address. `dest_zip` is now returned and compared. Contents edits that keep carton and billed lb are accepted (ADR 0029).
+  - **UPDATE door open** (Security): a staff session could rewrite a tracking number or clear a hold-back with a plain UPDATE. Policy and grant dropped.
+  - **No timeouts** (Saboteur): a hung Shopify or Supabase after the fulfillment made the page say "customer has no email" though the email went out. Every call has a timer; Shopify gives a 504 that says fulfilling again is safe. The customer email is forced on for retail.
+  - **Smaller, accepted:** a lost answer to a fulfill that went through now counts as shipped (the test faked "lost" without flipping the rows, so it never saw this); Done follows a Retry; Retry and Clear read the order list again; only the newest pending read is applied; Void, Include and Fulfill exclude each other on a device; "voided, not recorded" drops once the DB row is fixed; the Buy message for a gone-only batch points at the red box; "database update not applied" instead of blaming the order; focus stays on Pack; the retry pool, the JSON call and the Supabase RPC call each exist once; the retail repack check is one copy (`checkRetailOrder`); the test harness derives the page's function names instead of hand lists.
+  - **Rejected or deferred:** B2B tracking numbers matched to DB rows (changes B2B behaviour beyond the ask); a `held_back_by` column and the Supabase-recommended hardening beyond `pg_temp` (worth noting only); storing `pack_sig` (see ADR 0029); Done's per-order "Show in queue" duplicating the banner (cosmetic); a cross-device refresh for Pack (reload).
+- **Tests:** `npm test` 305, `npm run test:db` 37 (204 and 26 before B3b). New: `b3b-retail-fulfill` 26, `b3b-retail-pack` 25, `b3b-retail-done` 18, `b3b-retail-banner` 11, `b3b-retail-void` 13, `b3b-retail-contract` 7 (the page against the real handler), `tests/db/label-held-back` 11. Every new test was run against the code with its fix removed and failed; after round 1 only the changed code was mutated (about 100 mutations, the equivalent ones listed in TESTS).
+- **Preview** (local, sample data, stubbed `apiFetch` and `sb.rpc` in the console, never committed): Pack at 1180 (3 columns), 768 (2) and 375 (1, no sideways scroll), the confirm, Done with a failed order and the red banner, Hold back persisting across a re-open, Retry, Clear, Void. No console errors. Screenshots in the session notes folder.
+
+### Detours & fixes
+
+- **A mutation run left the page in a mutated state** after a hung test (a mutation that removed a lock guard made the test never end). The run now has a timeout, and the file is checked against git before a commit.
+- **A scratch script was overwritten by a review subagent** that used the same filename; the repo was untouched (it worked on a copy). New scripts get their own names.
+- **The first Fulfill test faked "lost answer" wrongly** (it never flipped the label rows), so the page's wrong handling passed. The real ordering is now in the tests.
+- **Old test lists of page function names needed a name per new function** and failed with a ReferenceError the page's own catch swallowed. They are derived from `index.html` now.
+
+### Decisions captured
+
+- [`0029-retail-pack-and-fulfill.md`](./decisions/0029-retail-pack-and-fulfill.md)
+
+### Before buying is turned on
+
+1. Andy applies `db/2026-10-20-label-held-back.sql` after the channel and void SQL (RUNBOOK "Retail Pack and Fulfill").
+2. B3a and B3b merge in order (B3a first), and the order's `email` read is checked against the Shopify app's permissions (B2B Fulfill reads it too).
+3. The supervised 3-label live test (TESTS B3b "L"), including voiding one and trying to fulfill it, and one lost answer.
+
 ## 2026-10-19 — Andy's sign-offs after B3a; age chip on at 2 days
 
 ### Work done

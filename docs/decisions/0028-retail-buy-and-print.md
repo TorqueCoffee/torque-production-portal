@@ -51,8 +51,8 @@ The packing slip (B4, `docs/retail_slip_spec.md`) belongs in the same PDF, so it
 **Negative:**
 - Money moves with no total shown first (Andy's call). The Buying screen shows the running total.
 - Each retail quote also reads the order from Shopify (one more call per order, token cached).
-- The batch exists only in the page: Back to queue or a reload drops the Buying screen. The labels stay in the DB and the orders show in Bought. B3b's Pack and Resume read from the DB, not from this state.
-- Scope cut: a bought order Shopify no longer lists ("Not open in Shopify any more") has no Clear or Void button yet (B3b, B6).
+- The batch exists only in the page: Back to queue or a reload drops the Buying screen. The labels stay in the DB and the orders show in Bought. B3b's Pack and Resume read from the DB, not from this state. *Amended by [`0029`](./0029-retail-pack-and-fulfill.md): after a batch the screen goes to Pack (or "Pack and fulfill" on a mixed run) instead of Back to queue.*
+- Scope cut: a bought order Shopify no longer lists ("Not open in Shopify any more") has no Clear or Void button yet (B3b, B6). *Closed by [`0029`](./0029-retail-pack-and-fulfill.md): the red banner has Clear and Void.*
 - If the channel migration is rolled back and applied again, every row reads `b2b` again (the default backfills); retail rows must be re-marked by hand (RUNBOOK).
 - `cost_report_spec.md` also wants a `carton` column; not added here (B5).
 - On an iPad the placeholder tab takes the screen while buying runs; the operator switches back to watch.

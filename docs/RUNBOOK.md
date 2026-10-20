@@ -139,7 +139,7 @@ To look at the page locally: `python3 -m http.server 8765 --bind 127.0.0.1` in t
 Run `npm test` before every push.
 
 **Rolling back the login code:**
-0. If `db/2026-10-19-label-channel.sql` is in, roll it back first ("Retail Buy and print", step 4): the login-rls rollback recreates the two lookups in their old shape and fails while they return `channel`.
+0. If `db/2026-10-20-label-held-back.sql` is in, roll it back first ("Retail Pack and Fulfill", step 6), then, if `db/2026-10-19-label-channel.sql` is in, roll it back ("Retail Buy and print", step 4): the login-rls rollback recreates the two lookups in their old shape and fails while they return `channel`.
 1. If step 3b is in, run `db/2026-10-18-login-rls-rollback.sql` first. After the access migration the old page (anon key) can read nothing.
 2. If step 2b is in, run `db/2026-10-18-realtime-publication-rollback.sql`. The old page reloads on every row event.
 3. Revert the code and push.
@@ -169,5 +169,22 @@ The three names do not match, which has cost time more than once: the repo is `t
 2. Supabase SQL editor: run [`db/2026-10-19-label-channel.sql`](../db/2026-10-19-label-channel.sql). It checks itself before committing. Check: `select pg_get_function_result('public.ship_labels_pending()'::regprocedure);` ends in `channel text`, and `select channel, count(*) from public.shipping_labels group by 1;` shows only `b2b`.
 3. Only after B3b is merged, the void SQL above is applied and Andy says go: set `RETAIL_BUY_ENABLED = true` in `index.html` and push. That push is the supervised 3-label live test (TESTS.md B3a "L"): Andy runs it at once; if anything is off, set it back to `false` and push.
 4. **Undo:** set `RETAIL_BUY_ENABLED = false` and push first. Save the retail rows: `select order_id, box_index, shippo_object_id from public.shipping_labels where channel = 'retail';` (copy the result). Then run `db/2026-10-19-label-channel-rollback.sql`. Retail rows lose their channel and show on the B2B banner. If the migration is applied again later, every row reads `b2b`: re-mark the saved rows (`update public.shipping_labels set channel = 'retail' where shippo_object_id in (…);`).
+
+**Retail Pack and Fulfill (B3b), in this order** (ADR [`0029`](./decisions/0029-retail-pack-and-fulfill.md)). Needs the channel SQL and the void SQL above first; B3a must be merged before B3b:
+1. `npm test` and `npm run test:db` pass.
+2. Supabase SQL editor: run [`db/2026-10-20-label-held-back.sql`](../db/2026-10-20-label-held-back.sql). It checks itself before committing and refuses to run twice. **Before the B3b page deploys:** the page fails closed without it (Fulfill says the database update isn't applied, Hold back errors, Void of a retail label can't take its lock). Check afterwards:
+   ```sql
+   select pg_get_function_result('public.ship_labels_pending()'::regprocedure);        -- ends in "held_back_at timestamp with time zone"
+   select pg_get_function_result('public.ship_labels_for_order(text)'::regprocedure);  -- has weight_lb, held_back_at and dest_zip
+   select count(*) from public.shipping_labels where held_back_at is not null;         -- 0
+   select policyname, cmd from pg_policies where tablename = 'shipping_labels';        -- no UPDATE policy
+   select to_regclass('public.fulfill_claims');                                         -- fulfill_claims
+   ```
+3. Check the Shopify custom app can read an order's `email` (Fulfill reads it for both B2B and retail): in a browser console on the portal, or just fulfill a B2B test order. If a B2B Fulfill starts failing with a GraphQL access error, that is the cause.
+4. Deploy the B3b page (push `main`, Andy's go). The Retail tab still can't buy (`RETAIL_BUY_ENABLED = false`).
+5. Only after steps 2–4 and Andy says go: set `RETAIL_BUY_ENABLED = true` and push. That push is the supervised 3-label live test (TESTS.md B3a "L" and B3b "L"). If anything is off, set it back to `false` and push.
+6. **Undo:** set `RETAIL_BUY_ENABLED = false` and deploy the page from before B3b first (a B3b page without the SQL fails closed; the old page ignores the new columns). Save the held orders: `select order_id, order_name, held_back_at from public.shipping_labels where held_back_at is not null;`. Then run `db/2026-10-20-label-held-back-rollback.sql` (it also reopens UPDATE on `shipping_labels`, as it was).
+7. A stuck order lock (a claim older than 2 minutes is taken over by itself; to clear one now): `delete from public.fulfill_claims where order_id = 'gid://shopify/Order/<id>';`.
+8. A label voided in Shippo whose row still reads `purchased` ("Voided, not recorded" on the queue): `update public.shipping_labels set status = 'voided', voided_at = now() where shippo_object_id = '<id>';` (the table's UPDATE is closed to signed-in users, but the SQL editor runs as the owner), then it can be bought again.
 
 **Schema changes ship separately.** Migrations in `db/` are applied by hand in the Supabase SQL editor; nothing runs them on deploy. Apply the migration *before* pushing code that writes to the new columns.

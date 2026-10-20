@@ -1,0 +1,47 @@
+# 0029 — Retail Pack and Fulfill: held-back on the label row, tracking read on the server, one lock per order
+
+- **Status**: Accepted
+- **Date**: 2026-10-20
+
+## Context
+
+B3a buys labels. B3b is what happens after: Pack (check the carton and order number, hold back what can't ship), Fulfill (write UPS tracking to Shopify, Shopify sends the one customer email), Done, the Resume and Retry banners, and Void (`docs/RETAIL_UI_HANDOFF.md` 3.4–3.7, `docs/B3B_EXECUTION_PLAN.md`). Andy answered the seven open questions on 2026-10-19 (the "Decisions" in the plan). Everything here is live money or a real customer email, and the page is only a convenience: several staff on several devices share one set of labels.
+
+Two things were not decided by the plan and came out of the adversarial reviews (two rounds, fresh Saboteur, Security Auditor and Architect each time):
+
+- A `shipping_labels` row is a *record*, not Shippo's word. Any signed-in staff session could insert a row (the cost-row insert policy) or update one (the UPDATE policy), and a label voided by hand in the Shippo dashboard still reads `purchased`. Fulfill puts a number from that row into an email to a customer.
+- Fulfill, Void and Hold back on one order can run at once from two devices. Shopify rejects a second `fulfillmentCreate` on a closed order, but nothing stopped a Void from refunding a label while its number was on its way to the customer.
+
+## Options considered
+
+- **Where Hold back lives** (Decision 1, Andy): in the page (lost on reload, invisible to a second packer); a batch table with membership (a new table and grants for what is one flag); or **`held_back_at` on `shipping_labels`, set by a SECURITY DEFINER function (chosen)**. No batch id: the batch is every retail label that is bought and not fulfilled.
+- **Where the tracking number comes from:** the page's request, as B2B does (any 1Z-shaped number could be sent for any order); or **the label row, read by the server, never the page (chosen)**. A request with no `kind` for an order that has a live retail label takes the retail path too (Andy, 2026-10-20), so leaving `kind` out can't skip the checks.
+- **How far to trust the row:** the DB alone (the plan); or **Shippo confirms the transaction is `SUCCESS` with the same tracking number just before the fulfillment is written (chosen)**. A refunded or hand-voided label reads REFUNDED, a planted row has no transaction.
+- **Mutual exclusion:** none (rely on Shopify rejecting the second create); a check-then-act with the label row read last (still a window of seconds); or **a per-order lock in the DB, `claim_order_fulfill` / `release_order_fulfill`, taken by Fulfill (before it reads anything), by a retail Void, and checked by Hold back (chosen, Andy, 2026-10-20)**. Same pattern as `claim_label_box`; a claim older than 2 minutes can be taken over.
+- **Repack check at fulfill** (Decision 3): the label's billed lb against the order as Shopify has it now, through `checkRetailOrder` (the label step's own reading, list rules and packer, now one copy in `api/_retail.js`), plus **the ZIP the label was bought for** (`dest_zip`, added to the lookup). Contents edits that keep the carton and the billed lb are not detected: see Consequences.
+- **The UPDATE door on `shipping_labels`:** left as it was; or **dropped (policy and grant), since every write to an existing row goes through a SECURITY DEFINER function (chosen, Andy, 2026-10-20)**. INSERT stays: the label endpoint writes the cost row.
+- **Fulfill failures** (Decision 7): kept for this session only. After a reload the order is simply in the open batch again, and Fulfill retries it safely.
+
+## Decision
+
+- **DB** (`db/2026-10-20-label-held-back.sql`, rollback beside it, **not applied**): `shipping_labels.held_back_at`; `set_ship_label_held_back(order, held)` (staff only, retail purchased rows only, changes nothing while the order's lock is held); `ship_labels_for_order` also returns `weight_lb`, `dest_zip`, `held_back_at`; `ship_labels_pending` also returns `held_back_at`; `fulfill_claims` with `claim_order_fulfill` / `release_order_fulfill`; the UPDATE policy and grant removed. All new functions are SECURITY DEFINER with `search_path` fixed (`public, pg_temp`) and no EXECUTE for anon or public; the migration's own postconditions check this.
+- **Fulfill** (`api/shopify-fulfill.js`, `kind: 'retail'`): takes the order's lock before anything is read and releases it on every path; reads the order's fulfillment orders (the cancelled, not-done, already-fulfilled and `only_if_fulfilled` guards run first, as for B2B, so a retry after a lost answer finds the order done and sends nothing); then checks the label row (exactly one live retail label, box 1 of 1, not held back, a UPS number), the pack and ZIP (`checkRetailOrder`), and Shippo (`api/_shippo.js`); writes one fulfillment with the row's number and `notifyCustomer` always on (only Clear, which creates nothing, sends it off). Answers: 409 with a `code` (`busy`, `labels`, `held_back`, `not_listed`, `pack_changed`, `label_not_live`), 503 when a check can't be made (including "the database update is not applied"), 504 when Shopify doesn't answer in 6 s, and `emailed` (true only if a fulfillment was created, the email was on and the order has an address). Every Shopify and Supabase call has a timer.
+- **Void** (`api/shippo-label.js`): a retail label takes the same lock before it asks Shopify or Shippo, and reads the row again once it holds it. B2B voids are unchanged.
+- **Page:** Pack cards are the DB's pending retail labels joined to the order list (Hold back and Include go through the RPC and re-read; never optimistic); Buy is blocked while a batch is open (Decision 2); an all-bought run goes straight to Pack, otherwise Buying's button becomes "Pack and fulfill" (Decision 5; also kept on Buying when a row's cost wasn't recorded or the PDF tab was blocked, so that is read first); Fulfill is two taps (confirm, then send) and runs three at a time, one at a time after a 429 or 503 with waits of 1.5, 3 and 4.5 s (one shared pool with Buy); a lost answer to a fulfill whose label rows were flipped counts as shipped; Done follows a Retry from the red banner; the red banner (Retry fulfill for this session's failures, Clear and Void for orders Shopify no longer lists) shows on the queue, Pack and Done; Void is on Bought rows, held-back cards and gone orders, never on included cards or unrecorded orders. A void refunded in Shippo whose row couldn't be marked stays flagged on that device ("Voided, not recorded") although the DB row still reads purchased; the flag drops once Andy has fixed the row. Only the newest pending read is applied after Hold back, Fulfill, Retry or Clear.
+
+## Consequences
+
+**Positive:** a customer can't be emailed a refunded, planted or wrong-address label's tracking number, or two emails for one order, from the page, a stale tab or a second device; a reload or another packer sees the same held-back cards; Fulfill and Void are safe against each other; a request can't skip the retail checks by leaving `kind` out; the tests cover the page against the real handler (`tests/b3b-retail-contract.test.js`).
+
+**Negative:**
+- Fulfill now makes up to six outbound calls per order (lock, Shopify twice, label record, Shippo, release), three orders at a time; the worst case with every timer running can pass Vercel's default function duration (no `maxDuration` is set; typical is 1–2 s). Watch the first live batch.
+- Shippo's REFUNDED / REFUNDPENDING reading of a refunded transaction is from its documentation and has not been seen live (the supervised test checks it: void one, then try to fulfill it).
+- **Accepted limits:** an order edited after its label was bought so that the carton and billed lb are unchanged (for example 2 × 12 oz changed to 1 × 2 lb) is not detected; the pack signature is not stored on the row (adding it would make the label endpoint depend on a new column). A held-back order stays bought and open until someone taps Include; it is never re-included by itself. No cap on Pack and Fulfill beyond one batch plus held-back orders (Decision: the 25 cap is on buying). B2B Fulfill still trusts the tracking numbers in its request (a pre-existing gap: a B2B order with a live retail label is no longer exposed to it).
+- The old B2B Fulfill request now also reads the order's `email` and answers `emailed`; otherwise it is unchanged. If the Shopify app lacks permission to read an order's email, B2B Fulfill would fail: check before deploy.
+- Done's "Customer emails sent" is `notifyCustomer && the order has an email`, a claim about Shopify's behaviour, not a receipt; a fulfill whose answer was lost counts as shipped but not as an email.
+- `held_back_at` holds a time, not who held it.
+- Apply the SQL before the page deploys: a page without it fails closed (Fulfill says "the database update is not applied", Hold back errors, Void of a retail label says the lock can't be taken).
+
+**Amends ADR 0028:** "Back to queue" after a batch is replaced by Pack (an all-bought run) or by "Pack and fulfill" (a mixed run); the scope cut "a gone order has no Clear or Void" is closed (red banner, Void). ADR 0027's cap is unchanged.
+
+**When to revisit:** the first live batch shows a function timeout; Shippo's refunded status reads differently; B2B Fulfill gets the same DB-number rule; a per-user audit of who held back or fulfilled is wanted; item edits that keep the carton start to matter (store `pack_sig` on the row).
