@@ -34,7 +34,8 @@ function queue(extraGlobals = {}) {
     'retailMsg', 'retailShowHold', 'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders',
     'retailSelectAllIds', 'retailBilledLb', 'retailApplySubscriptions', 'retailToggle', 'retailToggleAll', 'retailToggleHold', 'retailChip',
     'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail',
-    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailBoughtRow', 'retailGoneRow']
+    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailBoughtRow', 'retailGoneRow',
+    'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
   const el = { innerHTML: '' }
   const all = { checked: false, indeterminate: false }
   const { elements = {}, ...globals } = extraGlobals
@@ -272,7 +273,8 @@ test('B1 UI: ticking a box keeps keyboard focus on it, and the sticky bar sits u
     'RETAIL_HOLD_DETAIL_TEXT', 'RETAIL_EXCLUDED_TEXT', 'retailOrders', 'retailExcluded', 'retailLoadedAt', 'retailLoading', 'retailError', 'retailSel', 'retailMsg',
     'retailShowHold', 'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders', 'retailSelectAllIds', 'retailBilledLb',
     'retailToggle', 'retailToggleHold', 'retailChip', 'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail',
-    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting']
+    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting',
+    'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
   const rows = [order(), order(), order()]
   const api = vm.runInNewContext(names.map(n => declarationSource(src, n)).join('\n') +
     `\n;({ init(o) { retailOrders = o; retailLoadedAt = Date.now() }, render: renderRetail, toggle: retailToggle })`, { document: doc, Date, URL, console })
@@ -316,7 +318,7 @@ test('B3a: the Retail block calls only the list, rate/label (never void), the ba
   assert.match(block, /\/api\/shippo-label\?action=\$\{action\}/)
   assert.deepEqual([...new Set(block.match(/retailPost\('(\w+)'/g))].sort(), ["retailPost('label'", "retailPost('rate'"])
   assert.doesNotMatch(block, /\)\.(insert|update|upsert|delete)\(/)                          // no table write (retailSel.delete is a Set)
-  assert.deepEqual([...new Set(block.match(/sb\.rpc\('(\w+)'/g))].sort(), ["sb.rpc('ship_labels_for_order'", "sb.rpc('ship_labels_pending'"])
+  assert.deepEqual([...new Set(block.match(/sb\.rpc\('(\w+)'/g))].sort(), ["sb.rpc('set_ship_label_held_back'", "sb.rpc('ship_labels_for_order'", "sb.rpc('ship_labels_pending'"])
   assert.deepEqual(block.match(/sb\.from\('[^']+'\)\.\w+/g), ["sb.from('subscription_schedule').select"])
 })
 

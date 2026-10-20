@@ -328,6 +328,23 @@ td select{padding:6px 8px;border:2px solid var(--black);border-radius:6px;font-s
 .rt-buyrow.bad{background:var(--red-light)}
 .rt-why{font-size:12px;flex-basis:100%}
 .rt-pdf .btn:disabled{opacity:.4;cursor:not-allowed}
+/* B3b Pack screen (docs/design/retail-ui/Pack.dc.html): 3 columns, 2 on an iPad in portrait, 1 on a phone. */
+.rt-packgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px}
+@media(max-width:900px){.rt-packgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.rt-packgrid{grid-template-columns:minmax(0,1fr)}}
+.rt-pc{display:flex;flex-direction:column;gap:8px;padding:14px 16px;min-height:176px;background:var(--cream-hi);border:2px solid var(--black);border-radius:var(--r-card);font-size:13px}
+.rt-pc.off{background:#F6F0F0;color:#5E5148;border-style:dashed}
+.rt-pc-head{display:flex;align-items:center;gap:8px}
+.rt-pc-head b{font-size:16px}
+.rt-pc-head .mut{flex:1;font-size:12px}
+.rt-pc .rt-lines{flex:1;padding:0}
+.rt-pc-note{padding:6px 8px;border-radius:8px;background:var(--amber-light);color:var(--orange-dark);font-style:italic;overflow-wrap:anywhere;white-space:pre-wrap}
+.rt-pc-btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rt-pc-btns .btn:disabled,.rt-lead .btn:disabled,.rt-resume .btn:disabled{opacity:.4;cursor:not-allowed}
+.rt-lead{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:12px 18px;margin-bottom:14px;background:#FFF5D2;border:2px solid var(--black);border-radius:var(--r-card);font-size:14px}
+.rt-lead > div{flex:1;min-width:220px}
+.rt-resume{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 18px;margin-bottom:14px;background:var(--amber-light);border:2px solid var(--orange-dark);border-radius:var(--r-card);font-size:14px}
+.rt-resume > span{flex:1;min-width:220px}
 
 /* SHIP */
 .ship-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -3156,6 +3173,10 @@ let retailShowHold = false
 let retailPending = {}       // order_id -> retail labels bought and not fulfilled (ship_labels_pending, channel retail)
 let retailPendingError = ''
 let retailBatch = null       // the Buying screen (B3a), or null for the queue
+// The Pack screen (B3b, ADR 0029), or null. Never open together with retailBatch. The cards are
+// not stored here: they are the DB's pending retail labels joined to the order list, so a
+// reload shows the same cards. busy: order_ids with a Hold back / Include call in flight.
+let retailPack = null        // { busy: Set(order_id), fulfilling, msg }
 let retailBuyInFlight = false
 let retailReprinting = false
 // Orders bought this week whose cost row couldn't be written (cost_logged: false). The DB has no
@@ -3255,7 +3276,7 @@ function initRetailTab() {
   else renderRetail()
 }
 async function loadRetailOrders() {
-  if (retailBuyInFlight) return
+  if (retailBuyInFlight || retailPackLocked()) return
   const seq = ++retailLoadSeq
   retailLoading = true
   retailError = ''
@@ -3268,8 +3289,7 @@ async function loadRetailOrders() {
     const [, pend] = await Promise.all([ensureScheduleData(), loadRetailPending()])
     if (seq !== retailLoadSeq) return
     // A failed read keeps the last set, and this device's notes are laid over it either way.
-    if (pend.ok) { retailPending = retailMergeUnrecorded(pend.pending, true); retailPendingError = '' }
-    else { retailPending = retailMergeUnrecorded(retailPending, false); retailPendingError = pend.why }
+    retailApplyPending(pend)
     retailOrders = retailApplySubscriptions(data.orders || [])
     retailExcluded = data.excluded || {}
     retailLoadedAt = Date.now()
@@ -3283,6 +3303,13 @@ async function loadRetailOrders() {
   }
   retailLoading = false
   renderRetail()
+}
+
+// A pending read (loadRetailPending) applied to the page's set. A failed read keeps the last set
+// and says so; this device's unrecorded notes are laid over it either way.
+function retailApplyPending(pend) {
+  if (pend.ok) { retailPending = retailMergeUnrecorded(pend.pending, true); retailPendingError = '' }
+  else { retailPending = retailMergeUnrecorded(retailPending, false); retailPendingError = pend.why }
 }
 
 function retailReadUnrecorded() {
@@ -3461,7 +3488,7 @@ function retailBoughtRow(o) {
     <span>${escHtml(retailShipTo(o))}</span>
     <span class="rt-lines">${retailLines(o)}</span>
     <span>${escHtml(retailCartonLabel(o) || '—')}</span>
-    <span class="rt-chips">${retailPending[o.order_id] && retailPending[o.order_id].unrecorded ? retailChip('bad', 'Bought, not recorded. Do not buy again. Tell Andy') + `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailClearUnrecorded(this.dataset.id)" ${retailBuyInFlight ? 'disabled' : ''}>Shippo shows none</button>` : retailChip('ok', 'Label bought')}${retailPending[o.order_id] && retailPending[o.order_id].unrecorded ? '' : `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailReprintBought(this.dataset.id)" ${retailBuyInFlight || retailReprinting ? 'disabled' : ''}>Reprint</button>`}</span>
+    <span class="rt-chips">${retailPending[o.order_id] && retailPending[o.order_id].unrecorded ? retailChip('bad', 'Bought, not recorded. Do not buy again. Tell Andy') + `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailClearUnrecorded(this.dataset.id)" ${retailBuyInFlight ? 'disabled' : ''}>Shippo shows none</button>` : (retailPending[o.order_id] && retailPending[o.order_id].held_back_at ? retailChip('warn', 'Held back') : retailChip('ok', 'Label bought'))}${retailPending[o.order_id] && retailPending[o.order_id].unrecorded ? '' : `<button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailReprintBought(this.dataset.id)" ${retailBuyInFlight || retailReprinting ? 'disabled' : ''}>Reprint</button>`}</span>
   </div>`
 }
 // A bought order Shopify no longer lists as open (fulfilled by hand, cancelled, edited onto
@@ -3480,7 +3507,8 @@ function retailGoneRow(p) {
 // Buy and print: the second of the two taps. The PDF tab is opened here, inside the tap, or
 // Safari blocks it; it shows a "buying" note until the labels are ready.
 async function retailBuyAndPrint() {
-  if (!RETAIL_BUY_ENABLED || retailBuyInFlight || retailBatch || retailLoading) return   // a load still running would replace the bought set
+  if (!RETAIL_BUY_ENABLED || retailBuyInFlight || retailBatch || retailPack || retailLoading) return   // a load still running would replace the bought set
+  if (retailBatchOpen()) return            // one batch at a time: fulfill or hold back the open one first (Decision 2, ADR 0029)
   const g = retailGroups(retailOrders)
   const orders = retailReadyOrders(g).filter(o => retailSel.has(o.order_id))
   if (!orders.length || orders.length > RETAIL_MAX_BATCH) return
@@ -3503,6 +3531,12 @@ async function retailBuyAndPrint() {
     b.printing = false
   }
   renderRetail()
+  await retailAfterBuy(b)
+}
+// Every row bought and nothing to read on the Buying screen (no unrecorded warning, no PDF
+// problem): straight to Pack. Anything else stays here, and Back to queue becomes Pack and fulfill.
+async function retailAfterBuy(b) {
+  if (b.rows.every(r => r.status === 'bought' && !r.warn) && !b.pdfError && retailCloseBatch()) await retailOpenPack()
 }
 
 // A new tab with a short message, opened synchronously in a tap. null when Safari blocked it.
@@ -3749,7 +3783,7 @@ async function retailPdfButton(fresh) {
 // the listed order. Never buys. More than one live label on record is a problem to look at, not
 // a choice to make here.
 async function retailReprintBought(orderId) {
-  if (retailBuyInFlight || retailReprinting) return
+  if (retailBuyInFlight || retailReprinting || (retailPack && (retailPack.fulfilling || retailLoading))) return
   const o = retailOrders.find(x => x.order_id === orderId)
   if (!o) return
   const win = retailPdfTab('Building the label and slip…')
@@ -3769,13 +3803,89 @@ async function retailReprintBought(orderId) {
   }
 }
 
-function retailBackToQueue() {
+// Leave the Buying screen. false (and nothing changes) while it is buying or making the PDF.
+function retailCloseBatch() {
   const b = retailBatch
-  if (retailBuyInFlight || (b && b.printing)) return
+  if (retailBuyInFlight || (b && b.printing)) return false
   // Freed a minute later: the PDF tab may still be loading it in the background.
   if (b && b.pdfUrl) { const u = b.pdfUrl; setTimeout(() => { try { URL.revokeObjectURL(u) } catch (e) {} }, 60 * 1000) }
   retailBatch = null
+  return true
+}
+function retailBackToQueue() {
+  if (!retailCloseBatch()) return
   loadRetailOrders()                       // bought orders come back in Bought, the rest as ready
+}
+// Buying screen -> Pack, when some rows were bought and some were not (Decision 5).
+function retailPackAndFulfill() {
+  if (!retailCloseBatch()) return
+  return retailOpenPack()
+}
+
+// ---- B3b: Pack, Hold back, Include (docs/RETAIL_UI_HANDOFF.md 3.4; ADR 0029) ----------------
+// The batch has no id: it is every retail label that is bought and not fulfilled (ship_labels_pending,
+// channel retail), joined to the order list for ship-to, coffees, carton and note. Hold back is
+// stored on the label row (held_back_at, set_ship_label_held_back), so a reload, another device
+// or another packer sees the same cards. A pending order the list no longer has is "gone": it
+// never gets a card (the red banner and Void handle it).
+
+// True while the Fulfill run is going: the order list is not replaced under it.
+function retailPackLocked() { return !!(retailPack && retailPack.fulfilling) }
+// Pending retail rows that count as an open batch: bought, not held back, and recorded.
+function retailBatchOpen() {
+  return Object.values(retailPending).some(p => !p.unrecorded && !p.held_back_at)
+}
+// The Pack cards: pending retail rows that are in the order list and recorded, by carton, then
+// oldest first. held comes from the DB row.
+function retailPackCards() {
+  const byId = new Map(retailOrders.map(o => [o.order_id, o]))
+  const rank = o => { const i = RETAIL_CARTONS.indexOf(retailCartonLabel(o)); return i < 0 ? RETAIL_CARTONS.length : i }
+  return Object.values(retailPending)
+    .filter(p => !p.unrecorded && byId.has(p.order_id))
+    .map(p => ({ order: byId.get(p.order_id), held: !!p.held_back_at }))
+    .sort((a, b) => rank(a.order) - rank(b.order) || String(a.order.created_at || '').localeCompare(String(b.order.created_at || '')))
+}
+function retailPackCounts() {
+  const cards = retailPackCards()
+  const held = cards.filter(c => c.held).length
+  return { toFulfill: cards.length - held, held }
+}
+// Open Pack with the newest DB state: the order list is re-read first (it loads the pending
+// labels and lays this device's unrecorded notes over them). Locked while it loads.
+async function retailOpenPack() {
+  if (retailBuyInFlight || (retailBatch && retailBatch.printing)) return
+  retailBatch = null
+  retailPack = { busy: new Set(), fulfilling: false, msg: '' }
+  await loadRetailOrders()
+}
+function retailBackFromPack() {
+  if (!retailPack || retailPack.fulfilling) return
+  retailPack = null
+  loadRetailOrders()
+}
+// Hold back (held true) or Include (false) one order. Never optimistic: the card changes only
+// after the DB says one row changed and the pending list has been read again.
+async function retailSetHeld(id, held) {
+  const pk = retailPack
+  if (!pk || pk.fulfilling || retailLoading || pk.busy.has(id)) return
+  const o = retailOrders.find(x => x.order_id === id)
+  const name = o ? o.order_name : 'this order'
+  const verb = held ? 'hold back' : 'include'
+  pk.busy.add(id); pk.msg = ''
+  renderRetail()
+  try {
+    const { data, error } = await sb.rpc('set_ship_label_held_back', { p_order_id: id, p_held: !!held })
+    if (error) throw error
+    if (data !== 1) throw new Error('the portal changed no label')
+    const pend = await loadRetailPending()
+    retailApplyPending(pend)
+    if (!pend.ok) pk.msg = `${name} was changed, but the list couldn't be read again (${pend.why}). Tap Refresh to see it.`
+  } catch (e) {
+    pk.msg = `Couldn't ${verb} ${name}: ${e.message || e}. Nothing changed.`
+  } finally {
+    pk.busy.delete(id)
+  }
+  renderRetail()
 }
 
 function renderRetailBatch() {
@@ -3798,7 +3908,7 @@ function renderRetailBatch() {
     <span class="rt-chip${working ? ' rt-chip-warn' : ''}">${working} in progress</span>
     <span class="rt-chip${notBought ? ' rt-chip-bad' : ''}">${notBought} not bought</span>
     <span class="rt-chip">Spent ${retailMoney(spent)}${recovered ? ` · ${recovered} bought earlier` : ''}</span>
-    ${locked ? '' : '<button class="btn btn-secondary btn-sm rt-tap" onclick="retailBackToQueue()">Back to queue</button>'}
+    ${locked ? '' : bought ? '<button class="btn btn-primary btn-sm rt-tap" onclick="retailPackAndFulfill()">Pack and fulfill</button>' : '<button class="btn btn-secondary btn-sm rt-tap" onclick="retailBackToQueue()">Back to queue</button>'}
   </div>
   <div class="rt-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
   <div class="mut rt-small" style="margin-bottom:12px">${bought + notBought} of ${rows.length} done${busy ? ' · Nothing to click while this runs' : b.printing ? ' · Making the PDF' : ''}</div>`
@@ -3847,10 +3957,62 @@ function renderRetailBatch() {
   return head + warn + pdf + review + `<div class="table-wrap"><div class="rt-table">${th}${shown.map(line).join('')}</div></div>` + foot
 }
 
+// One Pack card. Escaped: the order name, ship-to, note and coffee names are Shopify's text.
+function retailPackCard(c, off) {
+  const o = c.order, id = escHtml(o.order_id)
+  const lines = (o.items || []).map(it =>
+    `<span><b>${escHtml(it.qty)}×</b> ${escHtml(retailSizeLabel(it))} · ${escHtml(it.product_name)}</span>`).join('')
+  const chips = (o.flags || []).includes('REPLACEMENT') ? retailChip('bad', `REPLACEMENT · ${(o.discount_codes || []).join(', ') || 'reason not recorded'}`) : ''
+  const noCoffee = (o.items || []).some(i => i.note) ? retailChip('warn', 'No coffee set this week') : ''
+  const note = o.note ? `<div class="rt-pc-note">Note: ${escHtml(o.note)}</div>` : ''
+  const dis = off || retailPack.busy.has(o.order_id) ? 'disabled' : ''
+  return `<div class="rt-pc${c.held ? ' off' : ''}">
+    <div class="rt-pc-head"><b>${escHtml(o.order_name)}</b><span class="mut">${escHtml(retailShipTo(o))}</span><span class="rt-chip">${escHtml(retailCartonLabel(o) || '—')}</span></div>
+    <div class="rt-lines">${lines}</div>
+    ${chips || noCoffee ? `<div class="rt-chips">${chips}${noCoffee}</div>` : ''}${note}
+    <div class="rt-pc-btns">
+      <button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" onclick="retailReprintBought(this.dataset.id)" ${off || retailReprinting ? 'disabled' : ''}>Reprint</button>
+      <button class="btn btn-secondary btn-sm rt-tap" data-id="${id}" data-held="${c.held ? '0' : '1'}" onclick="retailSetHeld(this.dataset.id, this.dataset.held === '1')" ${dis}>${c.held ? 'Include' : 'Hold back'}</button>
+      ${c.held ? retailChip('warn', 'Stays open') : ''}
+    </div>
+  </div>`
+}
+function renderRetailPack() {
+  const pk = retailPack
+  const cards = retailPackCards()
+  const { toFulfill, held } = retailPackCounts()
+  const off = retailLoading || pk.fulfilling      // loading or fulfilling: nothing can be tapped
+  const head = `<div class="rt-title">
+    <h2>Pack and fulfill</h2>
+    <span class="rt-chip rt-chip-ok">${toFulfill} to fulfill</span>
+    <span class="rt-chip${held ? ' rt-chip-warn' : ''}">${held} held back</span>
+    <button class="btn btn-secondary btn-sm rt-tap" onclick="loadRetailOrders()" ${off ? 'disabled' : ''}>${retailLoading ? 'Refreshing…' : 'Refresh'}</button>
+    <button class="btn btn-secondary btn-sm rt-tap" onclick="retailBackFromPack()" ${off ? 'disabled' : ''}>Back to queue</button>
+  </div>`
+  const err = retailError ? `<div class="alert alert-red">Couldn't load retail orders: ${escHtml(retailError)} <button class="btn btn-secondary btn-sm rt-tap" onclick="loadRetailOrders()" ${off ? 'disabled' : ''}>Try again</button></div>` : ''
+  const pendWarn = retailPendingError ? `<div class="alert alert-red">Couldn't check which orders have a label (${escHtml(retailPendingError)}). What is shown may be out of date; tap Refresh.</div>` : ''
+  const msg = pk.msg ? `<div class="alert alert-red">${escHtml(pk.msg)}</div>` : ''
+  const lead = `<div class="rt-lead"><div><b>Every order starts included.</b> <span class="mut">Pack, check the order number on label and slip, and tap Hold back only for one you cannot send.</span></div></div>`
+  let grid
+  if (!retailLoadedAt) grid = '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">Loading the open batch…</div>'
+  else if (!cards.length) grid = '<div class="empty" style="padding:3rem;background:var(--cream);border:2px solid var(--black);border-radius:var(--r-card);">No bought orders waiting to be packed.</div>'
+  else grid = `<div class="rt-packgrid">${cards.map(c => retailPackCard(c, off)).join('')}</div>`
+  const foot = `<div class="mut rt-small">Cards are sorted by carton so the same size packs together. Reprint opens just that order's label and slip. A held-back order stays bought and open until you tap Include.</div>`
+  return head + err + pendWarn + msg + lead + grid + foot
+}
+// The queue's banner for a batch left open (D12): bought, not held back, still open in Shopify.
+function retailResumeBanner() {
+  const { toFulfill, held } = retailPackCounts()
+  if (!toFulfill) return ''
+  return `<div class="rt-resume"><span><b>Batch open: ${toFulfill} to fulfill, ${held} held back</b></span>
+    <button class="btn btn-primary rt-tap" onclick="retailOpenPack()" ${retailLoading ? 'disabled' : ''}>Resume batch</button></div>`
+}
+
 function renderRetail() {
   const body = document.getElementById('retailBody')
   if (!body) return
   if (retailBatch) { body.innerHTML = renderRetailBatch(); return }
+  if (retailPack) { body.innerHTML = renderRetailPack(); return }
   if (retailError) {
     body.innerHTML = `<div class="alert alert-red">Couldn't load retail orders: ${escHtml(retailError)} <button class="btn btn-secondary btn-sm rt-tap" onclick="loadRetailOrders()">Try again</button></div>`
     return
@@ -3876,12 +4038,14 @@ function renderRetail() {
   </div>`
 
   const buyLabel = `Buy and print ${sel.length} label${sel.length !== 1 ? 's' : ''}`
+  const open = retailBatchOpen()
   const bar = `<div class="rt-bar">
     <div class="rt-bar-text"><b>${sel.length} selected</b> <span class="mut">of ${ready.length} ready · ${retailBilledLb(sel)} billed lb</span>
       ${retailMsg ? `<div class="rt-msg">${escHtml(retailMsg)}</div>` : ''}
+      ${open ? `<div class="rt-msg">Fulfill or hold back the open batch first.${retailPackCounts().toFulfill ? ' <button class="btn btn-secondary btn-sm rt-tap" onclick="retailOpenPack()">Resume batch</button>' : ''}</div>` : ''}
       ${RETAIL_BUY_ENABLED ? '' : '<div class="mut rt-small">Buying turns on in the next release. This screen only lists and selects.</div>'}
     </div>
-    <button class="btn btn-primary rt-buy" onclick="retailBuyAndPrint()" ${RETAIL_BUY_ENABLED && sel.length && !retailLoading ? '' : 'disabled'}>${buyLabel}</button>
+    <button class="btn btn-primary rt-buy" onclick="retailBuyAndPrint()" ${RETAIL_BUY_ENABLED && sel.length && !retailLoading && !open ? '' : 'disabled'}>${buyLabel}</button>
   </div>`
 
   const groupRow = (t, d) => `<div class="rt-grp"><span>${escHtml(t)}</span><span class="mut" style="font-weight:400">${escHtml(d)}</span></div>`
@@ -3924,7 +4088,7 @@ function renderRetail() {
   const key = el => [el.tagName, el.getAttribute('data-id'), el.getAttribute('onclick') || el.getAttribute('onchange')].join('|')
   const focused = f && f !== document.body && body.contains && body.contains(f) ? key(f) : null
   const pendWarn = retailPendingError ? `<div class="alert alert-red">Couldn't check which orders already have a label (${escHtml(retailPendingError)}). Orders this device knows are bought still show in Bought; check Shippo before buying an order again.</div>` : ''
-  body.innerHTML = title + pendWarn + bar + table + hold + foot
+  body.innerHTML = title + pendWarn + retailResumeBanner() + bar + table + hold + foot
   const all = document.getElementById('retailAll')
   if (all) all.indeterminate = retailSel.size > 0 && !allOn
   if (focused) { const el = [...body.querySelectorAll('input,button,a')].find(e => key(e) === focused); if (el) el.focus() }

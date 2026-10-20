@@ -15,7 +15,8 @@ const NAMES = ['escHtml', 'safeUrl', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'RETAI
   'loadRetailOrders', 'loadRetailPending', 'retailToggle', 'retailToggleAll', 'retailChip', 'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow',
   'RETAIL_ROW_BAD', 'retailMoney', 'retailShippoAddress', 'retailPacificDate', 'retailSlip', 'retailBoughtRow', 'retailGoneRow', 'retailBuyAndPrint', 'retailPdfTab',
   'retailRun', 'retailPost', 'retailRequest', 'retailTooMany', 'retailQuote', 'retailBuyOne', 'retailRowAction', 'retailPdfRows', 'retailOpenPdf', 'retailPdfFresh',
-  'retailPdfButton', 'retailReprintBought', 'retailBackToQueue',
+  'retailPdfButton', 'retailReprintBought', 'retailBackToQueue', 'retailCloseBatch', 'retailAfterBuy', 'retailPackAndFulfill', 'retailApplyPending',
+  'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner', 'retailOpenPack', 'retailBackFromPack', 'retailSetHeld',
   'renderRetailBatch', 'renderRetail']
 
 const P = { '8x6x3': { length: 8, width: 6, height: 3, weight: 1 }, '12x8x6': { length: 12, width: 8, height: 6, weight: 2 }, '14x10x10': { length: 14, width: 10, height: 10, weight: 5 } }
@@ -57,7 +58,10 @@ function server({ rate = () => ({ status: 200, json: { ok: true, amount: '6.43',
     calls: part => log.filter(e => e.url.includes(part)) }
 }
 
-function page({ srv = server(), enabled = true, popup = true, storage = {} } = {}) {
+// pack: false (the default) keeps the Buying screen on screen after an all-bought run, so these B3a
+// tests keep reading it; B3b (Decision 5) goes on to Pack, which tests/b3b-retail-pack.test.js
+// runs for real.
+function page({ srv = server(), enabled = true, popup = true, storage = {}, pack = false } = {}) {
   const src = inlineScripts().join('\n')
   const el = { innerHTML: '' }
   const opened = [], longTimers = []
@@ -74,7 +78,8 @@ function page({ srv = server(), enabled = true, popup = true, storage = {} } = {
     window: { open: () => { const w = { closed: false, location: { href: '' }, document: { title: '', body: { innerHTML: '' } }, close() { this.closed = true } }; opened.push({ w, before: srv.log.length }); return popup ? w : null } },
     document: { getElementById: id => (id === 'retailBody' ? el : null) }
   }
-  const code = NAMES.map(n => declarationSource(src, n).replace(/^const (RETAIL_BUY_ENABLED|RETAIL_BUY_PARALLEL|RETAIL_BUSY_WAIT_MS)/, 'let $1')).join('\n') + `
+  const code = NAMES.map(n => declarationSource(src, n).replace(/^const (RETAIL_BUY_ENABLED|RETAIL_BUY_PARALLEL|RETAIL_BUSY_WAIT_MS)/, 'let $1')).join('\n') + (pack ? '' : `
+retailAfterBuy = async () => {}`) + `
 ;({ set(o) { if ('orders' in o) { retailOrders = o.orders; retailLoadedAt = Date.now() } if ('enabled' in o) RETAIL_BUY_ENABLED = o.enabled
     if ('sel' in o) retailSel = new Set(o.sel); if ('pending' in o) retailPending = o.pending; if ('parallel' in o) RETAIL_BUY_PARALLEL = o.parallel; if ('busyWait' in o) RETAIL_BUSY_WAIT_MS = o.busyWait },
   get batch() { return retailBatch }, get unrecorded() { return retailUnrecorded }, set loading(v) { retailLoading = v }, get inFlight() { return retailBuyInFlight }, get sel() { return [...retailSel] }, get pending() { return retailPending },
@@ -320,7 +325,7 @@ test('B3a R7: while buying, ticking, Refresh, Back, a second Buy and row actions
   await p.pdf()
   const html = p.html()
   assert.match(html, /Nothing to click while this runs/)
-  assert.doesNotMatch(html, /Back to queue|data-what=/)
+  assert.doesNotMatch(html, /Back to queue|Pack and fulfill|data-what=/)
   assert.match(html, /onclick="retailPdfButton\(false\)" disabled/)
   assert.match(html, /onclick="retailPdfButton\(true\)" disabled/)
   p.ctx.apiFetch = srv.apiFetch
@@ -328,7 +333,7 @@ test('B3a R7: while buying, ticking, Refresh, Back, a second Buy and row actions
   await running
   assert.equal(p.inFlight, false)
   assert.equal(srv.calls('action=label').length, 1)
-  assert.match(p.html(), /Back to queue/)
+  assert.match(p.html(), /Pack and fulfill/)
 })
 
 // ── R8: the PDF ──────────────────────────────────────────────────────────────────────────────
@@ -548,7 +553,7 @@ test('B3a: the PDF is made with the screen locked: no Back, no Open PDF, no seco
   for (let i = 0; i < 20 && !srv.calls('/api/ship-doc').length; i++) await new Promise(r => setTimeout(r, 5))
   assert.equal(srv.calls('/api/ship-doc').length, 1)
   assert.equal(p.batch.printing, true)
-  assert.doesNotMatch(p.html(), /Back to queue/)
+  assert.doesNotMatch(p.html(), /Back to queue|Pack and fulfill/)
   assert.match(p.html(), /Making the PDF/)
   p.back()
   await p.pdf(true); await p.pdf(false)
@@ -559,7 +564,7 @@ test('B3a: the PDF is made with the screen locked: no Back, no Open PDF, no seco
   await running
   assert.equal(srv.calls('/api/ship-doc').length, 1)
   assert.equal(p.opened.length, 1)
-  assert.match(p.html(), /Back to queue/)
+  assert.match(p.html(), /Pack and fulfill/)
 })
 
 test('B3a: a label with no file, a tab closed early, or a reply that is not a PDF each say what to do', async () => {
