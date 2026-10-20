@@ -2,7 +2,7 @@
 
 ## 2026-10-20 — Phase B, B3b and B6 UI: Pack, Hold back, Fulfill, Done, the red banner, Void
 
-Branch `b3b-retail-pack` (cut from `b2-retail-packer` at 8e38f83). **Not pushed, merged or deployed. B3a (6d410c6, 8e38f83) is still not on `origin/main`** (Andy said it was merged; git says no), so B3b can't merge before it. The SQL below is written and tested on PGlite, **not applied**. `RETAIL_BUY_ENABLED` is still `false`.
+Branch `b3b-retail-pack` (cut from `b2-retail-packer` at 8e38f83). **Not pushed, merged or deployed.** B3a (6d410c6, 8e38f83) is on `origin/main` (checked after a fetch, 2026-10-19), so B3b sits directly on top of it. The SQL below is written and tested on PGlite, **not applied**. `RETAIL_BUY_ENABLED` is still `false`.
 
 ### Work done
 
