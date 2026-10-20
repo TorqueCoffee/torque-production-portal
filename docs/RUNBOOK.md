@@ -160,7 +160,7 @@ The three names do not match, which has cost time more than once: the repo is `t
 3. Push. Nothing changes for B2B pages (no `kind` = B2B). A retail label needs a page that sends `kind: 'retail'` (the B3 screen).
 4. Void from a terminal until the B3 screen has a button (signed-in token from the page: devtools → `(await sb.auth.getSession()).data.session.access_token`):
    ```bash
-   curl -s -X POST "https://torque-production-portal.vercel.app/api/shippo-label?action=void" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"order_id":"gid://shopify/Order/<id>","box_index":1}'
+   curl -s -X POST "https://production.torque.coffee/api/shippo-label?action=void" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"order_id":"gid://shopify/Order/<id>","box_index":1}'
    ```
    `voided: true, row_marked: true` = done. `row_marked: false` = refunded in Shippo but the row still says purchased: run `update public.shipping_labels set status = 'voided', voided_at = now() where shippo_object_id = '<id>';` in the SQL editor before the box is rebought. A fulfilled order is refused: void it in the Shippo dashboard only if the box really never shipped.
 

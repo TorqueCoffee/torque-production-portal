@@ -246,7 +246,8 @@ Every order ships UPS Ground at the packed weight (ADR [`0020`](./decisions/0020
 
 **Run log:**
 - 2026-10-20: S1–S5 PASS (275 then 305 with round 1 fixes), `npm run test:db` 37/37.
-- Review round 2 (fresh Saboteur, Security Auditor, Architect; the last round, per Andy): fixes in. One run on the final code: `npm test` 304/305 (X1's refunded-label test still expected the old Shippo wording; regex updated, that file then 7/7), `npm run test:db` 39/39. No mutation run for round 2 (Andy: no more test campaigns); the page fixes have no new tests.
+- Review round 2 (fresh Saboteur, Security Auditor, Architect; the last round, per Andy): fixes in. 2026-10-19: B3b deployed (62ba154). L5-style check on `production.torque.coffee`, no token: page 200 with B3b code and buying off; `shopify-fulfill`, `shippo-label` label/void/rate → 401; `/api/_shippo`, `db/…sql` → 404. Live test pending.
+- One run on the final code: `npm test` 304/305 (X1's refunded-label test still expected the old Shippo wording; regex updated, that file then 7/7), `npm run test:db` 39/39. No mutation run for round 2 (Andy: no more test campaigns); the page fixes have no new tests.
 
 ### B3a — Retail Buy and print, and B4 — the retail slip (ADR [`0028`](./decisions/0028-retail-buy-and-print.md))
 `tests/b3a-retail-buy.test.js` (page functions out of `index.html` with a fake server), `tests/b4-retail-slip.test.js` (`api/ship-doc.js` and `api/_retail-slip.js`, label files stubbed), the B3a blocks in `tests/b3-retail-label.test.js`, `tests/b1-retail.test.js` and `tests/b0-ups.test.js`, and `tests/db/label-channel.test.js` (PGlite). Nothing is bought, rated or voided.

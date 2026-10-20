@@ -3141,10 +3141,11 @@ function applySubscriptionSubstitution(items) {
 // Buy button stays off (RETAIL_BUY_ENABLED). The server classifies and packs; this only shows.
 // ---------------------------------------------------------------------------------------
 const RETAIL_MAX_BATCH = 25
-// Off until B3b (Pack, Fulfill) is merged, db/2026-10-19-label-channel.sql,
-// db/2026-10-19-label-void.sql and db/2026-10-20-label-held-back.sql are applied, and Andy says go. The first push with it on is the
-// supervised 3-label live test (ADR 0028, RUNBOOK "Retail Buy and print").
-const RETAIL_BUY_ENABLED = false
+// On since 2026-10-19 (Andy's go): B3b is merged and deployed, and db/2026-10-19-label-channel.sql,
+// db/2026-10-19-label-void.sql and db/2026-10-20-label-held-back.sql are applied. The first push with
+// it on is the supervised 3-label live test (ADR 0028, RUNBOOK "Retail Buy and print"). To stop
+// buying, set it back to false and push.
+const RETAIL_BUY_ENABLED = true
 const RETAIL_BUY_PARALLEL = 3            // label calls at once; drops to 1 if the server says "too many"
 const RETAIL_BUSY_WAIT_MS = 1500         // after "too many": wait this, twice this, three times this
 // Show an "N days old" chip from this many whole days (null = no chip). 2 (Andy, 2026-10-19): of

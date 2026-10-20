@@ -2,7 +2,7 @@
 
 ## 2026-10-20 — Phase B, B3b and B6 UI: Pack, Hold back, Fulfill, Done, the red banner, Void
 
-Branch `b3b-retail-pack` (cut from `b2-retail-packer` at 8e38f83). **Not pushed, merged or deployed.** B3a (6d410c6, 8e38f83) is on `origin/main` (checked after a fetch, 2026-10-19), so B3b sits directly on top of it. The SQL below is tested on PGlite and **applied in production on 2026-10-19** (see Detours). `RETAIL_BUY_ENABLED` is still `false`.
+Branch `b3b-retail-pack` (cut from `b2-retail-packer` at 8e38f83). **Deployed 2026-10-19:** Andy fast-forwarded `main` to 62ba154 (production `dpl_BZKvRUhhgbY8gaPEzf41Rj8MVcLy`, Ready). Checked on `production.torque.coffee`: the B3b page with buying off; without a token, fulfill, label, void and rate answer 401; `/api/_shippo` and `db/` are 404. Then `RETAIL_BUY_ENABLED = true` was committed for the supervised live test (Andy pushes it and runs the test at once). B3a (6d410c6, 8e38f83) is on `origin/main` (checked after a fetch, 2026-10-19), so B3b sits directly on top of it. The SQL below is tested on PGlite and **applied in production on 2026-10-19** (see Detours). `RETAIL_BUY_ENABLED` is still `false`.
 
 ### Work done
 

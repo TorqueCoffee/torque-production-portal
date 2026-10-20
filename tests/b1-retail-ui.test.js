@@ -230,7 +230,8 @@ test('B1 UI: the Retail tab is wired in; loading it only reads', () => {
   const code = declarationSource(inlineScripts().join('\n'), 'loadRetailOrders')
   assert.match(code, /apiFetch\('\/api\/shopify-token\?type=retail-ship'\)/)
   assert.doesNotMatch(code, /shippo|fulfill|POST/i)                                       // loading the list buys and writes nothing
-  assert.match(html, /const RETAIL_BUY_ENABLED = false/)
+  // Buying is one plain switch (on since the supervised live test, 2026-10-19): false and push stops it.
+  assert.match(html, /\nconst RETAIL_BUY_ENABLED = (true|false)\n/)
 })
 
 // ── Fixes from the B1 UI adversarial review (docs/JOURNAL.md, 2026-10-19) ──────────────────
