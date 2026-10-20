@@ -187,3 +187,14 @@ test('V1: Void does nothing while labels are being bought', async () => {
   assert.equal(p.confirms.length, 0)
   release(); await buying
 })
+
+test('V1: Void does nothing while the list loads or while Retry/Clear works on that order', async () => {
+  const a = order()
+  const { p, srv } = await queue([a])
+  p.ctx.apiFetch = () => new Promise(() => {})                       // the list read never ends
+  p.load()
+  assert.equal(p.loading, true)
+  await p.voidLabel(a.order_id)
+  assert.equal(p.confirms.length, 0)
+  assert.equal(voids(srv).length, 0)
+})

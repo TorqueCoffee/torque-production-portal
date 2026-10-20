@@ -5,6 +5,7 @@
 
 const fetch = globalThis.fetch || require('node-fetch')
 const { ORDER_TIMEOUT_MS, withToken, orderNumericId } = require('./_shopify')
+const { classifyRetailOrder, retailShipItems, packRetail } = require('../lib/ship-rules.js')
 
 const GQL_VERSION = '2025-10'
 const PAGE = 25            // orders per page; 25 x 30 lines keeps the query cost under Shopify's 1000
@@ -140,4 +141,25 @@ async function fetchRetailOrder(orderId) {
   }
 }
 
-module.exports = { SEARCH, QUERY, ORDER_QUERY, normalizeRetailOrder, fetchOpenRetailOrders, fetchRetailOrder }
+// The retail order as Shopify has it now, put through the list's own rules (B1: an order that was
+// cancelled, refunded, fulfilled by hand or edited onto a hold since it was listed is refused)
+// and packed (B2): the one check the label step (before buying) and the fulfill step (before
+// writing tracking) share, so neither can read an order differently. `noun` finishes "Nothing
+// was ...": 'bought' or 'fulfilled'.
+//   { ok: true, order, pack }   { ok: false, status, error, code?, class? }
+async function checkRetailOrder(orderId, noun) {
+  const got = await fetchRetailOrder(orderId)
+  if (!got.ok) {
+    if (got.status === 400) return { ok: false, status: 400, error: 'order_id is not a Shopify order id' }
+    if (got.status === 404) return { ok: false, status: 409, code: 'pack_changed', error: `Shopify has no such order. Nothing was ${noun}. Reload the orders.` }
+    console.warn(`checkRetailOrder: Shopify retail order fetch failed (${got.why}); nothing ${noun}`)
+    return { ok: false, status: 503, error: `Couldn't read the order from Shopify to check the boxes, so nothing was ${noun}. Try again in a minute; if it repeats, tell Andy.` }
+  }
+  const c = classifyRetailOrder(got.order)
+  if (c.decision !== 'LIST') {
+    return { ok: false, status: 409, code: 'not_listed', class: c.class, error: `This order is no longer shippable here (${c.decision} ${c.class}${c.detail ? ' ' + c.detail : ''}). Nothing was ${noun}. Refresh the list.` }
+  }
+  return { ok: true, pack: packRetail(retailShipItems(got.order)), order: got.order }
+}
+
+module.exports = { SEARCH, QUERY, ORDER_QUERY, normalizeRetailOrder, fetchOpenRetailOrders, fetchRetailOrder, checkRetailOrder }

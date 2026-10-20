@@ -38,8 +38,9 @@
 const fetch = globalThis.fetch || require('node-fetch')
 const { requireUser, supabaseHeaders } = require('./_auth')
 const { fetchOrder, orderNumericId } = require('./_shopify')
-const { fetchRetailOrder } = require('./_retail')
-const { b2bShipItems, packB2BItems, boxParcel, packSignature, classifyRetailOrder, retailShipItems, packRetail, UPS_LINE_MAX, cleanText, isPoBox } = require('../lib/ship-rules.js')
+const { fetchRetailOrder, checkRetailOrder } = require('./_retail')
+const { rpc } = require('./_supabase')
+const { b2bShipItems, packB2BItems, boxParcel, packSignature, UPS_LINE_MAX, cleanText, isPoBox } = require('../lib/ship-rules.js')
 
 const SHIPPO_BASE = 'https://api.goshippo.com'
 const SERVICE_TOKEN = 'ups_ground'   // NOT ups_ground_saver
@@ -108,48 +109,18 @@ function cleanParcel(p) {
 // insert too, so a label bought then exists nowhere in the DB and the next tap buys it again.
 const LOOKUP_TIMEOUT_MS = 5000
 async function existingLabel(orderId, boxIndex, userToken) {
-  const SB_URL = process.env.SUPABASE_URL, SB_KEY = process.env.SUPABASE_ANON_KEY
-  if (!SB_URL || !SB_KEY) return { ok: false, why: 'SUPABASE_URL/SUPABASE_ANON_KEY not configured' }
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS)
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/rpc/ship_labels_for_order`, {
-      method: 'POST',
-      headers: supabaseHeaders(userToken),
-      body: JSON.stringify({ p_order_id: String(orderId) }),
-      signal: ctrl.signal
-    })
-    if (r.status !== 200) return { ok: false, why: `status ${r.status}` }
-    const rows = await r.json()
-    if (!Array.isArray(rows)) return { ok: false, why: 'unexpected response' }
-    return { ok: true, label: rows.find(x => Number(x.box_index) === boxIndex && x.status !== 'voided') || null }
-  } catch (e) {
-    return { ok: false, why: e.name === 'AbortError' ? 'timeout' : e.message }
-  } finally {
-    clearTimeout(timer)
-  }
+  const r = await rpc('ship_labels_for_order', { p_order_id: String(orderId) }, userToken, LOOKUP_TIMEOUT_MS)
+  if (!r.ok) return { ok: false, why: r.why === 'not configured' ? 'SUPABASE_URL/SUPABASE_ANON_KEY not configured' : r.why }
+  if (!Array.isArray(r.data)) return { ok: false, why: 'unexpected response' }
+  return { ok: true, label: r.data.find(x => Number(x.box_index) === boxIndex && x.status !== 'voided') || null }
 }
 
 // claim_label_box / release_label_box (db/2026-10-18-label-claims.sql), as the caller.
 // Returns the function's boolean, or a string saying why it couldn't be called.
 async function labelClaim(fn, orderId, boxIndex, userToken) {
-  const SB_URL = process.env.SUPABASE_URL
-  if (!SB_URL || !process.env.SUPABASE_ANON_KEY) return 'not configured'
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS)
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
-      method: 'POST', headers: supabaseHeaders(userToken),
-      body: JSON.stringify({ p_order_id: String(orderId), p_box_index: boxIndex }), signal: ctrl.signal
-    })
-    if (r.status !== 200) return `status ${r.status}`
-    const v = await r.json()
-    return typeof v === 'boolean' ? v : 'unexpected response'
-  } catch (e) {
-    return e.name === 'AbortError' ? 'timeout' : e.message
-  } finally {
-    clearTimeout(timer)
-  }
+  const r = await rpc(fn, { p_order_id: String(orderId), p_box_index: boxIndex }, userToken, LOOKUP_TIMEOUT_MS)
+  if (!r.ok) return r.why
+  return typeof r.data === 'boolean' ? r.data : 'unexpected response'
 }
 
 // Seconds until the (already verified) access token expires; 0 if it can't be read.
@@ -184,21 +155,13 @@ async function confirmWithShippo(prior, auth) {
 // The pack the server itself makes for this order (B2a), with the packer `kind` names (B3).
 //   { ok: true, pack }   { ok: false, status, error, code?, class? }
 async function serverPack(kind, orderId) {
-  const got = kind === 'retail' ? await fetchRetailOrder(orderId) : await fetchOrder(orderId)
+  if (kind === 'retail') return checkRetailOrder(orderId, 'bought')   // the list's rules and the retail packer, shared with fulfill
+  const got = await fetchOrder(orderId)
   if (!got.ok) {
     if (got.status === 400) return { ok: false, status: 400, error: 'order_id is not a Shopify order id' }
     if (got.status === 404) return { ok: false, status: 409, code: 'pack_changed', error: "Shopify has no such order. Nothing was bought. Reload the orders." }
     console.warn(`serverPack: Shopify ${kind} order fetch failed (${got.why}); nothing bought`)
     return { ok: false, status: 503, error: "Couldn't read the order from Shopify to check the boxes, so nothing was bought. Try again in a minute; if it repeats, tell Andy." }
-  }
-  if (kind === 'retail') {
-    // The list's own rules (B1), applied again now: an order that was cancelled, refunded,
-    // fulfilled by hand or edited onto a hold since it was listed buys nothing.
-    const c = classifyRetailOrder(got.order)
-    if (c.decision !== 'LIST') {
-      return { ok: false, status: 409, code: 'not_listed', class: c.class, error: `This order is no longer shippable here (${c.decision} ${c.class}${c.detail ? ' ' + c.detail : ''}). Nothing was bought. Refresh the list.` }
-    }
-    return { ok: true, pack: packRetail(retailShipItems(got.order)), order: got.order }
   }
   if (got.order.cancelled_at) return { ok: false, status: 409, code: 'pack_changed', error: 'This order is cancelled in Shopify. Nothing was bought.' }
   return { ok: true, pack: packB2BItems(b2bShipItems(got.order.line_items)) }
@@ -247,23 +210,9 @@ function retailRecipient(order) {
 // mark_ship_label_voided (db/2026-10-19-label-void.sql), as the caller. -> the row count it
 // returns (1 = marked), or a string saying why it couldn't be called.
 async function markLabelVoided(orderId, boxIndex, shippoId, userToken) {
-  const SB_URL = process.env.SUPABASE_URL
-  if (!SB_URL || !process.env.SUPABASE_ANON_KEY) return 'not configured'
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), LOOKUP_TIMEOUT_MS)
-  try {
-    const r = await fetch(`${SB_URL}/rest/v1/rpc/mark_ship_label_voided`, {
-      method: 'POST', headers: supabaseHeaders(userToken),
-      body: JSON.stringify({ p_order_id: String(orderId), p_box_index: boxIndex, p_shippo_object_id: shippoId }), signal: ctrl.signal
-    })
-    if (r.status !== 200) return `status ${r.status}`
-    const v = await r.json()
-    return typeof v === 'number' ? v : 'unexpected response'
-  } catch (e) {
-    return e.name === 'AbortError' ? 'timeout' : e.message
-  } finally {
-    clearTimeout(timer)
-  }
+  const r = await rpc('mark_ship_label_voided', { p_order_id: String(orderId), p_box_index: boxIndex, p_shippo_object_id: shippoId }, userToken, LOOKUP_TIMEOUT_MS)
+  if (!r.ok) return r.why
+  return typeof r.data === 'number' ? r.data : 'unexpected response'
 }
 
 // Every label row is stored under "gid://shopify/Order/<n>" (all 231 live rows, 2026-10-19).
@@ -287,14 +236,31 @@ async function voidLabel(req, res, session, auth) {
     return res.status(400).json({ error: 'order_id (a Shopify order id) and box_index are required to void a label' })
   }
   const orderId = canonicalOrderId(body.order_id)   // the one spelling the rows are stored under
+  let voidLock = null
   try {
     const lookup = await existingLabel(orderId, boxIndex, session.token)
     if (!lookup.ok) {
       console.warn(`voidLabel: lookup failed (${lookup.why}); nothing voided`)
       return res.status(503).json({ error: "Couldn't read this box's label record, so nothing was voided. Try again in a minute." })
     }
-    const row = lookup.label
+    let row = lookup.label
     if (!row) return res.status(404).json({ error: 'This box has no label to void.' })
+    // A retail label shares one lock with Fulfill (db/2026-10-20-label-held-back.sql): a void can't
+    // refund a label while Fulfill is about to email its tracking number, and two devices can't
+    // void one label together. The row is read again once the lock is held.
+    if (row.channel === 'retail') {
+      const got = await rpc('claim_order_fulfill', { p_order_id: orderId }, session.token, LOOKUP_TIMEOUT_MS)
+      if (!got.ok) {
+        console.warn(`voidLabel: fulfill lock failed (${got.why}); nothing voided`)
+        return res.status(503).json({ error: "Couldn't take the order's lock (is db/2026-10-20-label-held-back.sql applied?), so nothing was voided. Try again in a minute." })
+      }
+      if (got.data !== true) return res.status(409).json({ code: 'busy', error: 'Another device is fulfilling or voiding this order right now. Nothing was voided. Try again in a moment.' })
+      voidLock = orderId
+      const again = await existingLabel(orderId, boxIndex, session.token)
+      if (!again.ok) return res.status(503).json({ error: "Couldn't read this box's label record, so nothing was voided. Try again in a minute." })
+      row = again.label
+      if (!row) return res.status(404).json({ error: 'This box has no label to void.' })
+    }
     if (row.status !== 'purchased') {
       return res.status(409).json({ error: `This label is ${row.status}, so it can't be voided here. Nothing was changed.` })
     }
@@ -334,6 +300,8 @@ async function voidLabel(req, res, session, auth) {
     return res.status(200).json({ ok: true, voided: true, row_marked: true, refund_status: refund.status, refund_id: refund.object_id || null, tracking_number: confirmed.tracking_number })
   } catch (err) {
     return res.status(500).json({ error: err.message })
+  } finally {
+    if (voidLock) await rpc('release_order_fulfill', { p_order_id: voidLock }, session.token, LOOKUP_TIMEOUT_MS)
   }
 }
 

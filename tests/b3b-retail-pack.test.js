@@ -331,3 +331,98 @@ test('P1: an unrecorded order is not an open batch (it has no card to fulfill), 
   assert.equal(srv.log.length, before)
   assert.equal(p.opened.length, 0)
 })
+
+test('P1: two overlapping Hold backs can\'t paint the older state: only the newest pending read is applied', async () => {
+  const [a, b] = [order(), order()]
+  const srv = server({ orders: [a, b], pending: [pendingRow(a), pendingRow(b)] })
+  const p = page({ srv })
+  await p.openPack()
+  // The first pending read after this point is slow and returns what the DB said when it started.
+  let slow = true
+  const rpc = p.ctx.sb.rpc
+  p.ctx.sb.rpc = async (fn, args) => {
+    if (fn === 'ship_labels_pending' && slow) {
+      slow = false
+      const snapshot = srv.pending.map(r => ({ ...r }))
+      await new Promise(r => setTimeout(r, 40))
+      return { data: snapshot, error: null }
+    }
+    return rpc(fn, args)
+  }
+  const first = p.setHeld(a.order_id, true)                       // its read is slow and will show only a held
+  await new Promise(r => setTimeout(r, 5))
+  await p.setHeld(b.order_id, true)                               // its read is fast and shows a and b held
+  await first
+  eq(p.cards().map(c => [c.order.order_id, c.held]), [[a.order_id, true], [b.order_id, true]])
+})
+
+test('P1: a stuck "voided, not recorded" note goes once the DB has no row for it; Void and Include wait for each other', async () => {
+  const a = order()
+  const storage = { 'tq.retail.unrecorded': JSON.stringify({ [a.order_id]: { order_name: a.order_name, at: Date.now(), why: 'voided, not recorded' } }) }
+  const srv = server({ orders: [a], pending: [pendingRow(a)] })
+  const p = page({ srv, storage })
+  await p.load()
+  assert.equal(p.pending[a.order_id].unrecorded, true)           // the DB still says purchased: kept
+  srv.pending.length = 0                                         // Andy fixed the row: it is voided now
+  await p.load()
+  assert.equal(p.pending[a.order_id], undefined)
+  assert.deepEqual(Object.keys(JSON.parse(storage['tq.retail.unrecorded'])), [])
+  eq(p.groups([a]).ready['8x6x3'].map(o => o.order_id), [a.order_id])   // buyable again
+})
+
+test('P1: a Void in flight blocks Hold back, Include and Fulfill; Refresh is off while a hold is in flight', async () => {
+  const [a, b] = [order(), order()]
+  let release
+  const gate = new Promise(r => { release = r })
+  const srv = server({ orders: [a, b], pending: [pendingRow(a), pendingRow(b, { held_back_at: 'x' })], voidLabel: async () => { await gate; return { json: { ok: true, row_marked: false, error: 'x' } } } })
+  const p = page({ srv, confirmAnswer: true })
+  await p.openPack()
+  const orig = srv.apiFetch
+  p.ctx.apiFetch = async (url, o) => { if (url.includes('action=void')) await gate; return orig(url, o) }
+  const voiding = p.voidLabel(b.order_id)                         // Void on the held card
+  await p.setHeld(b.order_id, false)                              // Include while it runs: ignored
+  p.ask()
+  assert.equal(p.pack.confirm, null)
+  assert.equal(srv.rpcs('set_ship_label_held_back').length, 0)
+  release(); await voiding
+  // Refresh is off while a hold is in flight.
+  let hold
+  const gate2 = new Promise(r => { hold = r })
+  const srv2 = server({ orders: [a], pending: [pendingRow(a)], hold: async () => { await gate2; return { data: 1, error: null } } })
+  const q = page({ srv: srv2 })
+  await q.openPack()
+  const run = q.setHeld(a.order_id, true)
+  assert.match(q.html(), /onclick="loadRetailOrders\(\)" disabled>Refresh</)
+  hold(); await run
+  assert.doesNotMatch(q.html(), /onclick="loadRetailOrders\(\)" disabled/)
+})
+
+test('P1: only gone orders pending: Buy says to clear or void them in the red box, with no Resume button', async () => {
+  const gone = order()
+  const srv = server({ orders: [], pending: [pendingRow(gone)] })
+  const p = page({ srv })
+  await p.load()
+  assert.equal(p.batchOpen(), true)
+  assert.match(p.html(), /Clear or void the order in the red box at the top first\./)
+  assert.doesNotMatch(p.html(), /Resume batch|Fulfill or hold back the open batch first/)
+})
+
+test('P1: keyboard focus stays on the button just used after Pack re-renders', async () => {
+  const [a, b] = [order(), order()]
+  const srv = server({ orders: [a, b], pending: [pendingRow(a), pendingRow(b)] })
+  const p = page({ srv })
+  const attrs = html => [...html.matchAll(/<(input|button|a)\b([^>]*)>/g)].map(m => {
+    const at = {}; for (const x of m[2].matchAll(/([\w-]+)="([^"]*)"/g)) at[x[1]] = x[2]
+    return { tagName: m[1].toUpperCase(), getAttribute: k => (k in at ? at[k].replace(/&quot;/g, '"') : null), focus() { focused = this } }
+  })
+  let focused = null, els = [], inner = ''
+  const body = { style: { setProperty() {} }, contains: e => els.includes(e), querySelectorAll: () => els }
+  Object.defineProperty(body, 'innerHTML', { get: () => inner, set: v => { inner = v; els = attrs(v) } })
+  p.ctx.document = { body: {}, get activeElement() { return focused || p.ctx.document.body }, querySelector: () => null, getElementById: id => (id === 'retailBody' ? body : null) }
+  await p.openPack()
+  focused = els.find(e => e.getAttribute('data-id') === a.order_id && /retailSetHeld/.test(e.getAttribute('onclick')))
+  await p.setHeld(a.order_id, true)                               // re-renders: every element is new
+  assert.ok(focused && els.includes(focused), 'focus is on a live element')
+  assert.equal(focused.getAttribute('data-id'), a.order_id)
+  assert.match(focused.getAttribute('onclick'), /retailSetHeld/)
+})

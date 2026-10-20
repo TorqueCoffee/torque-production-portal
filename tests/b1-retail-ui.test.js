@@ -6,6 +6,7 @@ const assert = require('node:assert/strict')
 const vm = require('vm')
 const fs = require('fs')
 const { inlineScripts, declarationSource, SHIP_RULES } = require('./helpers/index-html')
+const { retailNames } = require('./helpers/retail-page')
 const ShipRules = (() => { const c = {}; vm.runInNewContext(fs.readFileSync(SHIP_RULES, 'utf8'), c); return c.ShipRules })()
 
 // The shared address check (also used by the label endpoint, so the queue and purchase agree).
@@ -29,13 +30,7 @@ test('B1 UI: addressProblem catches what purchase refuses, and only that', () =>
 // Load the queue's declarations into one sandbox, with settable state and a fake document.
 function queue(extraGlobals = {}) {
   const src = inlineScripts().join('\n')
-  const names = ['escHtml', 'safeUrl', 'RETAIL_MAX_BATCH', 'RETAIL_BUY_ENABLED', 'RETAIL_AGE_CHIP_DAYS', 'RETAIL_CARTONS', 'RETAIL_CARTON_DESC',
-    'RETAIL_HOLD_TEXT', 'RETAIL_HOLD_DETAIL_TEXT', 'RETAIL_EXCLUDED_TEXT', 'retailOrders', 'retailExcluded', 'retailLoadedAt', 'retailLoading', 'retailError', 'retailSel',
-    'retailMsg', 'retailShowHold', 'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders',
-    'retailSelectAllIds', 'retailBilledLb', 'retailApplySubscriptions', 'retailToggle', 'retailToggleAll', 'retailToggleHold', 'retailChip',
-    'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail',
-    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailVoiding', 'RETAIL_VOIDED_UNRECORDED', 'retailVoidButton', 'retailBoughtRow', 'retailGoneRow',
-    'retailFulfillFailed', 'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRedBanner', 'retailVoidButton', 'retailVoid', 'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
+  const names = retailNames()
   const el = { innerHTML: '' }
   const all = { checked: false, indeterminate: false }
   const { elements = {}, ...globals } = extraGlobals
@@ -269,12 +264,7 @@ test('B1 UI: ticking a box keeps keyboard focus on it, and the sticky bar sits u
   const doc = { body: {}, get activeElement() { return focused || doc.body }, querySelector: s => (s === '.header' ? { offsetHeight: 132 } : null),
     getElementById: id => (id === 'retailBody' ? body : null) }
   const src = inlineScripts().join('\n')
-  const names = ['escHtml', 'safeUrl', 'RETAIL_MAX_BATCH', 'RETAIL_BUY_ENABLED', 'RETAIL_AGE_CHIP_DAYS', 'RETAIL_CARTONS', 'RETAIL_CARTON_DESC', 'RETAIL_HOLD_TEXT',
-    'RETAIL_HOLD_DETAIL_TEXT', 'RETAIL_EXCLUDED_TEXT', 'retailOrders', 'retailExcluded', 'retailLoadedAt', 'retailLoading', 'retailError', 'retailSel', 'retailMsg',
-    'retailShowHold', 'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders', 'retailSelectAllIds', 'retailBilledLb',
-    'retailToggle', 'retailToggleHold', 'retailChip', 'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow', 'renderRetail',
-    'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting',
-    'retailFulfillFailed', 'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRedBanner', 'retailPack', 'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailPackCard', 'renderRetailPack', 'retailResumeBanner']
+  const names = retailNames()
   const rows = [order(), order(), order()]
   const api = vm.runInNewContext(names.map(n => declarationSource(src, n)).join('\n') +
     `\n;({ init(o) { retailOrders = o; retailLoadedAt = Date.now() }, render: renderRetail, toggle: retailToggle })`, { document: doc, Date, URL, console })
@@ -314,11 +304,14 @@ test('B3a: the Retail block calls only the list, rate/label (never void), the ba
   const block = html.slice(html.indexOf('// RETAIL tab (B1): the queue'), html.indexOf('// MIX GUIDE'))
   assert.ok(block.length > 5000)
   assert.deepEqual([...new Set(block.match(/\/api\/[\w-]+/g))].sort(), ['/api/ship-doc', '/api/shippo-label', '/api/shopify-fulfill', '/api/shopify-token'])
-  // The one void call is the Void button's (B6), straight to the void action, one order at a time.
-  assert.deepEqual(block.match(/apiFetch\('\/api\/shippo-label\?action=void'/g).length, 1)
+  // The one void call is the Void button's (B6) and the one Shopify write is the retail Fulfill (B3b),
+  // each one retailCall, one order at a time; nothing else calls them.
+  assert.equal(block.match(/retailCall\('\/api\/shippo-label\?action=void'/g).length, 1)
+  assert.equal(block.match(/retailCall\('\/api\/shopify-fulfill'/g).length, 1)
+  assert.equal(block.match(/retailCall\(/g).length, 4)                                      // its own definition, retailPost, Fulfill and Void
+  assert.equal(block.match(/apiFetch\(/g).length, 3)                                        // the list, the PDF and retailCall
   assert.doesNotMatch(block, /retailPost\('void'/)
-  // The one Shopify write is the retail Fulfill, always kind retail (B3b); nothing else calls it.
-  assert.deepEqual(block.match(/apiFetch\('\/api\/shopify-fulfill'/g).length, 1)
+  assert.match(block, /kind: 'retail', \.\.\.extra/)                                        // a Fulfill from the page is always kind retail
   assert.match(block, /\/api\/shippo-label\?action=\$\{action\}/)
   assert.deepEqual([...new Set(block.match(/retailPost\('(\w+)'/g))].sort(), ["retailPost('label'", "retailPost('rate'"])
   assert.doesNotMatch(block, /\)\.(insert|update|upsert|delete)\(/)                          // no table write (retailSel.delete is a Set)

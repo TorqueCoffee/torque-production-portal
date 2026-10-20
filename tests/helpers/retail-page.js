@@ -4,20 +4,17 @@
 const vm = require('vm')
 const { inlineScripts, declarationSource } = require('./index-html')
 
-const NAMES = ['escHtml', 'safeUrl', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', 'RETAIL_MAX_BATCH', 'RETAIL_BUY_ENABLED', 'RETAIL_BUY_PARALLEL', 'RETAIL_BUSY_WAIT_MS', 'RETAIL_AGE_CHIP_DAYS',
-  'RETAIL_CARTONS', 'RETAIL_CARTON_DESC', 'RETAIL_HOLD_TEXT', 'RETAIL_HOLD_DETAIL_TEXT', 'RETAIL_EXCLUDED_TEXT', 'RETAIL_ROW_TEXT', 'RETAIL_ROW_CHIP',
-  'retailOrders', 'retailExcluded', 'retailLoadedAt', 'retailLoadSeq', 'retailLoading', 'retailError', 'retailSel', 'retailMsg', 'retailShowHold',
-  'retailPending', 'retailPendingError', 'retailBatch', 'retailBuyInFlight', 'retailReprinting', 'retailVoiding', 'retailPack',
-  'RETAIL_UNRECORDED_KEY', 'RETAIL_UNRECORDED_DAYS', 'RETAIL_VOIDED_UNRECORDED', 'retailReadUnrecorded', 'retailSaveUnrecorded', 'retailUnrecorded', 'retailMergeUnrecorded', 'retailRemember', 'retailForget', 'retailClearUnrecorded', 'retailApplyShipTo',
-  'retailCartonLabel', 'retailSizeLabel', 'retailAgeDays', 'retailGroups', 'retailReadyOrders', 'retailSelectAllIds', 'retailBilledLb', 'retailApplySubscriptions',
-  'loadRetailOrders', 'loadRetailPending', 'retailApplyPending', 'retailToggle', 'retailToggleAll', 'retailChip', 'retailChips', 'retailShipTo', 'retailLines', 'retailShopifyLink', 'retailRow',
-  'RETAIL_ROW_BAD', 'retailMoney', 'retailShippoAddress', 'retailPacificDate', 'retailSlip', 'retailBoughtRow', 'retailGoneRow', 'retailBuyAndPrint', 'retailAfterBuy', 'retailPdfTab',
-  'retailRun', 'retailPost', 'retailRequest', 'retailTooMany', 'retailQuote', 'retailBuyOne', 'retailRowAction', 'retailPdfRows', 'retailOpenPdf', 'retailPdfFresh',
-  'retailPdfButton', 'retailReprintBought', 'retailCloseBatch', 'retailBackToQueue', 'retailPackAndFulfill',
-  'retailPackLocked', 'retailBatchOpen', 'retailPackCards', 'retailPackCounts', 'retailOpenPack', 'retailBackFromPack', 'retailSetHeld',
-  'retailPackCard', 'renderRetailPack', 'retailResumeBanner', 'renderRetailBatch', 'renderRetail',
-  'retailVoidButton', 'retailVoid', 'retailFulfillFailed', 'retailFulfillPost', 'retailFulfillOutcome', 'retailFulfillAsk', 'retailFulfillBack', 'retailFulfillGo', 'retailFulfillRun', 'retailReprintBatch', 'renderRetailDone', 'renderRetailConfirm',
-  'retailBannerBusy', 'retailBannerMsg', 'retailGoneIds', 'retailBannerLocked', 'retailRetryFulfill', 'retailClearGone', 'retailRedBanner']
+// Every top-level declaration of the Retail block of index.html, in source order, plus the few
+// shared ones it uses. Derived, so a new function never needs adding to a list by hand (a missing
+// name used to surface as a ReferenceError swallowed by the page's own catch).
+function retailNames() {
+  const src = inlineScripts().join('\n')
+  const block = src.slice(src.indexOf('// RETAIL tab (B1): the queue'), src.indexOf('// MIX GUIDE'))
+  const names = []
+  for (const m of block.matchAll(/^(?:async\s+)?function\s+(\w+)\s*\(|^(?:const|let)\s+(\w+)\s*=/gm)) names.push(m[1] || m[2])
+  return ['escHtml', 'safeUrl', 'SHIP_CARRIER', 'SHIP_WEIGHT_BASIS', ...names]
+}
+const NAMES = retailNames()
 
 const P = { '8x6x3': { length: 8, width: 6, height: 3, weight: 1 }, '12x8x6': { length: 12, width: 8, height: 6, weight: 2 }, '14x10x10': { length: 14, width: 10, height: 10, weight: 5 } }
 let seq = 0
@@ -55,7 +52,7 @@ function server({ orders = [], pending = [], labelsFor, hold, listFail = false, 
         out = (label && label(body)) || dflt
         if (out.json && out.json.ok) srv.pending.push(pendingRow({ order_id: body.order_id, order_name: body.order_name }))   // the cost row the server writes
       } else if (url === '/api/ship-doc') out = pdf(body)
-      else if (url === '/api/shopify-fulfill') out = fulfill ? fulfill(body, srv) : { json: { ok: true, notified: true, emailed: true } }
+      else if (url === '/api/shopify-fulfill') out = fulfill ? await fulfill(body, srv) : { json: { ok: true, notified: true, emailed: true } }
       else if (url === '/api/shippo-label?action=void') out = voidLabel ? voidLabel(body, srv) : { json: { ok: true, row_marked: true } }
       else throw new Error('unexpected ' + url)
       if (out.throw) throw new Error(out.throw)
@@ -118,4 +115,4 @@ function page({ srv = server(), enabled = true, popup = true, storage = {}, conf
 }
 const eq = (a, b, m) => require('node:assert/strict').deepEqual(JSON.parse(JSON.stringify(a)), b, m)
 
-module.exports = { NAMES, P, order, pendingRow, labelRow, server, page, eq }
+module.exports = { NAMES, retailNames, P, order, pendingRow, labelRow, server, page, eq }

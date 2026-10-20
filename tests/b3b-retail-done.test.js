@@ -8,7 +8,7 @@ const { order, pendingRow, labelRow, server, page, eq } = require('./helpers/ret
 
 // A fake Shopify behind /api/shopify-fulfill: each order is fulfilled once; a retry answers
 // alreadyFulfilled. `fail(order_id, n)` can answer something else on the nth call for it.
-function shopify({ fail = () => null, lose = () => false } = {}) {
+function shopify({ fail = () => null, lose = () => false, flipOnLose = true } = {}) {
   const st = { creates: [], emails: 0, calls: [], fulfilled: new Set(), lost: new Set() }
   const fn = (body, srv) => {
     const n = st.calls.filter(c => c === body.order_id).length
@@ -21,8 +21,11 @@ function shopify({ fail = () => null, lose = () => false } = {}) {
     if (st.fulfilled.has(body.order_id)) return { json: { ok: true, alreadyFulfilled: true, notified: false, emailed: false } }
     st.fulfilled.add(body.order_id); st.creates.push(body.order_id); st.emails++
     const row = srv.pending.findIndex(p => p.order_id === body.order_id)
-    if (lose(body.order_id, n)) { st.lost.add(body.order_id); return { throw: 'network lost' } }   // created, but the answer never arrives
-    if (row >= 0) srv.pending.splice(row, 1)                                                        // the label rows flip to fulfilled
+    // The real server flips the label rows right after it writes Shopify, then answers: a lost answer
+    // (flipOnLose, the default) leaves the order fulfilled and its rows flipped; flipOnLose false models
+    // a flip that failed or never ran.
+    if (row >= 0 && (!lose(body.order_id, n) || flipOnLose)) srv.pending.splice(row, 1)
+    if (lose(body.order_id, n)) { st.lost.add(body.order_id); return { throw: 'network lost' } }
     return { json: { ok: true, notified: true, emailed: true, order: body.order_id } }
   }
   fn.st = st
@@ -120,7 +123,7 @@ test('D1: one failure (502) does not stop the rest; the failed order is Still op
 
 test('D1: a lost answer, then Fulfill again: one create across both, and the email count does not rise on alreadyFulfilled', async () => {
   const os = [order(), order()]
-  const sh = shopify({ lose: (id, n) => id === os[0].order_id && n === 0 })
+  const sh = shopify({ lose: (id, n) => id === os[0].order_id && n === 0, flipOnLose: false })   // the flip didn't happen either
   const { p, srv } = await opened(os, { sh })
   p.ask(); await p.go()
   assert.equal(tileOf(p.html(), 'Shipped'), 1)
@@ -262,4 +265,47 @@ test('D1: a failed order is dropped from the session list once a later Fulfill s
   p.ask(); await p.go()
   eq(Object.keys(p.failed), [])
   assert.equal(tileOf(p.html(), 'Shipped'), 1)
+})
+
+test('D1: a lost answer to a fulfill that went through (the rows were flipped): counted as shipped, its email not counted, and said so', async () => {
+  const os = [order(), order()]
+  const sh = shopify({ lose: (id, n) => id === os[0].order_id && n === 0 })         // the real order of events: created, flipped, answer lost
+  const { p } = await opened(os, { sh })
+  p.ask(); await p.go()
+  assert.equal(tileOf(p.html(), 'Shipped'), 2)
+  assert.equal(tileOf(p.html(), 'Customer emails sent'), 1)                          // the lost one's email is real, but not counted
+  assert.equal(tileOf(p.html(), 'Still open'), 0)
+  assert.match(p.html(), new RegExp(`${os[0].order_name} went through after the answer was lost`))
+  assert.doesNotMatch(p.html(), /customer has no email/)
+  eq(Object.keys(p.failed), [])
+  assert.equal(sh.st.creates.length, 2)
+})
+
+test('D1: a failed order that the banner\'s Retry then fulfills moves from Still open to Shipped on Done, and the page reads the list again', async () => {
+  const os = [order(), order(), order()]
+  const sh = shopify({ fail: (id, n) => (id === os[1].order_id && n === 0 ? { status: 502, json: { error: 'fulfillmentCreate failed' } } : null) })
+  const { p, srv } = await opened(os, { sh })
+  p.ask(); await p.go()
+  assert.equal(tileOf(p.html(), 'Shipped'), 2)
+  assert.equal(tileOf(p.html(), 'Still open'), 1)
+  const reads = srv.calls('retail-ship').length
+  const [failedId, failedName] = [os[1].order_id, os[1].order_name]
+  srv.orders = srv.orders.filter(o => o.order_id !== failedId)                        // Shopify no longer lists it once fulfilled
+  await p.retry(failedId)
+  assert.equal(tileOf(p.html(), 'Shipped'), 3)
+  assert.equal(tileOf(p.html(), 'Still open'), 0)
+  assert.doesNotMatch(p.html(), /was not fulfilled/)
+  assert.match(p.html(), new RegExp(`${failedName} went through`))
+  assert.equal(srv.calls('retail-ship').length, reads + 1)                           // the order list was read again
+  assert.equal(p.pending[failedId], undefined)                                        // nor in the pending set, so not a ready row either
+})
+
+test('D1: a refusal that retrying can\'t fix says to hold it back and void it; a plain failure says to retry', async () => {
+  const os = [order(), order()]
+  const sh = shopify({ fail: id => (id === os[0].order_id ? { status: 409, json: { code: 'pack_changed', error: 'This order changed in Shopify since its label was bought.' } } : id === os[1].order_id ? { status: 502, json: { error: 'fulfillmentCreate failed' } } : null) })
+  const { p } = await opened(os, { sh })
+  p.ask(); await p.go()
+  const html = p.html()
+  assert.match(html, /Hold it back on Pack, then Void its label and buy again, or fulfill it by hand in Shopify\./)
+  assert.match(html, /Retry it from the red box/)
 })

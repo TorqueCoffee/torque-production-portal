@@ -4,11 +4,19 @@
 -- The held-back marks are dropped with the column; the rows stay. Save which orders were held
 -- first, or nothing will say so afterwards:
 --   select order_id, order_name, held_back_at from public.shipping_labels where held_back_at is not null;
+-- Also reopens UPDATE on shipping_labels (the policy and grant the migration removed).
 -- Restores the channel-era signatures (db/2026-10-19-label-channel.sql) of both lookups.
 
 begin;
 
 drop function if exists public.set_ship_label_held_back(text, boolean);
+drop function if exists public.claim_order_fulfill(text);
+drop function if exists public.release_order_fulfill(text);
+drop table if exists public.fulfill_claims;
+
+-- The UPDATE door the migration closed, as login-rls left it.
+grant update on public.shipping_labels to authenticated;
+create policy "authenticated update shipping_labels" on public.shipping_labels for update to authenticated using (true) with check (true);
 
 drop function if exists public.ship_labels_for_order(text);
 create function public.ship_labels_for_order(p_order_id text)
